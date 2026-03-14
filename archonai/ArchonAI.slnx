@@ -1,0 +1,31 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ArchonAI.Common/ArchonAI.Common.csproj" />
+    <Project Path="src/ArchonAI.Core/ArchonAI.Core.csproj" />
+    <Project Path="src/ArchonAI.Infrastructure/ArchonAI.Infrastructure.csproj" />
+    <Project Path="src/ArchonAI.Planner/ArchonAI.Planner.csproj" />
+    <Project Path="src/ArchonAI.Runtime/ArchonAI.Runtime.csproj" />
+    <Project Path="src/ArchonAI.Reasoner/ArchonAI.Reasoner.csproj" />
+    <Project Path="src/ArchonAI.StrategicPlanner/ArchonAI.StrategicPlanner.csproj" />
+    <Project Path="src/ArchonAI.Registry/ArchonAI.Registry.csproj" />
+    <Project Path="src/ArchonAI.Evaluation/ArchonAI.Evaluation.csproj" />
+    <Project Path="src/ArchonAI.Policy/ArchonAI.Policy.csproj" />
+    <Project Path="src/ArchonAI.Simulation/ArchonAI.Simulation.csproj" />
+    <Project Path="src/ArchonAI.Scheduler/ArchonAI.Scheduler.csproj" />
+    <Project Path="src/ArchonAI.Knowledge/ArchonAI.Knowledge.csproj" />
+    <Project Path="src/ArchonAI.Models/ArchonAI.Models.csproj" />
+    <Project Path="src/ArchonAI.Trace/ArchonAI.Trace.csproj" />
+    <Project Path="src/ArchonAI.Telemetry/ArchonAI.Telemetry.csproj" />
+    <Project Path="src/ArchonAI.Patterns/ArchonAI.Patterns.csproj" />
+    <Project Path="src/ArchonAI.Strategy/ArchonAI.Strategy.csproj" />
+    <Project Path="src/ArchonAI.Governance/ArchonAI.Governance.csproj" />
+    <Project Path="src/ArchonAI.Workflow/ArchonAI.Workflow.csproj" />
+    <Project Path="src/ArchonAI.Memory/ArchonAI.Memory.csproj" />
+    <Project Path="src/ArchonAI.EventBus/ArchonAI.EventBus.csproj" />
+    <Project Path="src/ArchonAI.Agents/ArchonAI.Agents.csproj" />
+    <Project Path="src/ArchonAI.Connectors/ArchonAI.Connectors.csproj" />
+    <Project Path="src/ArchonAI.Plugins/ArchonAI.Plugins.csproj" />
+    <Project Path="src/ArchonAI.Api/ArchonAI.Api.csproj" />
+    <Project Path="src/ArchonAI.Cli/ArchonAI.Cli.csproj" />
+  </Folder>
+</Solution>
