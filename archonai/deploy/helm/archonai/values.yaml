@@ -1,0 +1,31 @@
+namespace: archonai
+
+api:
+  image:
+    repository: archonai/api
+    tag: local
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 80
+  env:
+    ASPNETCORE_ENVIRONMENT: Production
+    Security__Jwt__Issuer: ArchonAI
+    Security__Jwt__Audience: ArchonAI.Api
+    EventBus__UseNats: "true"
+    EventBus__Url: nats://archonai-nats:4222
+    MemoryPersistence__Schema: public
+    MemoryPersistence__ConnectionString: Host=archonai-postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+
+security:
+  jwtSigningKey: change-me-please-use-at-least-32-characters
+
+postgres:
+  image: pgvector/pgvector:pg16
+  database: archonai
+  username: archonai
+  password: archonai
+
+nats:
+  image: nats:2.10-alpine
