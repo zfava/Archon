@@ -38,6 +38,7 @@ public sealed class AgentRuntime : IRuntime
     private readonly IEvaluationEngine _evaluationEngine;
     private readonly IGovernanceKernel _governanceKernel;
     private readonly IAgentSupervisor _agentSupervisor;
+    private readonly IAgentSandboxManager _agentSandboxManager;
     private readonly IMemoryStore _memoryStore;
     private readonly ITraceStore _traceStore;
     private readonly ITaskTelemetryStore _taskTelemetryStore;
@@ -55,6 +56,7 @@ public sealed class AgentRuntime : IRuntime
         IEvaluationEngine evaluationEngine,
         IGovernanceKernel governanceKernel,
         IAgentSupervisor agentSupervisor,
+        IAgentSandboxManager agentSandboxManager,
         IMemoryStore memoryStore,
         ITraceStore traceStore,
         ITaskTelemetryStore taskTelemetryStore,
@@ -68,6 +70,7 @@ public sealed class AgentRuntime : IRuntime
         _evaluationEngine = evaluationEngine;
         _governanceKernel = governanceKernel;
         _agentSupervisor = agentSupervisor;
+        _agentSandboxManager = agentSandboxManager;
         _memoryStore = memoryStore;
         _traceStore = traceStore;
         _taskTelemetryStore = taskTelemetryStore;
@@ -257,6 +260,47 @@ public sealed class AgentRuntime : IRuntime
                 return deniedBySupervisorResult;
             }
 
+            var sandboxDecision = await _agentSandboxManager.EnsureSandboxAsync(agentSnapshot, task, taskContext, ct);
+            await RecordTraceAsync(task, "decision", "Sandbox decision generated.", new Dictionary<string, string>
+            {
+                ["isAllowed"] = sandboxDecision.IsAllowed.ToString(),
+                ["sandboxId"] = sandboxDecision.SandboxId.ToString(),
+                ["memoryLimitMb"] = sandboxDecision.MemoryLimitMb.ToString(),
+                ["cpuQuotaPercent"] = sandboxDecision.CpuQuotaPercent.ToString(),
+                ["networkAccessAllowed"] = sandboxDecision.NetworkAccessAllowed.ToString(),
+                ["violations"] = string.Join('|', sandboxDecision.Violations)
+            }, ct);
+
+            if (!sandboxDecision.IsAllowed)
+            {
+                TransitionWorkflow(task.Id, WorkflowTrigger.StartEvaluating);
+
+                var sandboxDeniedResult = new ExecutionResult(
+                    task.Id,
+                    IsSuccess: false,
+                    Summary: $"Sandbox denied task execution: {sandboxDecision.Reason}",
+                    Outputs: new Dictionary<string, string>(),
+                    Warnings: sandboxDecision.Violations,
+                    Errors: new[] { "SandboxDenied" },
+                    CompletedAtUtc: DateTimeOffset.UtcNow);
+
+                await RecordTaskTelemetryAsync(
+                    objectiveId: task.ObjectiveId,
+                    workflowId: context.CorrelationId,
+                    agentId: agentSnapshot.Id,
+                    taskId: task.Id,
+                    executionTimeMs: taskStopwatch.Elapsed.TotalMilliseconds,
+                    cost: 0,
+                    success: false,
+                    errorType: "SandboxDenied",
+                    cancellationToken: ct);
+
+                TransitionWorkflow(task.Id, WorkflowTrigger.Fail);
+                await PublishResultEventAsync(task, sandboxDeniedResult, ct);
+                await _agentSupervisor.RecordExecutionCompletedAsync(agentSnapshot, sandboxDeniedResult, taskStopwatch.Elapsed.TotalMilliseconds, ct);
+                return sandboxDeniedResult;
+            }
+
             GovernanceDecision governanceDecision = await _governanceKernel.ValidateExecutionAsync(agentSnapshot, task, taskContext, ct);
             PolicyDecision policyDecision = governanceDecision.PolicyDecision;
             await RecordPolicyDecisionAsync(task, policyDecision, ct);
@@ -348,6 +392,10 @@ public sealed class AgentRuntime : IRuntime
             finally
             {
                 await _governanceKernel.MarkExecutionCompletedAsync(agentSnapshot.Id, ct);
+                if (sandboxDecision.IsAllowed)
+                {
+                    await _agentSandboxManager.RecordExecutionCompletedAsync(sandboxDecision.SandboxId, ct);
+                }
             }
         }, cancellationToken);
 

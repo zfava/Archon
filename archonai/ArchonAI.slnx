@@ -20,6 +20,7 @@
     <Project Path="src/ArchonAI.Strategy/ArchonAI.Strategy.csproj" />
     <Project Path="src/ArchonAI.Governance/ArchonAI.Governance.csproj" />
     <Project Path="src/ArchonAI.Supervisor/ArchonAI.Supervisor.csproj" />
+    <Project Path="src/ArchonAI.Sandbox/ArchonAI.Sandbox.csproj" />
     <Project Path="src/ArchonAI.Workflow/ArchonAI.Workflow.csproj" />
     <Project Path="src/ArchonAI.Memory/ArchonAI.Memory.csproj" />
     <Project Path="src/ArchonAI.EventBus/ArchonAI.EventBus.csproj" />

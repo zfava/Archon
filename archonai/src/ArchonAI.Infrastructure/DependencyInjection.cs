@@ -17,6 +17,7 @@ using ArchonAI.Patterns;
 using ArchonAI.Strategy;
 using ArchonAI.Governance;
 using ArchonAI.Supervisor;
+using ArchonAI.Sandbox;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -44,6 +45,7 @@ public static class DependencyInjection
         services.AddArchonAIStrategy();
         services.AddArchonAIGovernance();
         services.AddArchonAISupervisor();
+        services.AddArchonAISandbox();
 
         services.AddSingleton<IPlanningFeedbackStore, InMemoryPlanningFeedbackStore>();
         services.AddSingleton<IConnector, DefaultConnector>();
