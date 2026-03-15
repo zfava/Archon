@@ -22,6 +22,7 @@
     <ProjectReference Include="..\ArchonAI.Patterns\ArchonAI.Patterns.csproj" />
     <ProjectReference Include="..\ArchonAI.Strategy\ArchonAI.Strategy.csproj" />
     <ProjectReference Include="..\ArchonAI.Governance\ArchonAI.Governance.csproj" />
+    <ProjectReference Include="..\ArchonAI.Supervisor\ArchonAI.Supervisor.csproj" />
     <ProjectReference Include="..\ArchonAI.Memory\ArchonAI.Memory.csproj" />
     <ProjectReference Include="..\ArchonAI.EventBus\ArchonAI.EventBus.csproj" />
     <ProjectReference Include="..\ArchonAI.Runtime\ArchonAI.Runtime.csproj" />

@@ -37,6 +37,7 @@ public sealed class AgentRuntime : IRuntime
     private readonly IAgentCapabilityRegistry _capabilityRegistry;
     private readonly IEvaluationEngine _evaluationEngine;
     private readonly IGovernanceKernel _governanceKernel;
+    private readonly IAgentSupervisor _agentSupervisor;
     private readonly IMemoryStore _memoryStore;
     private readonly ITraceStore _traceStore;
     private readonly ITaskTelemetryStore _taskTelemetryStore;
@@ -53,6 +54,7 @@ public sealed class AgentRuntime : IRuntime
         IAgentCapabilityRegistry capabilityRegistry,
         IEvaluationEngine evaluationEngine,
         IGovernanceKernel governanceKernel,
+        IAgentSupervisor agentSupervisor,
         IMemoryStore memoryStore,
         ITraceStore traceStore,
         ITaskTelemetryStore taskTelemetryStore,
@@ -65,6 +67,7 @@ public sealed class AgentRuntime : IRuntime
         _capabilityRegistry = capabilityRegistry;
         _evaluationEngine = evaluationEngine;
         _governanceKernel = governanceKernel;
+        _agentSupervisor = agentSupervisor;
         _memoryStore = memoryStore;
         _traceStore = traceStore;
         _taskTelemetryStore = taskTelemetryStore;
@@ -83,6 +86,7 @@ public sealed class AgentRuntime : IRuntime
         }
 
         _agentRegistry[agent.Id] = agent;
+        await _agentSupervisor.RegisterAgentAsync(agent, cancellationToken);
 
         await _capabilityRegistry.RegisterOrUpdateAgentAsync(
             agent,
@@ -145,7 +149,31 @@ public sealed class AgentRuntime : IRuntime
 
             TransitionWorkflow(task.Id, WorkflowTrigger.StartExecuting);
 
-            IAgent? agent = ResolveAgent(task.RequiredCapability);
+            IReadOnlyList<IAgent> candidateAgents = _agentImplementations
+                .Where(a =>
+                {
+                    Agent descriptor = a.Describe();
+                    return descriptor.IsEnabled
+                        && descriptor.Capabilities.Any(capability =>
+                            capability.Name.Equals(task.RequiredCapability, StringComparison.OrdinalIgnoreCase));
+                })
+                .ToArray();
+
+            IAgent? agent = null;
+            if (candidateAgents.Count > 0)
+            {
+                Agent? selectedDescriptor = await _agentSupervisor.SelectAgentAsync(
+                    candidateAgents.Select(candidate => candidate.Describe()).ToArray(),
+                    task,
+                    ct);
+
+                if (selectedDescriptor is not null)
+                {
+                    agent = candidateAgents.FirstOrDefault(candidate => candidate.Describe().Id == selectedDescriptor.Id)
+                        ?? candidateAgents[0];
+                }
+            }
+
             if (agent is null)
             {
                 await RecordTraceAsync(task, "decision", "No matching agent found for required capability.", new Dictionary<string, string>
@@ -190,6 +218,45 @@ public sealed class AgentRuntime : IRuntime
                 }
             };
 
+            var supervisionDecision = await _agentSupervisor.ValidateExecutionAsync(agentSnapshot, task, taskContext, ct);
+            await RecordTraceAsync(task, "decision", "Supervisor decision generated.", new Dictionary<string, string>
+            {
+                ["isAllowed"] = supervisionDecision.IsAllowed.ToString(),
+                ["supervisorReason"] = supervisionDecision.Reason,
+                ["action"] = supervisionDecision.Action,
+                ["signals"] = string.Join('|', supervisionDecision.Signals)
+            }, ct);
+
+            if (!supervisionDecision.IsAllowed)
+            {
+                TransitionWorkflow(task.Id, WorkflowTrigger.StartEvaluating);
+
+                var deniedBySupervisorResult = new ExecutionResult(
+                    task.Id,
+                    IsSuccess: false,
+                    Summary: $"Supervisor denied task execution: {supervisionDecision.Reason}",
+                    Outputs: new Dictionary<string, string>(),
+                    Warnings: supervisionDecision.Signals,
+                    Errors: new[] { "SupervisorDenied" },
+                    CompletedAtUtc: DateTimeOffset.UtcNow);
+
+                await RecordTaskTelemetryAsync(
+                    objectiveId: task.ObjectiveId,
+                    workflowId: context.CorrelationId,
+                    agentId: agentSnapshot.Id,
+                    taskId: task.Id,
+                    executionTimeMs: taskStopwatch.Elapsed.TotalMilliseconds,
+                    cost: 0,
+                    success: false,
+                    errorType: "SupervisorDenied",
+                    cancellationToken: ct);
+
+                TransitionWorkflow(task.Id, WorkflowTrigger.Fail);
+                await PublishResultEventAsync(task, deniedBySupervisorResult, ct);
+                await _agentSupervisor.RecordExecutionCompletedAsync(agentSnapshot, deniedBySupervisorResult, taskStopwatch.Elapsed.TotalMilliseconds, ct);
+                return deniedBySupervisorResult;
+            }
+
             GovernanceDecision governanceDecision = await _governanceKernel.ValidateExecutionAsync(agentSnapshot, task, taskContext, ct);
             PolicyDecision policyDecision = governanceDecision.PolicyDecision;
             await RecordPolicyDecisionAsync(task, policyDecision, ct);
@@ -230,6 +297,7 @@ public sealed class AgentRuntime : IRuntime
 
                 TransitionWorkflow(task.Id, WorkflowTrigger.Fail);
                 await PublishResultEventAsync(task, deniedResult, ct);
+                await _agentSupervisor.RecordExecutionCompletedAsync(agentSnapshot, deniedResult, taskStopwatch.Elapsed.TotalMilliseconds, ct);
                 return deniedResult;
             }
 
@@ -274,6 +342,7 @@ public sealed class AgentRuntime : IRuntime
                 TransitionWorkflow(task.Id, WorkflowTrigger.StartEvaluating);
                 TransitionWorkflow(task.Id, result.IsSuccess ? WorkflowTrigger.Complete : WorkflowTrigger.Fail);
                 await PublishResultEventAsync(task, result, ct);
+                await _agentSupervisor.RecordExecutionCompletedAsync(agentSnapshot, result, stopwatch.Elapsed.TotalMilliseconds, ct);
                 return result;
             }
             finally
