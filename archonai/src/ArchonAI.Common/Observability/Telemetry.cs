@@ -25,4 +25,12 @@ public static class Telemetry
     public static readonly Counter<long> SalesforceErrors = Meter.CreateCounter<long>("archonai.salesforce.errors");
     public static readonly Counter<long> SalesforceRetries = Meter.CreateCounter<long>("archonai.salesforce.retries");
     public static readonly Histogram<double> SalesforceRateLimitRemaining = Meter.CreateHistogram<double>("archonai.salesforce.ratelimit.remaining");
+
+    // HubSpot connector metrics
+    public static readonly Counter<long> HubSpotAuthAttempts = Meter.CreateCounter<long>("archonai.hubspot.auth.attempts");
+    public static readonly Counter<long> HubSpotQueryOps = Meter.CreateCounter<long>("archonai.hubspot.query.ops");
+    public static readonly Counter<long> HubSpotWriteOps = Meter.CreateCounter<long>("archonai.hubspot.write.ops");
+    public static readonly Counter<long> HubSpotErrors = Meter.CreateCounter<long>("archonai.hubspot.errors");
+    public static readonly Counter<long> HubSpotRetries = Meter.CreateCounter<long>("archonai.hubspot.retries");
+    public static readonly Histogram<double> HubSpotRateLimitRemaining = Meter.CreateHistogram<double>("archonai.hubspot.ratelimit.remaining");
 }

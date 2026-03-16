@@ -155,6 +155,45 @@ salesforce.MapPatch("/records/{objectType}/{recordId}", async (string objectType
     return Results.Ok(new { recordId, updated = true });
 });
 
+var hubspot = v1.MapGroup("/connectors/hubspot")
+    .RequireAuthorization("OperatorOrAdmin");
+
+hubspot.MapGet("/status", (IHubSpotConnector hsConnector) =>
+{
+    var status = hsConnector.GetStatus();
+    return Results.Ok(status);
+});
+
+hubspot.MapPost("/authenticate", async (IHubSpotConnector hsConnector, CancellationToken ct) =>
+{
+    var result = await hsConnector.AuthenticateAsync(ct);
+    return result.IsAuthenticated ? Results.Ok(result) : Results.Problem(result.Error ?? "Authentication failed", statusCode: 401);
+});
+
+hubspot.MapGet("/contacts", async (string? filter, int? limit, IHubSpotConnector hsConnector, CancellationToken ct) =>
+{
+    var records = await hsConnector.GetContactsAsync(filter, limit ?? 100, ct);
+    return Results.Ok(records);
+});
+
+hubspot.MapGet("/deals", async (string? filter, int? limit, IHubSpotConnector hsConnector, CancellationToken ct) =>
+{
+    var records = await hsConnector.GetDealsAsync(filter, limit ?? 100, ct);
+    return Results.Ok(records);
+});
+
+hubspot.MapPost("/records/{objectType}", async (string objectType, Dictionary<string, string> properties, IHubSpotConnector hsConnector, CancellationToken ct) =>
+{
+    string recordId = await hsConnector.CreateRecordAsync(objectType, properties, ct);
+    return Results.Created($"/api/v1/connectors/hubspot/records/{objectType}/{recordId}", new { recordId });
+});
+
+hubspot.MapPatch("/records/{objectType}/{recordId}", async (string objectType, string recordId, Dictionary<string, string> properties, IHubSpotConnector hsConnector, CancellationToken ct) =>
+{
+    await hsConnector.UpdatePipelineRecordAsync(objectType, recordId, properties, ct);
+    return Results.Ok(new { recordId, updated = true });
+});
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")

@@ -1,3 +1,4 @@
+using ArchonAI.Connectors.HubSpot;
 using ArchonAI.Connectors.Implementations;
 using ArchonAI.Connectors.Salesforce;
 using ArchonAI.Core.Interfaces;
@@ -42,6 +43,29 @@ public static class DependencyInjection
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SalesforceOptions>>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<ISalesforceConnector>());
+
+        // HubSpot connector
+        if (configuration is not null)
+        {
+            services.Configure<HubSpotOptions>(configuration.GetSection(HubSpotOptions.SectionName));
+        }
+        else
+        {
+            services.Configure<HubSpotOptions>(_ => { });
+        }
+
+        services.AddHttpClient("HubSpot");
+        services.AddSingleton<IHubSpotConnector>(sp =>
+        {
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("HubSpot");
+            return new HubSpotConnector(
+                httpClient,
+                sp.GetRequiredService<IEventBus>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HubSpotConnector>>(),
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<HubSpotOptions>>());
+        });
+        services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IHubSpotConnector>());
 
         return services;
     }

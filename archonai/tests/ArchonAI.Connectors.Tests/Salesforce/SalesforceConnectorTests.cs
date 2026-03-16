@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using ArchonAI.Connectors.Salesforce;
+using ArchonAI.Connectors.Tests.Shared;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using FluentAssertions;
@@ -222,52 +223,5 @@ public sealed class SalesforceConnectorTests : IDisposable
             (HttpStatusCode.OK, JsonSerializer.Serialize(new { access_token = "test-token", instance_url = "https://instance.salesforce.test" })),
             (HttpStatusCode.OK, JsonSerializer.Serialize(queryResponse))
         });
-    }
-}
-
-/// <summary>
-/// Mock HTTP handler for testing Salesforce API interactions.
-/// </summary>
-public sealed class MockHttpMessageHandler : HttpMessageHandler
-{
-    private readonly Queue<(HttpStatusCode StatusCode, string Content)> _responses = new();
-    private int _requestCount;
-
-    public int RequestCount => _requestCount;
-
-    public void SetResponse(HttpStatusCode statusCode, string content)
-    {
-        _responses.Clear();
-        _responses.Enqueue((statusCode, content));
-    }
-
-    public void SetResponseSequence(IEnumerable<(HttpStatusCode, string)> responses)
-    {
-        _responses.Clear();
-        foreach (var r in responses)
-        {
-            _responses.Enqueue(r);
-        }
-    }
-
-    protected override global::System.Threading.Tasks.Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        Interlocked.Increment(ref _requestCount);
-
-        if (_responses.Count == 0)
-        {
-            return global::System.Threading.Tasks.Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
-            {
-                Content = new StringContent("{\"error\":\"no mock response configured\"}")
-            });
-        }
-
-        var (statusCode, content) = _responses.Dequeue();
-        var response = new HttpResponseMessage(statusCode)
-        {
-            Content = new StringContent(content, System.Text.Encoding.UTF8, "application/json")
-        };
-
-        return global::System.Threading.Tasks.Task.FromResult(response);
     }
 }
