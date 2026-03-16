@@ -194,6 +194,45 @@ hubspot.MapPatch("/records/{objectType}/{recordId}", async (string objectType, s
     return Results.Ok(new { recordId, updated = true });
 });
 
+var quickbooks = v1.MapGroup("/connectors/quickbooks")
+    .RequireAuthorization("OperatorOrAdmin");
+
+quickbooks.MapGet("/status", (IQuickBooksConnector qbConnector) =>
+{
+    var status = qbConnector.GetStatus();
+    return Results.Ok(status);
+});
+
+quickbooks.MapPost("/authenticate", async (IQuickBooksConnector qbConnector, CancellationToken ct) =>
+{
+    var result = await qbConnector.AuthenticateAsync(ct);
+    return result.IsAuthenticated ? Results.Ok(result) : Results.Problem(result.Error ?? "Authentication failed", statusCode: 401);
+});
+
+quickbooks.MapGet("/reports", async (string? reportType, string? startDate, string? endDate, IQuickBooksConnector qbConnector, CancellationToken ct) =>
+{
+    var records = await qbConnector.GetFinancialReportsAsync(reportType ?? "ProfitAndLoss", startDate, endDate, ct);
+    return Results.Ok(records);
+});
+
+quickbooks.MapPost("/invoices", async (QuickBooksInvoiceRequest invoiceRequest, IQuickBooksConnector qbConnector, CancellationToken ct) =>
+{
+    string invoiceId = await qbConnector.CreateInvoiceAsync(invoiceRequest.CustomerId, invoiceRequest.LineItems, ct);
+    return Results.Created($"/api/v1/connectors/quickbooks/invoices/{invoiceId}", new { invoiceId });
+});
+
+quickbooks.MapPatch("/customers/{customerId}", async (string customerId, Dictionary<string, string> fields, IQuickBooksConnector qbConnector, CancellationToken ct) =>
+{
+    await qbConnector.UpdateCustomerAsync(customerId, fields, ct);
+    return Results.Ok(new { customerId, updated = true });
+});
+
+quickbooks.MapGet("/transactions", async (string? accountId, string? startDate, string? endDate, int? limit, IQuickBooksConnector qbConnector, CancellationToken ct) =>
+{
+    var records = await qbConnector.GetTransactionHistoryAsync(accountId, startDate, endDate, limit ?? 100, ct);
+    return Results.Ok(records);
+});
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")
@@ -211,3 +250,5 @@ app.MapPrometheusScrapingEndpoint("/metrics")
     .RequireRateLimiting("api");
 
 app.Run();
+
+public sealed record QuickBooksInvoiceRequest(string CustomerId, IReadOnlyList<QuickBooksLineItem> LineItems);

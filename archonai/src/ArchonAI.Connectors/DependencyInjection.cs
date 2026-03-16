@@ -1,5 +1,6 @@
 using ArchonAI.Connectors.HubSpot;
 using ArchonAI.Connectors.Implementations;
+using ArchonAI.Connectors.QuickBooks;
 using ArchonAI.Connectors.Salesforce;
 using ArchonAI.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -66,6 +67,29 @@ public static class DependencyInjection
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<HubSpotOptions>>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IHubSpotConnector>());
+
+        // QuickBooks connector
+        if (configuration is not null)
+        {
+            services.Configure<QuickBooksOptions>(configuration.GetSection(QuickBooksOptions.SectionName));
+        }
+        else
+        {
+            services.Configure<QuickBooksOptions>(_ => { });
+        }
+
+        services.AddHttpClient("QuickBooks");
+        services.AddSingleton<IQuickBooksConnector>(sp =>
+        {
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("QuickBooks");
+            return new QuickBooksConnector(
+                httpClient,
+                sp.GetRequiredService<IEventBus>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<QuickBooksConnector>>(),
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<QuickBooksOptions>>());
+        });
+        services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IQuickBooksConnector>());
 
         return services;
     }

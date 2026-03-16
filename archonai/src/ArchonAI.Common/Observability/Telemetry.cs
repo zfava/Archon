@@ -33,4 +33,12 @@ public static class Telemetry
     public static readonly Counter<long> HubSpotErrors = Meter.CreateCounter<long>("archonai.hubspot.errors");
     public static readonly Counter<long> HubSpotRetries = Meter.CreateCounter<long>("archonai.hubspot.retries");
     public static readonly Histogram<double> HubSpotRateLimitRemaining = Meter.CreateHistogram<double>("archonai.hubspot.ratelimit.remaining");
+
+    // QuickBooks connector metrics
+    public static readonly Counter<long> QuickBooksAuthAttempts = Meter.CreateCounter<long>("archonai.quickbooks.auth.attempts");
+    public static readonly Counter<long> QuickBooksQueryOps = Meter.CreateCounter<long>("archonai.quickbooks.query.ops");
+    public static readonly Counter<long> QuickBooksWriteOps = Meter.CreateCounter<long>("archonai.quickbooks.write.ops");
+    public static readonly Counter<long> QuickBooksErrors = Meter.CreateCounter<long>("archonai.quickbooks.errors");
+    public static readonly Counter<long> QuickBooksRetries = Meter.CreateCounter<long>("archonai.quickbooks.retries");
+    public static readonly Histogram<double> QuickBooksRateLimitRemaining = Meter.CreateHistogram<double>("archonai.quickbooks.ratelimit.remaining");
 }
