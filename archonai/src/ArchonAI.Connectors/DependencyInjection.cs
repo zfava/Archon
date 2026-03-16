@@ -2,6 +2,7 @@ using ArchonAI.Connectors.HubSpot;
 using ArchonAI.Connectors.Implementations;
 using ArchonAI.Connectors.QuickBooks;
 using ArchonAI.Connectors.Salesforce;
+using ArchonAI.Connectors.Slack;
 using ArchonAI.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,6 +91,29 @@ public static class DependencyInjection
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<QuickBooksOptions>>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IQuickBooksConnector>());
+
+        // Slack connector
+        if (configuration is not null)
+        {
+            services.Configure<SlackOptions>(configuration.GetSection(SlackOptions.SectionName));
+        }
+        else
+        {
+            services.Configure<SlackOptions>(_ => { });
+        }
+
+        services.AddHttpClient("Slack");
+        services.AddSingleton<ISlackConnector>(sp =>
+        {
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("Slack");
+            return new SlackConnector(
+                httpClient,
+                sp.GetRequiredService<IEventBus>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SlackConnector>>(),
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SlackOptions>>());
+        });
+        services.AddSingleton<IConnector>(sp => sp.GetRequiredService<ISlackConnector>());
 
         return services;
     }

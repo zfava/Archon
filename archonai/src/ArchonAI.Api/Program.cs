@@ -233,6 +233,55 @@ quickbooks.MapGet("/transactions", async (string? accountId, string? startDate, 
     return Results.Ok(records);
 });
 
+var slack = v1.MapGroup("/connectors/slack")
+    .RequireAuthorization("OperatorOrAdmin");
+
+slack.MapGet("/status", (ISlackConnector slackConnector) =>
+{
+    var status = slackConnector.GetStatus();
+    return Results.Ok(status);
+});
+
+slack.MapPost("/authenticate", async (ISlackConnector slackConnector, CancellationToken ct) =>
+{
+    var result = await slackConnector.AuthenticateAsync(ct);
+    return result.IsAuthenticated ? Results.Ok(result) : Results.Problem(result.Error ?? "Authentication failed", statusCode: 401);
+});
+
+slack.MapPost("/messages", async (SlackSendMessageRequest msgRequest, ISlackConnector slackConnector, CancellationToken ct) =>
+{
+    var result = await slackConnector.SendMessageAsync(msgRequest.Channel, msgRequest.Text, msgRequest.ThreadTs, ct);
+    return result.IsSuccess ? Results.Ok(result) : Results.Problem(result.Error ?? "Send failed", statusCode: 400);
+});
+
+slack.MapGet("/channels", async (int? limit, ISlackConnector slackConnector, CancellationToken ct) =>
+{
+    var channels = await slackConnector.GetChannelsAsync(limit ?? 100, ct);
+    return Results.Ok(channels);
+});
+
+slack.MapGet("/channels/{channel}/history", async (string channel, int? limit, string? oldest, string? latest, ISlackConnector slackConnector, CancellationToken ct) =>
+{
+    var messages = await slackConnector.ReadChannelHistoryAsync(channel, limit ?? 50, oldest, latest, ct);
+    return Results.Ok(messages);
+});
+
+slack.MapPost("/alerts", async (SlackAlertRequest alertRequest, ISlackConnector slackConnector, CancellationToken ct) =>
+{
+    var result = await slackConnector.PostAlertAsync(alertRequest.Channel, alertRequest.AlertLevel, alertRequest.Title, alertRequest.Details, ct);
+    return result.IsSuccess ? Results.Ok(result) : Results.Problem(result.Error ?? "Alert failed", statusCode: 400);
+});
+
+slack.MapPost("/webhooks/events", async (HttpContext context, ISlackConnector slackConnector, CancellationToken ct) =>
+{
+    string body = await new StreamReader(context.Request.Body).ReadToEndAsync(ct);
+    string signature = context.Request.Headers["X-Slack-Signature"].FirstOrDefault() ?? string.Empty;
+    string timestamp = context.Request.Headers["X-Slack-Request-Timestamp"].FirstOrDefault() ?? string.Empty;
+
+    bool processed = await slackConnector.ProcessWebhookEventAsync(body, signature, timestamp, ct);
+    return processed ? Results.Ok(new { ok = true }) : Results.Problem("Webhook verification failed", statusCode: 401);
+}).AllowAnonymous();
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")
@@ -252,3 +301,5 @@ app.MapPrometheusScrapingEndpoint("/metrics")
 app.Run();
 
 public sealed record QuickBooksInvoiceRequest(string CustomerId, IReadOnlyList<QuickBooksLineItem> LineItems);
+public sealed record SlackSendMessageRequest(string Channel, string Text, string? ThreadTs = null);
+public sealed record SlackAlertRequest(string Channel, string AlertLevel, string Title, string Details);

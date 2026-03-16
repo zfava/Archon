@@ -41,4 +41,14 @@ public static class Telemetry
     public static readonly Counter<long> QuickBooksErrors = Meter.CreateCounter<long>("archonai.quickbooks.errors");
     public static readonly Counter<long> QuickBooksRetries = Meter.CreateCounter<long>("archonai.quickbooks.retries");
     public static readonly Histogram<double> QuickBooksRateLimitRemaining = Meter.CreateHistogram<double>("archonai.quickbooks.ratelimit.remaining");
+
+    // Slack connector metrics
+    public static readonly Counter<long> SlackAuthAttempts = Meter.CreateCounter<long>("archonai.slack.auth.attempts");
+    public static readonly Counter<long> SlackMessagesSent = Meter.CreateCounter<long>("archonai.slack.messages.sent");
+    public static readonly Counter<long> SlackAlertsSent = Meter.CreateCounter<long>("archonai.slack.alerts.sent");
+    public static readonly Counter<long> SlackQueryOps = Meter.CreateCounter<long>("archonai.slack.query.ops");
+    public static readonly Counter<long> SlackWebhookEvents = Meter.CreateCounter<long>("archonai.slack.webhook.events");
+    public static readonly Counter<long> SlackErrors = Meter.CreateCounter<long>("archonai.slack.errors");
+    public static readonly Counter<long> SlackRetries = Meter.CreateCounter<long>("archonai.slack.retries");
+    public static readonly Histogram<double> SlackRateLimitRemaining = Meter.CreateHistogram<double>("archonai.slack.ratelimit.remaining");
 }
