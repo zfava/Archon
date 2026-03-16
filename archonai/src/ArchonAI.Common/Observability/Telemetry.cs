@@ -59,4 +59,12 @@ public static class Telemetry
     public static readonly Counter<long> GoogleWorkspaceErrors = Meter.CreateCounter<long>("archonai.google.workspace.errors");
     public static readonly Counter<long> GoogleWorkspaceRetries = Meter.CreateCounter<long>("archonai.google.workspace.retries");
     public static readonly Histogram<double> GoogleWorkspaceRateLimitRemaining = Meter.CreateHistogram<double>("archonai.google.workspace.ratelimit.remaining");
+
+    // Microsoft 365 connector metrics
+    public static readonly Counter<long> M365AuthAttempts = Meter.CreateCounter<long>("archonai.m365.auth.attempts");
+    public static readonly Counter<long> M365QueryOps = Meter.CreateCounter<long>("archonai.m365.query.ops");
+    public static readonly Counter<long> M365WriteOps = Meter.CreateCounter<long>("archonai.m365.write.ops");
+    public static readonly Counter<long> M365Errors = Meter.CreateCounter<long>("archonai.m365.errors");
+    public static readonly Counter<long> M365Retries = Meter.CreateCounter<long>("archonai.m365.retries");
+    public static readonly Histogram<double> M365RateLimitRemaining = Meter.CreateHistogram<double>("archonai.m365.ratelimit.remaining");
 }

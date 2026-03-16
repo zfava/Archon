@@ -349,6 +349,79 @@ gws.MapGet("/drive/files/{fileId}", async (string fileId, IGoogleWorkspaceConnec
     return Results.Ok(file);
 });
 
+var m365 = v1.MapGroup("/connectors/microsoft365")
+    .RequireAuthorization("OperatorOrAdmin");
+
+m365.MapGet("/status", (IMicrosoft365Connector m365Connector) =>
+{
+    var status = m365Connector.GetStatus();
+    return Results.Ok(status);
+});
+
+m365.MapPost("/authenticate", async (IMicrosoft365Connector m365Connector, CancellationToken ct) =>
+{
+    var result = await m365Connector.AuthenticateAsync(ct);
+    return result.IsAuthenticated ? Results.Ok(result) : Results.Problem(result.Error ?? "Authentication failed", statusCode: 401);
+});
+
+// Outlook endpoints
+m365.MapGet("/outlook/messages", async (string? filter, int? top, IMicrosoft365Connector m365Connector, CancellationToken ct) =>
+{
+    var messages = await m365Connector.GetEmailsAsync(filter, top ?? 20, ct);
+    return Results.Ok(messages);
+});
+
+m365.MapPost("/outlook/send", async (M365SendEmailRequest emailRequest, IMicrosoft365Connector m365Connector, CancellationToken ct) =>
+{
+    var result = await m365Connector.SendEmailAsync(emailRequest.To, emailRequest.Subject, emailRequest.Body, emailRequest.IsHtml, ct);
+    return result.IsSuccess ? Results.Ok(result) : Results.Problem(result.Error ?? "Send failed", statusCode: 400);
+});
+
+// Teams endpoints
+m365.MapGet("/teams/{teamId}/channels", async (string teamId, IMicrosoft365Connector m365Connector, CancellationToken ct) =>
+{
+    var channels = await m365Connector.GetTeamsChannelsAsync(teamId, ct);
+    return Results.Ok(channels);
+});
+
+m365.MapPost("/teams/{teamId}/channels/{channelId}/messages", async (string teamId, string channelId, M365TeamsMessageRequest msgRequest, IMicrosoft365Connector m365Connector, CancellationToken ct) =>
+{
+    var result = await m365Connector.SendTeamsMessageAsync(teamId, channelId, msgRequest.Content, ct);
+    return result.IsSuccess ? Results.Ok(result) : Results.Problem(result.Error ?? "Send failed", statusCode: 400);
+});
+
+m365.MapGet("/teams/{teamId}/channels/{channelId}/messages", async (string teamId, string channelId, int? top, IMicrosoft365Connector m365Connector, CancellationToken ct) =>
+{
+    var messages = await m365Connector.GetTeamsMessagesAsync(teamId, channelId, top ?? 20, ct);
+    return Results.Ok(messages);
+});
+
+// SharePoint endpoints
+m365.MapGet("/sharepoint/sites/{siteId}/items", async (string siteId, string? listId, int? top, IMicrosoft365Connector m365Connector, CancellationToken ct) =>
+{
+    var items = await m365Connector.GetSharePointItemsAsync(siteId, listId, top ?? 50, ct);
+    return Results.Ok(items);
+});
+
+m365.MapGet("/sharepoint/sites/{siteId}/drives/{driveId}/items/{itemId}", async (string siteId, string driveId, string itemId, IMicrosoft365Connector m365Connector, CancellationToken ct) =>
+{
+    var item = await m365Connector.GetSharePointItemAsync(siteId, driveId, itemId, ct);
+    return Results.Ok(item);
+});
+
+// OneDrive endpoints
+m365.MapGet("/onedrive/files", async (string? folderId, int? top, IMicrosoft365Connector m365Connector, CancellationToken ct) =>
+{
+    var files = await m365Connector.ListOneDriveFilesAsync(folderId, top ?? 50, ct);
+    return Results.Ok(files);
+});
+
+m365.MapGet("/onedrive/files/{itemId}", async (string itemId, IMicrosoft365Connector m365Connector, CancellationToken ct) =>
+{
+    var item = await m365Connector.GetOneDriveItemAsync(itemId, ct);
+    return Results.Ok(item);
+});
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")
@@ -373,3 +446,5 @@ public sealed record SlackAlertRequest(string Channel, string AlertLevel, string
 public sealed record GmailSendRequest(string To, string Subject, string Body, bool IsHtml = false);
 public sealed record GoogleDocCreateRequest(string Title, string? Content = null);
 public sealed record GoogleSheetWriteRequest(string Range, IReadOnlyList<IReadOnlyList<string>> Values);
+public sealed record M365SendEmailRequest(string To, string Subject, string Body, bool IsHtml = false);
+public sealed record M365TeamsMessageRequest(string Content);

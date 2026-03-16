@@ -1,6 +1,7 @@
 using ArchonAI.Connectors.GoogleWorkspace;
 using ArchonAI.Connectors.HubSpot;
 using ArchonAI.Connectors.Implementations;
+using ArchonAI.Connectors.Microsoft365;
 using ArchonAI.Connectors.QuickBooks;
 using ArchonAI.Connectors.Salesforce;
 using ArchonAI.Connectors.Slack;
@@ -138,6 +139,29 @@ public static class DependencyInjection
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<GoogleWorkspaceOptions>>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IGoogleWorkspaceConnector>());
+
+        // Microsoft 365 connector
+        if (configuration is not null)
+        {
+            services.Configure<Microsoft365Options>(configuration.GetSection(Microsoft365Options.SectionName));
+        }
+        else
+        {
+            services.Configure<Microsoft365Options>(_ => { });
+        }
+
+        services.AddHttpClient("Microsoft365");
+        services.AddSingleton<IMicrosoft365Connector>(sp =>
+        {
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("Microsoft365");
+            return new Microsoft365Connector(
+                httpClient,
+                sp.GetRequiredService<IEventBus>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Microsoft365Connector>>(),
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft365Options>>());
+        });
+        services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IMicrosoft365Connector>());
 
         return services;
     }
