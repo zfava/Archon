@@ -143,6 +143,12 @@ public static class Telemetry
     public static readonly Counter<long> ControlPlanePolicyOps = Meter.CreateCounter<long>("archonai.controlplane.policy.ops");
     public static readonly Counter<long> ControlPlaneConfigOps = Meter.CreateCounter<long>("archonai.controlplane.config.ops");
 
+    // Agent registry metrics
+    public static readonly Counter<long> AgentRegistryRegistrations = Meter.CreateCounter<long>("archonai.agentregistry.registrations");
+    public static readonly Counter<long> AgentRegistryCapabilityUpdates = Meter.CreateCounter<long>("archonai.agentregistry.capability.updates");
+    public static readonly Counter<long> AgentRegistryStatusChanges = Meter.CreateCounter<long>("archonai.agentregistry.status.changes");
+    public static readonly Counter<long> AgentRegistryMetricsRecorded = Meter.CreateCounter<long>("archonai.agentregistry.metrics.recorded");
+
     // Gateway metrics
     public static readonly Counter<long> GatewayRequestsTotal = Meter.CreateCounter<long>("archonai.gateway.requests.total");
     public static readonly Counter<long> GatewayRequestsFailed = Meter.CreateCounter<long>("archonai.gateway.requests.failed");

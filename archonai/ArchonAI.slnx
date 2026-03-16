@@ -54,6 +54,7 @@
     <Project Path="src/ArchonAI.ControlPlane/ArchonAI.ControlPlane.csproj" />
     <Project Path="src/ArchonAI.Gateway/ArchonAI.Gateway.csproj" />
     <Project Path="src/ArchonAI.WorkflowDesigner/ArchonAI.WorkflowDesigner.csproj" />
+    <Project Path="src/ArchonAI.AgentRegistry/ArchonAI.AgentRegistry.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ArchonAI.Connectors.Tests/ArchonAI.Connectors.Tests.csproj" />

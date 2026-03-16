@@ -21,6 +21,8 @@ using ArchonAI.ControlPlane;
 using ArchonAI.Core.Models.ControlPlane;
 using ArchonAI.Runtime;
 using ArchonAI.WorkflowDesigner;
+using ArchonAI.AgentRegistry;
+using ArchonAI.Core.Models.AgentRegistry;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -40,6 +42,7 @@ builder.Services.AddArchonAISupport(builder.Configuration);
 builder.Services.AddArchonAIAdmin(builder.Configuration);
 builder.Services.AddArchonAIControlPlane(builder.Configuration);
 builder.Services.AddArchonAIWorkflowDesigner();
+builder.Services.AddArchonAIAgentRegistry();
 
 var app = builder.Build();
 
@@ -1282,6 +1285,152 @@ audit.MapPost("/verify", async (AuditVerifyRequest? request, IAuditLogService au
     return Results.Ok(new { integrityValid = isValid, verifiedAtUtc = DateTimeOffset.UtcNow });
 });
 
+// ── Agent Registry ──────────────────────────────────────────────────
+
+var agentRegistry = v1.MapGroup("/agent-registry")
+    .RequireAuthorization("OperatorOrAdmin");
+
+agentRegistry.MapGet("/agents", async (
+    RegisteredAgentStatus? status, string? capability, int? offset, int? limit,
+    IAgentRegistryService arService, CancellationToken ct) =>
+{
+    var agents = await arService.ListAgentsAsync(status, capability, offset ?? 0, limit ?? 50, ct);
+    return Results.Ok(agents);
+});
+
+agentRegistry.MapGet("/agents/{agentId:guid}", async (
+    Guid agentId, IAgentRegistryService arService, CancellationToken ct) =>
+{
+    var agent = await arService.GetAgentAsync(agentId, ct);
+    return agent is null ? Results.NotFound() : Results.Ok(agent);
+});
+
+agentRegistry.MapPost("/agents", async (
+    RegisterAgentRequest request, IAgentRegistryService arService, CancellationToken ct) =>
+{
+    var capabilities = request.Capabilities.Select(c => new AgentCapabilityRecord(
+        Id: Guid.Empty, AgentId: Guid.Empty,
+        Name: c.Name, Description: c.Description,
+        Category: c.Category, Version: c.Version,
+        AddedAtUtc: default)).ToList();
+
+    var agent = await arService.RegisterAgentAsync(
+        request.Name, request.Description, request.Version,
+        capabilities, request.Configuration, ct);
+    return Results.Created($"/api/v1/agent-registry/agents/{agent.Id}", agent);
+});
+
+agentRegistry.MapPut("/agents/{agentId:guid}/capabilities", async (
+    Guid agentId, UpdateAgentCapabilitiesRequest request,
+    IAgentRegistryService arService, CancellationToken ct) =>
+{
+    try
+    {
+        var capabilities = request.Capabilities.Select(c => new AgentCapabilityRecord(
+            Id: Guid.Empty, AgentId: agentId,
+            Name: c.Name, Description: c.Description,
+            Category: c.Category, Version: c.Version,
+            AddedAtUtc: default)).ToList();
+
+        var agent = await arService.UpdateCapabilitiesAsync(agentId, capabilities, ct);
+        return Results.Ok(agent);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+agentRegistry.MapPost("/agents/{agentId:guid}/enable", async (
+    Guid agentId, IAgentRegistryService arService, CancellationToken ct) =>
+{
+    try
+    {
+        var agent = await arService.EnableAgentAsync(agentId, ct);
+        return Results.Ok(agent);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+agentRegistry.MapPost("/agents/{agentId:guid}/disable", async (
+    Guid agentId, DisableAgentRequest request,
+    IAgentRegistryService arService, CancellationToken ct) =>
+{
+    try
+    {
+        var agent = await arService.DisableAgentAsync(agentId, request.Reason, ct);
+        return Results.Ok(agent);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+agentRegistry.MapPost("/agents/{agentId:guid}/heartbeat", async (
+    Guid agentId, IAgentRegistryService arService, CancellationToken ct) =>
+{
+    try
+    {
+        await arService.RecordHeartbeatAsync(agentId, ct);
+        return Results.Ok(new { agentId, heartbeatAtUtc = DateTimeOffset.UtcNow });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+agentRegistry.MapPost("/agents/{agentId:guid}/metrics", async (
+    Guid agentId, RecordAgentMetricsRequest request,
+    IAgentRegistryService arService, CancellationToken ct) =>
+{
+    try
+    {
+        var metric = await arService.RecordMetricsAsync(
+            agentId, request.TotalExecutions, request.SuccessfulExecutions,
+            request.FailedExecutions, request.AverageLatencyMs,
+            request.P95LatencyMs, request.UptimePercent, ct);
+        return Results.Created($"/api/v1/agent-registry/agents/{agentId}/metrics", metric);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+agentRegistry.MapGet("/agents/{agentId:guid}/metrics", async (
+    Guid agentId, int? limit,
+    IAgentRegistryService arService, CancellationToken ct) =>
+{
+    var metrics = await arService.GetMetricsAsync(agentId, limit ?? 20, ct);
+    return Results.Ok(metrics);
+});
+
+agentRegistry.MapGet("/dashboard", async (
+    IAgentRegistryService arService, CancellationToken ct) =>
+{
+    var dashboard = await arService.GetDashboardAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+agentRegistry.MapDelete("/agents/{agentId:guid}", async (
+    Guid agentId, IAgentRegistryService arService, CancellationToken ct) =>
+{
+    try
+    {
+        await arService.DeregisterAgentAsync(agentId, ct);
+        return Results.Ok(new { agentId, deregistered = true });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")
@@ -1337,3 +1486,8 @@ public sealed record SetConfigurationRequest(string TenantId, string Scope, stri
 public sealed record CreateWorkflowNodeRequest(string Name, string Description, WorkflowNodeType NodeType, Dictionary<string, string> Configuration);
 public sealed record CreateWorkflowEdgeRequest(int SourceNodeIndex, int TargetNodeIndex, string? Label = null);
 public sealed record CreateWorkflowGraphRequest(string Name, string Description, IReadOnlyList<CreateWorkflowNodeRequest> Nodes, IReadOnlyList<CreateWorkflowEdgeRequest> Edges, Dictionary<string, string>? Metadata = null);
+public sealed record AgentCapabilityInput(string Name, string Description, string Category, string Version);
+public sealed record RegisterAgentRequest(string Name, string Description, string Version, IReadOnlyList<AgentCapabilityInput> Capabilities, Dictionary<string, string>? Configuration = null);
+public sealed record UpdateAgentCapabilitiesRequest(IReadOnlyList<AgentCapabilityInput> Capabilities);
+public sealed record DisableAgentRequest(string Reason);
+public sealed record RecordAgentMetricsRequest(long TotalExecutions, long SuccessfulExecutions, long FailedExecutions, double AverageLatencyMs, double P95LatencyMs, double UptimePercent);

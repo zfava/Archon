@@ -22,6 +22,7 @@
     <ProjectReference Include="..\ArchonAI.Registry\ArchonAI.Registry.csproj" />
     <ProjectReference Include="..\ArchonAI.ControlPlane\ArchonAI.ControlPlane.csproj" />
     <ProjectReference Include="..\ArchonAI.WorkflowDesigner\ArchonAI.WorkflowDesigner.csproj" />
+    <ProjectReference Include="..\ArchonAI.AgentRegistry\ArchonAI.AgentRegistry.csproj" />
   </ItemGroup>
 
   <ItemGroup>
