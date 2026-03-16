@@ -6,6 +6,7 @@ using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.AuditLog;
 using ArchonAI.Core.Models.Planning;
 using ArchonAI.Core.Models.Rbac;
+using ArchonAI.Core.Models.Monitoring;
 using ArchonAI.Core.Models.Workflow;
 using ArchonAI.Infrastructure;
 using ArchonAI.Plugins;
@@ -826,6 +827,37 @@ workflows.MapDelete("/{workflowId:guid}", async (Guid workflowId, IWorkflowDesig
 {
     var deleted = await wfService.DeleteWorkflowAsync(workflowId, ct);
     return deleted ? Results.Ok(new { workflowId, deleted = true }) : Results.NotFound();
+});
+
+// Monitoring dashboard endpoints
+var monitoring = v1.MapGroup("/monitoring")
+    .RequireAuthorization("OperatorOrAdmin");
+
+monitoring.MapGet("/status", (IMonitoringDashboardService monService) =>
+    Results.Ok(monService.GetStatus()));
+
+monitoring.MapGet("/dashboard", async (IMonitoringDashboardService monService, CancellationToken ct) =>
+{
+    var dashboard = await monService.GetFullDashboardAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+monitoring.MapGet("/workflows", async (IMonitoringDashboardService monService, CancellationToken ct) =>
+{
+    var metrics = await monService.GetWorkflowMetricsAsync(ct);
+    return Results.Ok(metrics);
+});
+
+monitoring.MapGet("/agents", async (IMonitoringDashboardService monService, CancellationToken ct) =>
+{
+    var health = await monService.GetAgentHealthAsync(ct);
+    return Results.Ok(health);
+});
+
+monitoring.MapGet("/system", async (IMonitoringDashboardService monService, CancellationToken ct) =>
+{
+    var performance = await monService.GetSystemPerformanceAsync(ct);
+    return Results.Ok(performance);
 });
 
 // Audit log endpoints

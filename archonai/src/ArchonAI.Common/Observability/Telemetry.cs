@@ -130,6 +130,12 @@ public static class Telemetry
     public static readonly Counter<long> WorkflowDesignsValidated = Meter.CreateCounter<long>("archonai.workflow.designs.validated");
     public static readonly Counter<long> WorkflowDesignsExecuted = Meter.CreateCounter<long>("archonai.workflow.designs.executed");
 
+    // Monitoring dashboard metrics
+    public static readonly Counter<long> MonitoringDashboardsGenerated = Meter.CreateCounter<long>("archonai.monitoring.dashboards.generated");
+    public static readonly Counter<long> MonitoringWorkflowMetricsQueries = Meter.CreateCounter<long>("archonai.monitoring.workflow.metrics.queries");
+    public static readonly Counter<long> MonitoringAgentHealthQueries = Meter.CreateCounter<long>("archonai.monitoring.agent.health.queries");
+    public static readonly Counter<long> MonitoringSystemPerformanceQueries = Meter.CreateCounter<long>("archonai.monitoring.system.performance.queries");
+
     // Gateway metrics
     public static readonly Counter<long> GatewayRequestsTotal = Meter.CreateCounter<long>("archonai.gateway.requests.total");
     public static readonly Counter<long> GatewayRequestsFailed = Meter.CreateCounter<long>("archonai.gateway.requests.failed");
