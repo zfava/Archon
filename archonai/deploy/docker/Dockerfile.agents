@@ -1,14 +1,85 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# ── Stage 1: restore ────────────────────────────────────────────────
+# Copy only project files and Directory.Build.props so NuGet restore
+# is cached independently of source-code changes.
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
 WORKDIR /src
 
-COPY ./archonai/ArchonAI.slnx ./
+# Build infrastructure files first (rarely change)
+COPY ./archonai/src/Directory.Build.props ./src/Directory.Build.props
+
+# Copy every project file in the transitive closure of Worker.Agents.
+# Organised alphabetically for easy maintenance.
+COPY ./archonai/src/ArchonAI.Agents/ArchonAI.Agents.csproj                         ./src/ArchonAI.Agents/
+COPY ./archonai/src/ArchonAI.Agents.Finance/ArchonAI.Agents.Finance.csproj         ./src/ArchonAI.Agents.Finance/
+COPY ./archonai/src/ArchonAI.Agents.Marketing/ArchonAI.Agents.Marketing.csproj     ./src/ArchonAI.Agents.Marketing/
+COPY ./archonai/src/ArchonAI.Agents.Operations/ArchonAI.Agents.Operations.csproj   ./src/ArchonAI.Agents.Operations/
+COPY ./archonai/src/ArchonAI.Agents.Sales/ArchonAI.Agents.Sales.csproj             ./src/ArchonAI.Agents.Sales/
+COPY ./archonai/src/ArchonAI.Agents.Support/ArchonAI.Agents.Support.csproj         ./src/ArchonAI.Agents.Support/
+COPY ./archonai/src/ArchonAI.Common/ArchonAI.Common.csproj                         ./src/ArchonAI.Common/
+COPY ./archonai/src/ArchonAI.Connectors/ArchonAI.Connectors.csproj                 ./src/ArchonAI.Connectors/
+COPY ./archonai/src/ArchonAI.Context/ArchonAI.Context.csproj                       ./src/ArchonAI.Context/
+COPY ./archonai/src/ArchonAI.Core/ArchonAI.Core.csproj                             ./src/ArchonAI.Core/
+COPY ./archonai/src/ArchonAI.DataFabric/ArchonAI.DataFabric.csproj                 ./src/ArchonAI.DataFabric/
+COPY ./archonai/src/ArchonAI.Evaluation/ArchonAI.Evaluation.csproj                 ./src/ArchonAI.Evaluation/
+COPY ./archonai/src/ArchonAI.EventBus/ArchonAI.EventBus.csproj                     ./src/ArchonAI.EventBus/
+COPY ./archonai/src/ArchonAI.Governance/ArchonAI.Governance.csproj                 ./src/ArchonAI.Governance/
+COPY ./archonai/src/ArchonAI.Identity/ArchonAI.Identity.csproj                     ./src/ArchonAI.Identity/
+COPY ./archonai/src/ArchonAI.Infrastructure/ArchonAI.Infrastructure.csproj         ./src/ArchonAI.Infrastructure/
+COPY ./archonai/src/ArchonAI.Knowledge/ArchonAI.Knowledge.csproj                   ./src/ArchonAI.Knowledge/
+COPY ./archonai/src/ArchonAI.KnowledgeGraph/ArchonAI.KnowledgeGraph.csproj         ./src/ArchonAI.KnowledgeGraph/
+COPY ./archonai/src/ArchonAI.Learning/ArchonAI.Learning.csproj                     ./src/ArchonAI.Learning/
+COPY ./archonai/src/ArchonAI.Memory/ArchonAI.Memory.csproj                         ./src/ArchonAI.Memory/
+COPY ./archonai/src/ArchonAI.ModelRouter/ArchonAI.ModelRouter.csproj               ./src/ArchonAI.ModelRouter/
+COPY ./archonai/src/ArchonAI.Models/ArchonAI.Models.csproj                         ./src/ArchonAI.Models/
+COPY ./archonai/src/ArchonAI.MultiTenant/ArchonAI.MultiTenant.csproj               ./src/ArchonAI.MultiTenant/
+COPY ./archonai/src/ArchonAI.Optimization/ArchonAI.Optimization.csproj             ./src/ArchonAI.Optimization/
+COPY ./archonai/src/ArchonAI.Orchestrator/ArchonAI.Orchestrator.csproj             ./src/ArchonAI.Orchestrator/
+COPY ./archonai/src/ArchonAI.PatternDiscovery/ArchonAI.PatternDiscovery.csproj     ./src/ArchonAI.PatternDiscovery/
+COPY ./archonai/src/ArchonAI.Patterns/ArchonAI.Patterns.csproj                     ./src/ArchonAI.Patterns/
+COPY ./archonai/src/ArchonAI.Perception/ArchonAI.Perception.csproj                 ./src/ArchonAI.Perception/
+COPY ./archonai/src/ArchonAI.Planner/ArchonAI.Planner.csproj                       ./src/ArchonAI.Planner/
+COPY ./archonai/src/ArchonAI.Plugins/ArchonAI.Plugins.csproj                       ./src/ArchonAI.Plugins/
+COPY ./archonai/src/ArchonAI.Policy/ArchonAI.Policy.csproj                         ./src/ArchonAI.Policy/
+COPY ./archonai/src/ArchonAI.Reasoner/ArchonAI.Reasoner.csproj                     ./src/ArchonAI.Reasoner/
+COPY ./archonai/src/ArchonAI.Registry/ArchonAI.Registry.csproj                     ./src/ArchonAI.Registry/
+COPY ./archonai/src/ArchonAI.Runtime/ArchonAI.Runtime.csproj                       ./src/ArchonAI.Runtime/
+COPY ./archonai/src/ArchonAI.Sandbox/ArchonAI.Sandbox.csproj                       ./src/ArchonAI.Sandbox/
+COPY ./archonai/src/ArchonAI.Scheduler/ArchonAI.Scheduler.csproj                   ./src/ArchonAI.Scheduler/
+COPY ./archonai/src/ArchonAI.Simulation/ArchonAI.Simulation.csproj                 ./src/ArchonAI.Simulation/
+COPY ./archonai/src/ArchonAI.StrategicPlanner/ArchonAI.StrategicPlanner.csproj     ./src/ArchonAI.StrategicPlanner/
+COPY ./archonai/src/ArchonAI.Strategy/ArchonAI.Strategy.csproj                     ./src/ArchonAI.Strategy/
+COPY ./archonai/src/ArchonAI.Supervisor/ArchonAI.Supervisor.csproj                 ./src/ArchonAI.Supervisor/
+COPY ./archonai/src/ArchonAI.TaskRuntime/ArchonAI.TaskRuntime.csproj               ./src/ArchonAI.TaskRuntime/
+COPY ./archonai/src/ArchonAI.Telemetry/ArchonAI.Telemetry.csproj                   ./src/ArchonAI.Telemetry/
+COPY ./archonai/src/ArchonAI.Trace/ArchonAI.Trace.csproj                           ./src/ArchonAI.Trace/
+COPY ./archonai/src/ArchonAI.Worker.Agents/ArchonAI.Worker.Agents.csproj           ./src/ArchonAI.Worker.Agents/
+COPY ./archonai/src/ArchonAI.Workflow/ArchonAI.Workflow.csproj                     ./src/ArchonAI.Workflow/
+COPY ./archonai/src/ArchonAI.WorkflowDesigner/ArchonAI.WorkflowDesigner.csproj     ./src/ArchonAI.WorkflowDesigner/
+COPY ./archonai/src/ArchonAI.WorkflowRuntime/ArchonAI.WorkflowRuntime.csproj       ./src/ArchonAI.WorkflowRuntime/
+
+RUN dotnet restore ./src/ArchonAI.Worker.Agents/ArchonAI.Worker.Agents.csproj
+
+# ── Stage 2: build & publish ───────────────────────────────────────
+FROM restore AS build
+WORKDIR /src
+
 COPY ./archonai/src ./src
 
-RUN dotnet restore ./ArchonAI.slnx
-RUN dotnet publish ./src/ArchonAI.Worker.Agents/ArchonAI.Worker.Agents.csproj -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish ./src/ArchonAI.Worker.Agents/ArchonAI.Worker.Agents.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore \
+    /p:UseAppHost=false
 
+# ── Stage 3: runtime ──────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
+LABEL org.opencontainers.image.source="https://github.com/rippleops/archonai"
+LABEL org.opencontainers.image.description="ArchonAI Worker Agents"
+
+EXPOSE 8080
+
 COPY --from=build /app/publish .
+
 ENTRYPOINT ["dotnet", "ArchonAI.Worker.Agents.dll"]
