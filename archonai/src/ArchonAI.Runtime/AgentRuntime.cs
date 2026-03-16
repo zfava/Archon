@@ -34,6 +34,7 @@ public sealed class AgentRuntime : IRuntime
     private readonly IDistributedTaskOrchestrator _taskOrchestrator;
     private readonly IEventBus _eventBus;
     private readonly IWorkflowEngine _workflowEngine;
+    private readonly IWorkflowExecutionEngine _workflowExecutionEngine;
     private readonly IAgentCapabilityRegistry _capabilityRegistry;
     private readonly IEvaluationEngine _evaluationEngine;
     private readonly IGovernanceKernel _governanceKernel;
@@ -53,6 +54,7 @@ public sealed class AgentRuntime : IRuntime
         IDistributedTaskOrchestrator taskOrchestrator,
         IEventBus eventBus,
         IWorkflowEngine workflowEngine,
+        IWorkflowExecutionEngine workflowExecutionEngine,
         IAgentCapabilityRegistry capabilityRegistry,
         IEvaluationEngine evaluationEngine,
         IGovernanceKernel governanceKernel,
@@ -68,6 +70,7 @@ public sealed class AgentRuntime : IRuntime
         _taskOrchestrator = taskOrchestrator;
         _eventBus = eventBus;
         _workflowEngine = workflowEngine;
+        _workflowExecutionEngine = workflowExecutionEngine;
         _capabilityRegistry = capabilityRegistry;
         _evaluationEngine = evaluationEngine;
         _governanceKernel = governanceKernel;
@@ -112,11 +115,9 @@ public sealed class AgentRuntime : IRuntime
         cancellationToken.ThrowIfCancellationRequested();
         await EnsureEventSubscriptionsAsync(cancellationToken);
 
-        _workflowEngine.Initialize(task.Id);
-        TransitionWorkflow(task.Id, WorkflowTrigger.StartPlanning);
-        TransitionWorkflow(task.Id, WorkflowTrigger.Schedule);
-
-        await _taskOrchestrator.EnqueueAsync(task, cancellationToken);
+        await _workflowExecutionEngine.InitializeWorkflowAsync(task.ObjectiveId, cancellationToken);
+        await _workflowExecutionEngine.CreateTaskQueueAsync(task.ObjectiveId, new[] { task }, cancellationToken);
+        await _workflowExecutionEngine.DispatchTasksToSchedulerAsync(task.ObjectiveId, 1, cancellationToken);
         await RecordTraceAsync(task, "decision", "Task was scheduled for execution.", new Dictionary<string, string>
         {
             ["requiredCapability"] = task.RequiredCapability
@@ -124,7 +125,7 @@ public sealed class AgentRuntime : IRuntime
 
         using var scheduleActivity = Telemetry.ActivitySource.StartActivity("runtime.task.schedule");
         scheduleActivity?.SetTag("task.id", task.Id.ToString());
-        scheduleActivity?.SetTag("workflow.state", _workflowEngine.GetState(task.Id).ToString());
+        scheduleActivity?.SetTag("workflow.state", _workflowExecutionEngine.GetWorkflowState(task.ObjectiveId).ToString());
 
         await _eventBus.PublishAsync(new SystemEvent(
             Id: Guid.NewGuid(),
@@ -135,7 +136,7 @@ public sealed class AgentRuntime : IRuntime
             {
                 ["taskId"] = task.Id.ToString(),
                 ["requiredCapability"] = task.RequiredCapability,
-                ["workflowState"] = _workflowEngine.GetState(task.Id).ToString(),
+                ["workflowState"] = _workflowExecutionEngine.GetWorkflowState(task.ObjectiveId).ToString(),
                 ["task"] = JsonSerializer.Serialize(task)
             },
             OccurredAtUtc: DateTimeOffset.UtcNow), cancellationToken);
@@ -411,6 +412,7 @@ public sealed class AgentRuntime : IRuntime
         }, cancellationToken);
 
         ReportResults(results);
+        await _workflowExecutionEngine.UpdateExecutionResultsAsync(context.CorrelationId, results, cancellationToken);
         return results;
     }
 
