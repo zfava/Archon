@@ -7,6 +7,7 @@ using ArchonAI.Core.Models.Planning;
 using ArchonAI.Infrastructure;
 using ArchonAI.Plugins;
 using ArchonAI.Registry;
+using ArchonAI.Agents.Operations;
 using ArchonAI.Runtime;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -19,6 +20,7 @@ builder.Services.AddArchonAIAgentTooling();
 builder.Services.AddArchonAIPlugins(builder.Configuration);
 builder.Services.AddArchonAIRegistry();
 builder.Services.AddArchonAIRuntime();
+builder.Services.AddArchonAIOperations(builder.Configuration);
 
 var app = builder.Build();
 
@@ -422,6 +424,40 @@ m365.MapGet("/onedrive/files/{itemId}", async (string itemId, IMicrosoft365Conne
     return Results.Ok(item);
 });
 
+var ops = v1.MapGroup("/operations")
+    .RequireAuthorization("OperatorOrAdmin");
+
+ops.MapGet("/status", (IOperationsEngine opsEngine) =>
+{
+    var status = opsEngine.GetStatus();
+    return Results.Ok(status);
+});
+
+ops.MapPost("/workflows/{objectiveId:guid}/analyze", async (Guid objectiveId, Dictionary<string, string>? parameters, IOperationsEngine opsEngine, CancellationToken ct) =>
+{
+    var result = await opsEngine.AnalyzeWorkflowAsync(objectiveId, parameters ?? new Dictionary<string, string>(), ct);
+    return Results.Ok(result);
+});
+
+ops.MapGet("/inefficiencies", async (string? scope, int? maxResults, IOperationsEngine opsEngine, CancellationToken ct) =>
+{
+    var insights = await opsEngine.IdentifyInefficienciesAsync(scope ?? "*", maxResults ?? 20, ct);
+    return Results.Ok(insights);
+});
+
+ops.MapPost("/workflows/{objectiveId:guid}/recommendations", async (Guid objectiveId, IOperationsEngine opsEngine, CancellationToken ct) =>
+{
+    var recommendations = await opsEngine.RecommendImprovementsAsync(objectiveId, ct);
+    return Results.Ok(recommendations);
+});
+
+ops.MapPost("/workflows/coordinate", async (WorkflowCoordinationRequest coordRequest, IOperationsEngine opsEngine, CancellationToken ct) =>
+{
+    var result = await opsEngine.CoordinateWorkflowAsync(
+        coordRequest.WorkflowTemplate, coordRequest.AgentCapabilities, coordRequest.Inputs, ct);
+    return result.IsSuccess ? Results.Ok(result) : Results.Problem("Coordination failed", statusCode: 400);
+});
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")
@@ -448,3 +484,4 @@ public sealed record GoogleDocCreateRequest(string Title, string? Content = null
 public sealed record GoogleSheetWriteRequest(string Range, IReadOnlyList<IReadOnlyList<string>> Values);
 public sealed record M365SendEmailRequest(string To, string Subject, string Body, bool IsHtml = false);
 public sealed record M365TeamsMessageRequest(string Content);
+public sealed record WorkflowCoordinationRequest(string WorkflowTemplate, IReadOnlyList<string> AgentCapabilities, Dictionary<string, string> Inputs);

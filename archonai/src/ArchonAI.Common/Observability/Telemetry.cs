@@ -67,4 +67,14 @@ public static class Telemetry
     public static readonly Counter<long> M365Errors = Meter.CreateCounter<long>("archonai.m365.errors");
     public static readonly Counter<long> M365Retries = Meter.CreateCounter<long>("archonai.m365.retries");
     public static readonly Histogram<double> M365RateLimitRemaining = Meter.CreateHistogram<double>("archonai.m365.ratelimit.remaining");
+
+    // Operations agent metrics
+    public static readonly Counter<long> OperationsAnalyses = Meter.CreateCounter<long>("archonai.operations.analyses");
+    public static readonly Counter<long> OperationsInefficiencyScans = Meter.CreateCounter<long>("archonai.operations.inefficiency.scans");
+    public static readonly Counter<long> OperationsRecommendations = Meter.CreateCounter<long>("archonai.operations.recommendations");
+    public static readonly Counter<long> OperationsCoordinations = Meter.CreateCounter<long>("archonai.operations.coordinations");
+    public static readonly Counter<long> OperationsReasoningCycles = Meter.CreateCounter<long>("archonai.operations.reasoning.cycles");
+    public static readonly Counter<long> OperationsDataFabricQueries = Meter.CreateCounter<long>("archonai.operations.datafabric.queries");
+    public static readonly Counter<long> OperationsStrategyLookups = Meter.CreateCounter<long>("archonai.operations.strategy.lookups");
+    public static readonly Histogram<double> OperationsCoordinationDurationMs = Meter.CreateHistogram<double>("archonai.operations.coordination.duration.ms");
 }

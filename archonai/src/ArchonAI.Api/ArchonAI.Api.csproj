@@ -13,6 +13,7 @@
     <ProjectReference Include="..\ArchonAI.Agents\ArchonAI.Agents.csproj" />
     <ProjectReference Include="..\ArchonAI.Connectors\ArchonAI.Connectors.csproj" />
     <ProjectReference Include="..\ArchonAI.Plugins\ArchonAI.Plugins.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents.Operations\ArchonAI.Agents.Operations.csproj" />
     <ProjectReference Include="..\ArchonAI.Registry\ArchonAI.Registry.csproj" />
   </ItemGroup>
 
