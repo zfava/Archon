@@ -1,6 +1,22 @@
 version: "3.9"
 
 services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: archonai/deploy/docker/Dockerfile.gateway
+    image: archonai/gateway:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ARCHONAI_JWT_SIGNING_KEY: ${ARCHONAI_JWT_SIGNING_KEY:-change-me-please-use-at-least-32-characters}
+      Security__Jwt__Issuer: ArchonAI
+      Security__Jwt__Audience: ArchonAI.Api
+      ReverseProxy__Clusters__api-cluster__Destinations__api-1__Address: http://api:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+
   api:
     build:
       context: ..
@@ -15,8 +31,8 @@ services:
       MemoryPersistence__Schema: public
       EventBus__UseNats: "true"
       EventBus__Url: nats://nats:4222
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     depends_on:
       postgres:
         condition: service_healthy

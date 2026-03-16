@@ -92,6 +92,8 @@ jobs:
             dockerfile: archonai/deploy/docker/Dockerfile.scheduler
           - image: agents
             dockerfile: archonai/deploy/docker/Dockerfile.agents
+          - image: gateway
+            dockerfile: archonai/deploy/docker/Dockerfile.gateway
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -178,6 +180,13 @@ jobs:
           -o ./artifacts/agents
           /p:UseAppHost=false
 
+      - name: Publish Gateway
+        run: >
+          dotnet publish archonai/src/ArchonAI.Gateway/ArchonAI.Gateway.csproj
+          -c Release
+          -o ./artifacts/gateway
+          /p:UseAppHost=false
+
       - name: Upload API artifact
         uses: actions/upload-artifact@v4
         with:
@@ -211,6 +220,13 @@ jobs:
         with:
           name: archonai-agents
           path: ./artifacts/agents/
+          retention-days: 30
+
+      - name: Upload Gateway artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archonai-gateway
+          path: ./artifacts/gateway/
           retention-days: 30
 
       - name: Upload Helm chart

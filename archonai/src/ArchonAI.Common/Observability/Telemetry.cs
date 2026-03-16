@@ -124,4 +124,11 @@ public static class Telemetry
     // Audit log metrics
     public static readonly Counter<long> AuditEntriesRecorded = Meter.CreateCounter<long>("archonai.audit.entries.recorded");
     public static readonly Counter<long> AuditIntegrityChecks = Meter.CreateCounter<long>("archonai.audit.integrity.checks");
+
+    // Gateway metrics
+    public static readonly Counter<long> GatewayRequestsTotal = Meter.CreateCounter<long>("archonai.gateway.requests.total");
+    public static readonly Counter<long> GatewayRequestsFailed = Meter.CreateCounter<long>("archonai.gateway.requests.failed");
+    public static readonly Counter<long> GatewayAuthFailures = Meter.CreateCounter<long>("archonai.gateway.auth.failures");
+    public static readonly Counter<long> GatewayRateLimitHits = Meter.CreateCounter<long>("archonai.gateway.ratelimit.hits");
+    public static readonly Histogram<double> GatewayRequestDurationMs = Meter.CreateHistogram<double>("archonai.gateway.request.duration.ms");
 }
