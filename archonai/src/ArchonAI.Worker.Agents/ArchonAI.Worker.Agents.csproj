@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ArchonAI.Common\ArchonAI.Common.csproj" />
+    <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
+    <ProjectReference Include="..\ArchonAI.Infrastructure\ArchonAI.Infrastructure.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents\ArchonAI.Agents.csproj" />
+    <ProjectReference Include="..\ArchonAI.Connectors\ArchonAI.Connectors.csproj" />
+    <ProjectReference Include="..\ArchonAI.Plugins\ArchonAI.Plugins.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents.Finance\ArchonAI.Agents.Finance.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents.Marketing\ArchonAI.Agents.Marketing.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents.Operations\ArchonAI.Agents.Operations.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents.Sales\ArchonAI.Agents.Sales.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents.Support\ArchonAI.Agents.Support.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.9.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.9.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Process" Version="1.9.0-beta.1" />
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.HttpListener" Version="1.9.0-beta.1" />
+  </ItemGroup>
+</Project>

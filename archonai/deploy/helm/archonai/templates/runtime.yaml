@@ -1,0 +1,46 @@
+{{- if .Values.runtime.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archonai-runtime
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-runtime
+    app.kubernetes.io/component: runtime
+    app.kubernetes.io/part-of: archonai
+spec:
+  replicas: {{ .Values.runtime.replicaCount }}
+  selector:
+    matchLabels:
+      app: archonai-runtime
+  template:
+    metadata:
+      labels:
+        app: archonai-runtime
+        app.kubernetes.io/name: archonai-runtime
+        app.kubernetes.io/component: runtime
+    spec:
+      containers:
+        - name: runtime
+          image: "{{ .Values.runtime.image.repository }}:{{ .Values.runtime.image.tag }}"
+          imagePullPolicy: {{ .Values.runtime.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: archonai-runtime-config
+            - secretRef:
+                name: archonai-secrets
+          {{- with .Values.runtime.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: archonai-runtime-config
+  namespace: {{ .Values.namespace }}
+data:
+{{- range $key, $value := .Values.runtime.env }}
+  {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}

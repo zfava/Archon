@@ -1,0 +1,46 @@
+{{- if .Values.scheduler.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archonai-scheduler
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-scheduler
+    app.kubernetes.io/component: scheduler
+    app.kubernetes.io/part-of: archonai
+spec:
+  replicas: {{ .Values.scheduler.replicaCount }}
+  selector:
+    matchLabels:
+      app: archonai-scheduler
+  template:
+    metadata:
+      labels:
+        app: archonai-scheduler
+        app.kubernetes.io/name: archonai-scheduler
+        app.kubernetes.io/component: scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: "{{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag }}"
+          imagePullPolicy: {{ .Values.scheduler.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: archonai-scheduler-config
+            - secretRef:
+                name: archonai-secrets
+          {{- with .Values.scheduler.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: archonai-scheduler-config
+  namespace: {{ .Values.namespace }}
+data:
+{{- range $key, $value := .Values.scheduler.env }}
+  {{ $key }}: {{ $value | quote }}
+{{- end }}
+{{- end }}

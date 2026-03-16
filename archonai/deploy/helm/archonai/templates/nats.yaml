@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: archonai-nats
   namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-nats
+    app.kubernetes.io/component: messaging
+    app.kubernetes.io/part-of: archonai
 spec:
   replicas: 1
   selector:
@@ -12,6 +16,8 @@ spec:
     metadata:
       labels:
         app: archonai-nats
+        app.kubernetes.io/name: archonai-nats
+        app.kubernetes.io/component: messaging
     spec:
       containers:
         - name: nats
@@ -19,13 +25,34 @@ spec:
           args: ["-js", "-m", "8222"]
           ports:
             - containerPort: 4222
+              name: nats
             - containerPort: 8222
+              name: monitoring
+          {{- with .Values.nats.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8222
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8222
+            initialDelaySeconds: 5
+            periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: archonai-nats
   namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-nats
+    app.kubernetes.io/component: messaging
 spec:
   selector:
     app: archonai-nats

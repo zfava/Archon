@@ -1,6 +1,6 @@
 apiVersion: v2
 name: archonai
-description: ArchonAI platform chart (API + Postgres/pgvector + NATS)
+description: ArchonAI platform chart (API + Runtime + Scheduler + Agents + Postgres/pgvector + NATS)
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "1.0.0"

@@ -1,18 +1,109 @@
 namespace: archonai
 
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
 api:
   image:
     repository: archonai/api
-    tag: local
+    tag: latest
     pullPolicy: IfNotPresent
-  replicaCount: 1
+  replicaCount: 2
   service:
     type: ClusterIP
     port: 80
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  livenessProbe:
+    httpGet:
+      path: /api/v1/health
+      port: 8080
+    initialDelaySeconds: 15
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /api/v1/health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
   env:
     ASPNETCORE_ENVIRONMENT: Production
     Security__Jwt__Issuer: ArchonAI
     Security__Jwt__Audience: ArchonAI.Api
+    EventBus__UseNats: "true"
+    EventBus__Url: nats://archonai-nats:4222
+    MemoryPersistence__Schema: public
+    MemoryPersistence__ConnectionString: Host=archonai-postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+
+runtime:
+  enabled: true
+  image:
+    repository: archonai/runtime
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  env:
+    DOTNET_ENVIRONMENT: Production
+    EventBus__UseNats: "true"
+    EventBus__Url: nats://archonai-nats:4222
+    MemoryPersistence__Schema: public
+    MemoryPersistence__ConnectionString: Host=archonai-postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+    Runtime__MaxDegreeOfParallelism: "128"
+    Runtime__MaxRetries: "2"
+    Runtime__BaseRetryDelayMs: "250"
+
+scheduler:
+  enabled: true
+  image:
+    repository: archonai/scheduler
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  env:
+    DOTNET_ENVIRONMENT: Production
+    EventBus__UseNats: "true"
+    EventBus__Url: nats://archonai-nats:4222
+    MemoryPersistence__Schema: public
+    MemoryPersistence__ConnectionString: Host=archonai-postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+    Scheduler__MaxGpuSlots: "4"
+    Scheduler__MaxParallelTasks: "128"
+
+agents:
+  enabled: true
+  image:
+    repository: archonai/agents
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  env:
+    DOTNET_ENVIRONMENT: Production
     EventBus__UseNats: "true"
     EventBus__Url: nats://archonai-nats:4222
     MemoryPersistence__Schema: public
@@ -26,6 +117,21 @@ postgres:
   database: archonai
   username: archonai
   password: archonai
+  storage: 10Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
 
 nats:
   image: nats:2.10-alpine
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

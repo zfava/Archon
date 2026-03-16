@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archonai-runtime
+  namespace: archonai
+  labels:
+    app.kubernetes.io/name: archonai-runtime
+    app.kubernetes.io/component: runtime
+    app.kubernetes.io/part-of: archonai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: archonai-runtime
+  template:
+    metadata:
+      labels:
+        app: archonai-runtime
+    spec:
+      containers:
+        - name: runtime
+          image: archonai/runtime:latest
+          envFrom:
+            - configMapRef:
+                name: archonai-config
+            - secretRef:
+                name: archonai-secrets
+          env:
+            - name: Runtime__MaxDegreeOfParallelism
+              value: "128"
+            - name: Runtime__MaxRetries
+              value: "2"
+            - name: Runtime__BaseRetryDelayMs
+              value: "250"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi

@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: archonai-api
   namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: archonai
 spec:
   replicas: {{ .Values.api.replicaCount }}
   selector:
@@ -12,6 +16,8 @@ spec:
     metadata:
       labels:
         app: archonai-api
+        app.kubernetes.io/name: archonai-api
+        app.kubernetes.io/component: api
     spec:
       containers:
         - name: api
@@ -19,17 +25,33 @@ spec:
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
           ports:
             - containerPort: 8080
+              name: http
           envFrom:
             - configMapRef:
                 name: archonai-config
             - secretRef:
                 name: archonai-secrets
+          {{- with .Values.api.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.api.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.api.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: archonai-api
   namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-api
+    app.kubernetes.io/component: api
 spec:
   type: {{ .Values.api.service.type }}
   selector:

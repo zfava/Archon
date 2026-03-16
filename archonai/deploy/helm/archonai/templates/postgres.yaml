@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: archonai-postgres
   namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: archonai
 spec:
   replicas: 1
   selector:
@@ -12,6 +16,8 @@ spec:
     metadata:
       labels:
         app: archonai-postgres
+        app.kubernetes.io/name: archonai-postgres
+        app.kubernetes.io/component: database
     spec:
       containers:
         - name: postgres
@@ -25,12 +31,48 @@ spec:
               value: {{ .Values.postgres.username | quote }}
             - name: POSTGRES_PASSWORD
               value: {{ .Values.postgres.password | quote }}
+          {{- with .Values.postgres.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.username | quote }}]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.username | quote }}]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: archonai-postgres-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: archonai-postgres-pvc
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.postgres.storage }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: archonai-postgres
   namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-postgres
+    app.kubernetes.io/component: database
 spec:
   selector:
     app: archonai-postgres

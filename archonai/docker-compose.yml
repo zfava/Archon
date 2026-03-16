@@ -23,6 +23,57 @@ services:
       nats:
         condition: service_started
 
+  runtime:
+    build:
+      context: ..
+      dockerfile: archonai/deploy/docker/Dockerfile.runtime
+    image: archonai/runtime:local
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      EventBus__UseNats: "true"
+      EventBus__Url: nats://nats:4222
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+      MemoryPersistence__Schema: public
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
+  scheduler:
+    build:
+      context: ..
+      dockerfile: archonai/deploy/docker/Dockerfile.scheduler
+    image: archonai/scheduler:local
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      EventBus__UseNats: "true"
+      EventBus__Url: nats://nats:4222
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+      MemoryPersistence__Schema: public
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
+  agents:
+    build:
+      context: ..
+      dockerfile: archonai/deploy/docker/Dockerfile.agents
+    image: archonai/agents:local
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      EventBus__UseNats: "true"
+      EventBus__Url: nats://nats:4222
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+      MemoryPersistence__Schema: public
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
   postgres:
     image: pgvector/pgvector:pg16
     environment:
