@@ -8,6 +8,7 @@ using ArchonAI.Core.Models.Workflow;
 using ArchonAI.Registry;
 using CoreTask = ArchonAI.Core.Models.Task;
 using CoreExecutionContext = ArchonAI.Core.Models.ExecutionContext;
+using OTel = ArchonAI.Common.Observability.Telemetry;
 
 namespace ArchonAI.Api.Security;
 
@@ -44,7 +45,7 @@ public sealed class WorkflowDesignService : IWorkflowDesignService
         IReadOnlyDictionary<string, string>? metadata = null,
         CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("WorkflowDesign.Create");
+        using var activity = OTel.ActivitySource.StartActivity("WorkflowDesign.Create");
 
         var workflowId = Guid.NewGuid();
         var workflow = new DesignedWorkflow(
@@ -57,7 +58,7 @@ public sealed class WorkflowDesignService : IWorkflowDesignService
 
         _workflows[workflowId] = workflow;
         Interlocked.Increment(ref _totalWorkflows);
-        Telemetry.WorkflowDesignsCreated.Add(1);
+        OTel.WorkflowDesignsCreated.Add(1);
 
         _logger.LogInformation("Workflow design created: {WorkflowId} '{Name}' with {StepCount} steps",
             workflowId, name, steps.Count);
@@ -90,8 +91,8 @@ public sealed class WorkflowDesignService : IWorkflowDesignService
     public async global::System.Threading.Tasks.Task<WorkflowValidationResult> ValidateWorkflowAsync(
         Guid workflowId, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("WorkflowDesign.Validate");
-        Telemetry.WorkflowDesignsValidated.Add(1);
+        using var activity = OTel.ActivitySource.StartActivity("WorkflowDesign.Validate");
+        OTel.WorkflowDesignsValidated.Add(1);
 
         if (!_workflows.TryGetValue(workflowId, out var workflow))
         {
@@ -173,8 +174,8 @@ public sealed class WorkflowDesignService : IWorkflowDesignService
         IReadOnlyDictionary<string, string>? executionMetadata = null,
         CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("WorkflowDesign.Execute");
-        Telemetry.WorkflowDesignsExecuted.Add(1);
+        using var activity = OTel.ActivitySource.StartActivity("WorkflowDesign.Execute");
+        OTel.WorkflowDesignsExecuted.Add(1);
 
         if (!_workflows.TryGetValue(workflowId, out var workflow))
             throw new InvalidOperationException($"Workflow {workflowId} not found");

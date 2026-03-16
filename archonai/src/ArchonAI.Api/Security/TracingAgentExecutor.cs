@@ -4,6 +4,7 @@ using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Observability;
 using CoreTask = ArchonAI.Core.Models.Task;
 using CoreExecutionContext = ArchonAI.Core.Models.ExecutionContext;
+using OTel = ArchonAI.Common.Observability.Telemetry;
 
 namespace ArchonAI.Api.Security;
 
@@ -22,7 +23,7 @@ public sealed class TracingAgentExecutor
         IAgent agent, CoreTask task, CoreExecutionContext context, CancellationToken ct = default)
     {
         var desc = agent.Describe();
-        using var activity = Telemetry.ActivitySource.StartActivity($"Agent.{desc.Name}.Execute");
+        using var activity = OTel.ActivitySource.StartActivity($"Agent.{desc.Name}.Execute");
         activity?.SetTag("agent.id", desc.Id.ToString());
         activity?.SetTag("agent.name", desc.Name);
         activity?.SetTag("task.id", task.Id.ToString());

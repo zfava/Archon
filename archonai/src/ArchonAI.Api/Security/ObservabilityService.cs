@@ -3,6 +3,7 @@ using System.Diagnostics;
 using ArchonAI.Common.Observability;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.Observability;
+using OTel = ArchonAI.Common.Observability.Telemetry;
 
 namespace ArchonAI.Api.Security;
 
@@ -36,7 +37,7 @@ public sealed class ObservabilityService : IObservabilityService
         state.RecordExecution(trace);
 
         Interlocked.Increment(ref _tracesCollected);
-        Telemetry.ObservabilityTracesCollected.Add(1);
+        OTel.ObservabilityTracesCollected.Add(1);
 
         _logger.LogDebug(
             "Recorded trace for agent {AgentName} (task {TaskId}), success={IsSuccess}, duration={DurationMs:F1}ms",
@@ -72,7 +73,7 @@ public sealed class ObservabilityService : IObservabilityService
     public global::System.Threading.Tasks.Task<SystemMetricsSnapshot> GetSystemMetricsAsync(CancellationToken ct = default)
     {
         Interlocked.Increment(ref _metricsSnapshots);
-        Telemetry.ObservabilityMetricsSnapshots.Add(1);
+        OTel.ObservabilityMetricsSnapshots.Add(1);
 
         var process = Process.GetCurrentProcess();
         var gcInfo = GC.GetGCMemoryInfo();
@@ -147,28 +148,28 @@ public sealed class ObservabilityService : IObservabilityService
         var health = new Dictionary<string, ConnectorHealthStatus>();
 
         AddConnectorHealth(health, "Salesforce",
-            CounterValue(Telemetry.SalesforceQueryOps) + CounterValue(Telemetry.SalesforceWriteOps),
-            CounterValue(Telemetry.SalesforceErrors), now);
+            CounterValue(OTel.SalesforceQueryOps) + CounterValue(OTel.SalesforceWriteOps),
+            CounterValue(OTel.SalesforceErrors), now);
 
         AddConnectorHealth(health, "HubSpot",
-            CounterValue(Telemetry.HubSpotQueryOps) + CounterValue(Telemetry.HubSpotWriteOps),
-            CounterValue(Telemetry.HubSpotErrors), now);
+            CounterValue(OTel.HubSpotQueryOps) + CounterValue(OTel.HubSpotWriteOps),
+            CounterValue(OTel.HubSpotErrors), now);
 
         AddConnectorHealth(health, "QuickBooks",
-            CounterValue(Telemetry.QuickBooksQueryOps) + CounterValue(Telemetry.QuickBooksWriteOps),
-            CounterValue(Telemetry.QuickBooksErrors), now);
+            CounterValue(OTel.QuickBooksQueryOps) + CounterValue(OTel.QuickBooksWriteOps),
+            CounterValue(OTel.QuickBooksErrors), now);
 
         AddConnectorHealth(health, "Slack",
-            CounterValue(Telemetry.SlackMessagesSent) + CounterValue(Telemetry.SlackQueryOps) + CounterValue(Telemetry.SlackAlertsSent),
-            CounterValue(Telemetry.SlackErrors), now);
+            CounterValue(OTel.SlackMessagesSent) + CounterValue(OTel.SlackQueryOps) + CounterValue(OTel.SlackAlertsSent),
+            CounterValue(OTel.SlackErrors), now);
 
         AddConnectorHealth(health, "GoogleWorkspace",
-            CounterValue(Telemetry.GoogleWorkspaceQueryOps) + CounterValue(Telemetry.GoogleWorkspaceWriteOps),
-            CounterValue(Telemetry.GoogleWorkspaceErrors), now);
+            CounterValue(OTel.GoogleWorkspaceQueryOps) + CounterValue(OTel.GoogleWorkspaceWriteOps),
+            CounterValue(OTel.GoogleWorkspaceErrors), now);
 
         AddConnectorHealth(health, "M365",
-            CounterValue(Telemetry.M365QueryOps) + CounterValue(Telemetry.M365WriteOps),
-            CounterValue(Telemetry.M365Errors), now);
+            CounterValue(OTel.M365QueryOps) + CounterValue(OTel.M365WriteOps),
+            CounterValue(OTel.M365Errors), now);
 
         return health;
     }

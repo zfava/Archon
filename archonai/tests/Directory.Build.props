@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="System.Threading.Tasks.Task" Alias="Task" />
+  </ItemGroup>
+</Project>

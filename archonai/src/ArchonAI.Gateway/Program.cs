@@ -77,45 +77,55 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    options.AddFixedWindowLimiter("standard", limiter =>
-    {
-        limiter.PermitLimit = 120;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiter.QueueLimit = 20;
-    });
+    options.AddPolicy("standard", _ => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: "standard",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 120,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 20
+        }));
 
-    options.AddFixedWindowLimiter("admin", limiter =>
-    {
-        limiter.PermitLimit = 60;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiter.QueueLimit = 10;
-    });
+    options.AddPolicy("admin", _ => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: "admin",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 10
+        }));
 
-    options.AddFixedWindowLimiter("connectors", limiter =>
-    {
-        limiter.PermitLimit = 200;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiter.QueueLimit = 30;
-    });
+    options.AddPolicy("connectors", _ => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: "connectors",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 200,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 30
+        }));
 
-    options.AddFixedWindowLimiter("health", limiter =>
-    {
-        limiter.PermitLimit = 300;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiter.QueueLimit = 0;
-    });
+    options.AddPolicy("health", _ => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: "health",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 300,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        }));
 
-    options.AddFixedWindowLimiter("metrics", limiter =>
-    {
-        limiter.PermitLimit = 30;
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiter.QueueLimit = 0;
-    });
+    options.AddPolicy("metrics", _ => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: "metrics",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        }));
 });
 
 // YARP Reverse Proxy

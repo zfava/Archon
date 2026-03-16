@@ -43,26 +43,26 @@ public sealed class AdminService : IAdminService
         _options = options.Value;
     }
 
-    public Task<IReadOnlyList<AgentInfo>> GetAgentsAsync(CancellationToken cancellationToken = default)
+    public global::System.Threading.Tasks.Task<IReadOnlyList<AgentInfo>> GetAgentsAsync(CancellationToken cancellationToken = default)
     {
         Telemetry.AdminAgentQueries.Add(1);
         Interlocked.Increment(ref _agentQueries);
 
         var result = _agents.Select(ToAgentInfo).ToList();
         _logger.LogDebug("Returning {Count} agents", result.Count);
-        return Task.FromResult<IReadOnlyList<AgentInfo>>(result);
+        return global::System.Threading.Tasks.Task.FromResult<IReadOnlyList<AgentInfo>>(result);
     }
 
-    public Task<AgentInfo?> GetAgentAsync(Guid agentId, CancellationToken cancellationToken = default)
+    public global::System.Threading.Tasks.Task<AgentInfo?> GetAgentAsync(Guid agentId, CancellationToken cancellationToken = default)
     {
         Telemetry.AdminAgentQueries.Add(1);
         Interlocked.Increment(ref _agentQueries);
 
         var agent = _agents.FirstOrDefault(a => a.Describe().Id == agentId);
-        return Task.FromResult(agent is null ? null : ToAgentInfo(agent));
+        return global::System.Threading.Tasks.Task.FromResult(agent is null ? null : ToAgentInfo(agent));
     }
 
-    public async Task SetAgentEnabledAsync(Guid agentId, bool enabled, CancellationToken cancellationToken = default)
+    public async global::System.Threading.Tasks.Task SetAgentEnabledAsync(Guid agentId, bool enabled, CancellationToken cancellationToken = default)
     {
         _agentEnabledOverrides[agentId] = enabled;
 
@@ -82,7 +82,7 @@ public sealed class AdminService : IAdminService
         _logger.LogInformation("Agent {AgentId} enabled state set to {Enabled}", agentId, enabled);
     }
 
-    public Task<IReadOnlyList<WorkflowInfo>> GetWorkflowsAsync(CancellationToken cancellationToken = default)
+    public global::System.Threading.Tasks.Task<IReadOnlyList<WorkflowInfo>> GetWorkflowsAsync(CancellationToken cancellationToken = default)
     {
         Telemetry.AdminWorkflowQueries.Add(1);
         Interlocked.Increment(ref _workflowQueries);
@@ -91,19 +91,19 @@ public sealed class AdminService : IAdminService
             .Take(_options.MaxWorkflowHistoryEntries)
             .ToList();
 
-        return Task.FromResult<IReadOnlyList<WorkflowInfo>>(result);
+        return global::System.Threading.Tasks.Task.FromResult<IReadOnlyList<WorkflowInfo>>(result);
     }
 
-    public Task<WorkflowInfo?> GetWorkflowAsync(Guid workflowId, CancellationToken cancellationToken = default)
+    public global::System.Threading.Tasks.Task<WorkflowInfo?> GetWorkflowAsync(Guid workflowId, CancellationToken cancellationToken = default)
     {
         Telemetry.AdminWorkflowQueries.Add(1);
         Interlocked.Increment(ref _workflowQueries);
 
         var workflow = _workflows.FirstOrDefault(w => w.Id == workflowId);
-        return Task.FromResult(workflow);
+        return global::System.Threading.Tasks.Task.FromResult(workflow);
     }
 
-    public async Task CancelWorkflowAsync(Guid workflowId, CancellationToken cancellationToken = default)
+    public async global::System.Threading.Tasks.Task CancelWorkflowAsync(Guid workflowId, CancellationToken cancellationToken = default)
     {
         var auditEvent = new SystemEvent(
             Guid.NewGuid(),
@@ -120,15 +120,15 @@ public sealed class AdminService : IAdminService
         _logger.LogInformation("Workflow {WorkflowId} cancellation requested", workflowId);
     }
 
-    public Task<PolicyConfiguration> GetPolicyConfigAsync(CancellationToken cancellationToken = default)
+    public global::System.Threading.Tasks.Task<PolicyConfiguration> GetPolicyConfigAsync(CancellationToken cancellationToken = default)
     {
         Telemetry.AdminPolicyUpdates.Add(1);
         Interlocked.Increment(ref _policyUpdates);
 
-        return Task.FromResult(_policyConfig);
+        return global::System.Threading.Tasks.Task.FromResult(_policyConfig);
     }
 
-    public async Task UpdatePolicyConfigAsync(PolicyConfiguration policy, CancellationToken cancellationToken = default)
+    public async global::System.Threading.Tasks.Task UpdatePolicyConfigAsync(PolicyConfiguration policy, CancellationToken cancellationToken = default)
     {
         Telemetry.AdminPolicyUpdates.Add(1);
         Interlocked.Increment(ref _policyUpdates);
@@ -153,7 +153,7 @@ public sealed class AdminService : IAdminService
         _logger.LogInformation("Policy configuration updated");
     }
 
-    public Task<SystemMonitoringSnapshot> GetSystemSnapshotAsync(CancellationToken cancellationToken = default)
+    public global::System.Threading.Tasks.Task<SystemMonitoringSnapshot> GetSystemSnapshotAsync(CancellationToken cancellationToken = default)
     {
         Telemetry.AdminMonitoringSnapshots.Add(1);
         Interlocked.Increment(ref _monitoringSnapshots);
@@ -172,7 +172,7 @@ public sealed class AdminService : IAdminService
             AdditionalMetrics: new Dictionary<string, string>(),
             CapturedAtUtc: DateTimeOffset.UtcNow);
 
-        return Task.FromResult(snapshot);
+        return global::System.Threading.Tasks.Task.FromResult(snapshot);
     }
 
     public AdminServiceStatus GetStatus()

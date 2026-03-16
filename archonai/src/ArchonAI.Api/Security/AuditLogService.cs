@@ -4,6 +4,7 @@ using System.Text;
 using ArchonAI.Common.Observability;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.AuditLog;
+using OTel = ArchonAI.Common.Observability.Telemetry;
 
 namespace ArchonAI.Api.Security;
 
@@ -40,12 +41,12 @@ public sealed class AuditLogService : IAuditLogService
         IReadOnlyDictionary<string, string>? metadata = null,
         CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("AuditLog.Record");
+        using var activity = OTel.ActivitySource.StartActivity("AuditLog.Record");
         activity?.SetTag("audit.event_type", eventType);
         activity?.SetTag("audit.category", category);
         activity?.SetTag("audit.subject_id", subjectId);
 
-        Telemetry.AuditEntriesRecorded.Add(1);
+        OTel.AuditEntriesRecorded.Add(1);
 
         var entryId = Guid.NewGuid();
         var occurredAtUtc = DateTimeOffset.UtcNow;
@@ -103,7 +104,7 @@ public sealed class AuditLogService : IAuditLogService
         int limit = 100,
         CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("AuditLog.Query");
+        using var activity = OTel.ActivitySource.StartActivity("AuditLog.Query");
 
         IEnumerable<AuditEntry> query = _entryOrder
             .Select(id => _entries.TryGetValue(id, out var e) ? e : null)
@@ -140,9 +141,9 @@ public sealed class AuditLogService : IAuditLogService
 
     public global::System.Threading.Tasks.Task<bool> VerifyIntegrityAsync(Guid? fromEntryId = null, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("AuditLog.VerifyIntegrity");
+        using var activity = OTel.ActivitySource.StartActivity("AuditLog.VerifyIntegrity");
 
-        Telemetry.AuditIntegrityChecks.Add(1);
+        OTel.AuditIntegrityChecks.Add(1);
 
         var orderedIds = _entryOrder.ToArray();
         string previousChecksum = string.Empty;

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using ArchonAI.Common.Observability;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.Monitoring;
+using OTel = ArchonAI.Common.Observability.Telemetry;
 using ArchonAI.Core.Models.Observability;
 using ArchonAI.Core.Models.Workflow;
 using ArchonAI.Registry;
@@ -35,9 +36,9 @@ public sealed class MonitoringDashboardService : IMonitoringDashboardService
     public async global::System.Threading.Tasks.Task<MonitoringDashboard> GetFullDashboardAsync(
         CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Monitoring.FullDashboard");
+        using var activity = OTel.ActivitySource.StartActivity("Monitoring.FullDashboard");
         Interlocked.Increment(ref _dashboardsGenerated);
-        Telemetry.MonitoringDashboardsGenerated.Add(1);
+        OTel.MonitoringDashboardsGenerated.Add(1);
 
         var workflowTask = GetWorkflowMetricsCoreAsync(ct);
         var agentTask = GetAgentHealthCoreAsync(ct);
@@ -58,27 +59,27 @@ public sealed class MonitoringDashboardService : IMonitoringDashboardService
     public async global::System.Threading.Tasks.Task<WorkflowMetricsDashboard> GetWorkflowMetricsAsync(
         CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Monitoring.WorkflowMetrics");
+        using var activity = OTel.ActivitySource.StartActivity("Monitoring.WorkflowMetrics");
         Interlocked.Increment(ref _workflowMetricsQueries);
-        Telemetry.MonitoringWorkflowMetricsQueries.Add(1);
+        OTel.MonitoringWorkflowMetricsQueries.Add(1);
         return await GetWorkflowMetricsCoreAsync(ct);
     }
 
     public async global::System.Threading.Tasks.Task<AgentHealthDashboard> GetAgentHealthAsync(
         CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Monitoring.AgentHealth");
+        using var activity = OTel.ActivitySource.StartActivity("Monitoring.AgentHealth");
         Interlocked.Increment(ref _agentHealthQueries);
-        Telemetry.MonitoringAgentHealthQueries.Add(1);
+        OTel.MonitoringAgentHealthQueries.Add(1);
         return await GetAgentHealthCoreAsync(ct);
     }
 
     public async global::System.Threading.Tasks.Task<SystemPerformanceDashboard> GetSystemPerformanceAsync(
         CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Monitoring.SystemPerformance");
+        using var activity = OTel.ActivitySource.StartActivity("Monitoring.SystemPerformance");
         Interlocked.Increment(ref _systemPerformanceQueries);
-        Telemetry.MonitoringSystemPerformanceQueries.Add(1);
+        OTel.MonitoringSystemPerformanceQueries.Add(1);
         return await GetSystemPerformanceCoreAsync(ct);
     }
 

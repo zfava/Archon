@@ -3,6 +3,7 @@ using ArchonAI.Common.Observability;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Rbac;
+using OTel = ArchonAI.Common.Observability.Telemetry;
 
 namespace ArchonAI.Api.Security;
 
@@ -80,13 +81,13 @@ public sealed class RbacService : IRbacService
 
     public async global::System.Threading.Tasks.Task<RbacRole> CreateRoleAsync(string name, string description, IReadOnlyList<string> permissions, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("RbacService.CreateRole");
+        using var activity = OTel.ActivitySource.StartActivity("RbacService.CreateRole");
         activity?.SetTag("rbac.role.name", name);
 
         var role = new RbacRole(Guid.NewGuid(), name, description, permissions, false, DateTimeOffset.UtcNow);
         _roles[role.Id] = role;
 
-        Telemetry.RbacRoleChanges.Add(1);
+        OTel.RbacRoleChanges.Add(1);
 
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
@@ -106,7 +107,7 @@ public sealed class RbacService : IRbacService
 
     public async global::System.Threading.Tasks.Task UpdateRoleAsync(Guid roleId, string description, IReadOnlyList<string> permissions, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("RbacService.UpdateRole");
+        using var activity = OTel.ActivitySource.StartActivity("RbacService.UpdateRole");
         activity?.SetTag("rbac.role.id", roleId.ToString());
 
         if (!_roles.TryGetValue(roleId, out var existing))
@@ -118,7 +119,7 @@ public sealed class RbacService : IRbacService
         var updated = existing with { Description = description, Permissions = permissions };
         _roles[roleId] = updated;
 
-        Telemetry.RbacRoleChanges.Add(1);
+        OTel.RbacRoleChanges.Add(1);
 
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
@@ -135,7 +136,7 @@ public sealed class RbacService : IRbacService
 
     public async global::System.Threading.Tasks.Task DeleteRoleAsync(Guid roleId, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("RbacService.DeleteRole");
+        using var activity = OTel.ActivitySource.StartActivity("RbacService.DeleteRole");
         activity?.SetTag("rbac.role.id", roleId.ToString());
 
         if (_roles.TryGetValue(roleId, out var existing) && existing.IsSystem)
@@ -151,7 +152,7 @@ public sealed class RbacService : IRbacService
                 _assignments.TryRemove(kvp.Key, out _);
         }
 
-        Telemetry.RbacRoleChanges.Add(1);
+        OTel.RbacRoleChanges.Add(1);
 
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
@@ -175,7 +176,7 @@ public sealed class RbacService : IRbacService
 
     public async global::System.Threading.Tasks.Task<RoleAssignment> AssignRoleAsync(string subjectId, string subjectType, Guid roleId, string assignedBy, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("RbacService.AssignRole");
+        using var activity = OTel.ActivitySource.StartActivity("RbacService.AssignRole");
         activity?.SetTag("rbac.subject.id", subjectId);
         activity?.SetTag("rbac.role.id", roleId.ToString());
 
@@ -185,7 +186,7 @@ public sealed class RbacService : IRbacService
         var assignment = new RoleAssignment(Guid.NewGuid(), subjectId, subjectType, roleId, assignedBy, DateTimeOffset.UtcNow);
         _assignments[assignment.Id] = assignment;
 
-        Telemetry.RbacRoleChanges.Add(1);
+        OTel.RbacRoleChanges.Add(1);
 
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
@@ -207,13 +208,13 @@ public sealed class RbacService : IRbacService
 
     public async global::System.Threading.Tasks.Task RevokeRoleAsync(Guid assignmentId, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("RbacService.RevokeRole");
+        using var activity = OTel.ActivitySource.StartActivity("RbacService.RevokeRole");
         activity?.SetTag("rbac.assignment.id", assignmentId.ToString());
 
         if (!_assignments.TryRemove(assignmentId, out var removed))
             throw new KeyNotFoundException($"Assignment {assignmentId} not found.");
 
-        Telemetry.RbacRoleChanges.Add(1);
+        OTel.RbacRoleChanges.Add(1);
 
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
@@ -237,13 +238,13 @@ public sealed class RbacService : IRbacService
 
     public async global::System.Threading.Tasks.Task<PermissionPolicy> CreatePolicyAsync(string name, string description, IReadOnlyList<string> requiredPermissions, string resource, string effect, IReadOnlyDictionary<string, string> conditions, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("RbacService.CreatePolicy");
+        using var activity = OTel.ActivitySource.StartActivity("RbacService.CreatePolicy");
         activity?.SetTag("rbac.policy.name", name);
 
         var policy = new PermissionPolicy(Guid.NewGuid(), name, description, requiredPermissions, resource, effect, conditions, true, DateTimeOffset.UtcNow);
         _policies[policy.Id] = policy;
 
-        Telemetry.RbacPolicyChanges.Add(1);
+        OTel.RbacPolicyChanges.Add(1);
 
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
@@ -263,7 +264,7 @@ public sealed class RbacService : IRbacService
 
     public async global::System.Threading.Tasks.Task UpdatePolicyAsync(Guid policyId, bool isEnabled, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("RbacService.UpdatePolicy");
+        using var activity = OTel.ActivitySource.StartActivity("RbacService.UpdatePolicy");
         activity?.SetTag("rbac.policy.id", policyId.ToString());
 
         if (!_policies.TryGetValue(policyId, out var existing))
@@ -271,7 +272,7 @@ public sealed class RbacService : IRbacService
 
         _policies[policyId] = existing with { IsEnabled = isEnabled };
 
-        Telemetry.RbacPolicyChanges.Add(1);
+        OTel.RbacPolicyChanges.Add(1);
 
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
@@ -288,13 +289,13 @@ public sealed class RbacService : IRbacService
 
     public async global::System.Threading.Tasks.Task DeletePolicyAsync(Guid policyId, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("RbacService.DeletePolicy");
+        using var activity = OTel.ActivitySource.StartActivity("RbacService.DeletePolicy");
         activity?.SetTag("rbac.policy.id", policyId.ToString());
 
         if (!_policies.TryRemove(policyId, out _))
             throw new KeyNotFoundException($"Policy {policyId} not found.");
 
-        Telemetry.RbacPolicyChanges.Add(1);
+        OTel.RbacPolicyChanges.Add(1);
 
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
@@ -310,13 +311,13 @@ public sealed class RbacService : IRbacService
 
     public global::System.Threading.Tasks.Task<AccessDecision> EvaluateAccessAsync(string subjectId, string resource, string action, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("RbacService.EvaluateAccess");
+        using var activity = OTel.ActivitySource.StartActivity("RbacService.EvaluateAccess");
         activity?.SetTag("rbac.subject.id", subjectId);
         activity?.SetTag("rbac.resource", resource);
         activity?.SetTag("rbac.action", action);
 
         Interlocked.Increment(ref _accessChecks);
-        Telemetry.RbacAccessChecks.Add(1);
+        OTel.RbacAccessChecks.Add(1);
 
         // Collect all permissions for this subject via role assignments
         var subjectAssignments = _assignments.Values.Where(a => a.SubjectId == subjectId).ToList();
@@ -382,7 +383,7 @@ public sealed class RbacService : IRbacService
         if (!isAllowed)
         {
             Interlocked.Increment(ref _accessDenials);
-            Telemetry.RbacAccessDenials.Add(1);
+            OTel.RbacAccessDenials.Add(1);
         }
 
         var decision = new AccessDecision(
@@ -399,7 +400,7 @@ public sealed class RbacService : IRbacService
 
     public global::System.Threading.Tasks.Task<IReadOnlyList<string>> GetEffectivePermissionsAsync(string subjectId, CancellationToken ct = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("RbacService.GetEffectivePermissions");
+        using var activity = OTel.ActivitySource.StartActivity("RbacService.GetEffectivePermissions");
         activity?.SetTag("rbac.subject.id", subjectId);
 
         var subjectAssignments = _assignments.Values.Where(a => a.SubjectId == subjectId).ToList();
