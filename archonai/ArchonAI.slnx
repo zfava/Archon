@@ -40,10 +40,22 @@
     <Project Path="src/ArchonAI.Agents/ArchonAI.Agents.csproj" />
     <Project Path="src/ArchonAI.Connectors/ArchonAI.Connectors.csproj" />
     <Project Path="src/ArchonAI.Plugins/ArchonAI.Plugins.csproj" />
+    <Project Path="src/ArchonAI.Agents.Operations/ArchonAI.Agents.Operations.csproj" />
+    <Project Path="src/ArchonAI.Agents.Finance/ArchonAI.Agents.Finance.csproj" />
+    <Project Path="src/ArchonAI.Agents.Sales/ArchonAI.Agents.Sales.csproj" />
+    <Project Path="src/ArchonAI.Agents.Marketing/ArchonAI.Agents.Marketing.csproj" />
+    <Project Path="src/ArchonAI.Agents.Support/ArchonAI.Agents.Support.csproj" />
+    <Project Path="src/ArchonAI.AdminAPI/ArchonAI.AdminAPI.csproj" />
     <Project Path="src/ArchonAI.Api/ArchonAI.Api.csproj" />
     <Project Path="src/ArchonAI.Cli/ArchonAI.Cli.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ArchonAI.Connectors.Tests/ArchonAI.Connectors.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Agents.Operations.Tests/ArchonAI.Agents.Operations.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Agents.Finance.Tests/ArchonAI.Agents.Finance.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Agents.Sales.Tests/ArchonAI.Agents.Sales.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Agents.Marketing.Tests/ArchonAI.Agents.Marketing.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Agents.Support.Tests/ArchonAI.Agents.Support.Tests.csproj" />
+    <Project Path="tests/ArchonAI.AdminAPI.Tests/ArchonAI.AdminAPI.Tests.csproj" />
   </Folder>
 </Solution>
