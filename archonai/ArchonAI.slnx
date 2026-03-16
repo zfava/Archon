@@ -51,6 +51,7 @@
     <Project Path="src/ArchonAI.Worker.Runtime/ArchonAI.Worker.Runtime.csproj" />
     <Project Path="src/ArchonAI.Worker.Scheduler/ArchonAI.Worker.Scheduler.csproj" />
     <Project Path="src/ArchonAI.Worker.Agents/ArchonAI.Worker.Agents.csproj" />
+    <Project Path="src/ArchonAI.ControlPlane/ArchonAI.ControlPlane.csproj" />
     <Project Path="src/ArchonAI.Gateway/ArchonAI.Gateway.csproj" />
   </Folder>
   <Folder Name="/tests/">

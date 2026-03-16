@@ -17,6 +17,8 @@ using ArchonAI.Agents.Marketing;
 using ArchonAI.Agents.Operations;
 using ArchonAI.Agents.Sales;
 using ArchonAI.Agents.Support;
+using ArchonAI.ControlPlane;
+using ArchonAI.Core.Models.ControlPlane;
 using ArchonAI.Runtime;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -35,6 +37,7 @@ builder.Services.AddArchonAISales(builder.Configuration);
 builder.Services.AddArchonAIMarketing(builder.Configuration);
 builder.Services.AddArchonAISupport(builder.Configuration);
 builder.Services.AddArchonAIAdmin(builder.Configuration);
+builder.Services.AddArchonAIControlPlane(builder.Configuration);
 
 var app = builder.Build();
 
@@ -829,6 +832,303 @@ workflows.MapDelete("/{workflowId:guid}", async (Guid workflowId, IWorkflowDesig
     return deleted ? Results.Ok(new { workflowId, deleted = true }) : Results.NotFound();
 });
 
+// Control plane endpoints
+var controlPlane = v1.MapGroup("/control-plane")
+    .RequireAuthorization("AdminOnly");
+
+controlPlane.MapGet("/status", (IControlPlaneService cpService) =>
+    Results.Ok(cpService.GetStatus()));
+
+controlPlane.MapGet("/dashboard", async (IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var dashboard = await cpService.GetDashboardAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+// ── Tenant lifecycle ──────────────────────────────────────────
+
+var tenants = controlPlane.MapGroup("/tenants");
+
+tenants.MapGet("", async (TenantStatus? status, int? offset, int? limit,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var list = await cpService.ListTenantsAsync(status, offset ?? 0, limit ?? 50, ct);
+    return Results.Ok(list);
+});
+
+tenants.MapGet("/{tenantId:guid}", async (Guid tenantId,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var tenant = await cpService.GetTenantAsync(tenantId, ct);
+    return tenant is null ? Results.NotFound() : Results.Ok(tenant);
+});
+
+tenants.MapPost("", async (ProvisionTenantRequest request,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        var tenant = await cpService.ProvisionTenantAsync(
+            request.Name, request.DisplayName, request.Tier, request.Metadata, ct);
+        return Results.Created($"/api/v1/control-plane/tenants/{tenant.Id}", tenant);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 409);
+    }
+});
+
+tenants.MapPost("/{tenantId:guid}/activate", async (Guid tenantId,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        var tenant = await cpService.ActivateTenantAsync(tenantId, ct);
+        return Results.Ok(tenant);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+tenants.MapPost("/{tenantId:guid}/suspend", async (Guid tenantId, SuspendTenantRequest request,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        var tenant = await cpService.SuspendTenantAsync(tenantId, request.Reason, ct);
+        return Results.Ok(tenant);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+tenants.MapDelete("/{tenantId:guid}", async (Guid tenantId,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        await cpService.DeprovisionTenantAsync(tenantId, ct);
+        return Results.Ok(new { tenantId, deprovisioned = true });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+// ── Workflow lifecycle ────────────────────────────────────────
+
+var cpWorkflows = controlPlane.MapGroup("/workflows");
+
+cpWorkflows.MapGet("", async (string? tenantId, ManagedWorkflowStatus? status,
+    int? offset, int? limit, IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var list = await cpService.ListManagedWorkflowsAsync(tenantId, status, offset ?? 0, limit ?? 50, ct);
+    return Results.Ok(list);
+});
+
+cpWorkflows.MapGet("/{workflowId:guid}", async (Guid workflowId,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var workflow = await cpService.GetManagedWorkflowAsync(workflowId, ct);
+    return workflow is null ? Results.NotFound() : Results.Ok(workflow);
+});
+
+cpWorkflows.MapPost("", async (RegisterWorkflowRequest request,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        var workflow = await cpService.RegisterWorkflowAsync(
+            request.TenantId, request.Name, request.Description,
+            request.Strategy, request.StepCount, request.Metadata, ct);
+        return Results.Created($"/api/v1/control-plane/workflows/{workflow.Id}", workflow);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+cpWorkflows.MapPatch("/{workflowId:guid}/status", async (Guid workflowId,
+    UpdateManagedStatusRequest request, IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        var workflow = await cpService.UpdateWorkflowStatusAsync(workflowId, request.Status, ct);
+        return Results.Ok(workflow);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+// ── Agent lifecycle ───────────────────────────────────────────
+
+var cpAgents = controlPlane.MapGroup("/agents");
+
+cpAgents.MapGet("", async (string? tenantId, ManagedAgentStatus? status,
+    int? offset, int? limit, IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var list = await cpService.ListManagedAgentsAsync(tenantId, status, offset ?? 0, limit ?? 50, ct);
+    return Results.Ok(list);
+});
+
+cpAgents.MapGet("/{agentId:guid}", async (Guid agentId,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var agent = await cpService.GetManagedAgentAsync(agentId, ct);
+    return agent is null ? Results.NotFound() : Results.Ok(agent);
+});
+
+cpAgents.MapPost("", async (RegisterManagedAgentRequest request,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        var agent = await cpService.RegisterAgentAsync(
+            request.TenantId, request.Name, request.Version,
+            request.Capabilities, request.Configuration, ct);
+        return Results.Created($"/api/v1/control-plane/agents/{agent.Id}", agent);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+cpAgents.MapPatch("/{agentId:guid}/status", async (Guid agentId,
+    UpdateManagedAgentStatusRequest request, IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        var agent = await cpService.UpdateAgentStatusAsync(agentId, request.Status, ct);
+        return Results.Ok(agent);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+cpAgents.MapDelete("/{agentId:guid}", async (Guid agentId,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        await cpService.DeregisterAgentAsync(agentId, ct);
+        return Results.Ok(new { agentId, deregistered = true });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+// ── Policy management ─────────────────────────────────────────
+
+var cpPolicies = controlPlane.MapGroup("/policies");
+
+cpPolicies.MapGet("", async (string? tenantId, PlatformPolicyType? policyType, bool? isEnabled,
+    int? offset, int? limit, IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var list = await cpService.ListPoliciesAsync(tenantId, policyType, isEnabled,
+        offset ?? 0, limit ?? 50, ct);
+    return Results.Ok(list);
+});
+
+cpPolicies.MapGet("/{policyId:guid}", async (Guid policyId,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var policy = await cpService.GetPolicyAsync(policyId, ct);
+    return policy is null ? Results.NotFound() : Results.Ok(policy);
+});
+
+cpPolicies.MapPost("", async (CreatePlatformPolicyRequest request,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var policy = await cpService.CreatePolicyAsync(
+        request.TenantId, request.Name, request.Description, request.PolicyType,
+        request.TargetResource, request.Rules, request.Priority, ct);
+    return Results.Created($"/api/v1/control-plane/policies/{policy.Id}", policy);
+});
+
+cpPolicies.MapPut("/{policyId:guid}", async (Guid policyId,
+    UpdatePlatformPolicyRequest request, IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        var policy = await cpService.UpdatePolicyAsync(
+            policyId, request.IsEnabled, request.Rules, request.Priority, ct);
+        return Results.Ok(policy);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+cpPolicies.MapDelete("/{policyId:guid}", async (Guid policyId,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        await cpService.DeletePolicyAsync(policyId, ct);
+        return Results.Ok(new { policyId, deleted = true });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+// ── Configuration management ──────────────────────────────────
+
+var cpConfig = controlPlane.MapGroup("/config");
+
+cpConfig.MapGet("", async (string? tenantId, string? scope,
+    int? offset, int? limit, IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var list = await cpService.ListConfigurationsAsync(tenantId, scope,
+        offset ?? 0, limit ?? 100, ct);
+    return Results.Ok(list);
+});
+
+cpConfig.MapGet("/{tenantId}/{scope}/{key}", async (string tenantId, string scope, string key,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var config = await cpService.GetConfigurationAsync(tenantId, scope, key, ct);
+    return config is null ? Results.NotFound() : Results.Ok(config);
+});
+
+cpConfig.MapPut("", async (SetConfigurationRequest request,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    var config = await cpService.SetConfigurationAsync(
+        request.TenantId, request.Scope, request.Key, request.Value,
+        request.Description, request.IsSecret, ct);
+    return Results.Ok(config);
+});
+
+cpConfig.MapDelete("/{tenantId}/{scope}/{key}", async (string tenantId, string scope, string key,
+    IControlPlaneService cpService, CancellationToken ct) =>
+{
+    try
+    {
+        await cpService.DeleteConfigurationAsync(tenantId, scope, key, ct);
+        return Results.Ok(new { tenantId, scope, key, deleted = true });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
 // Monitoring dashboard endpoints
 var monitoring = v1.MapGroup("/monitoring")
     .RequireAuthorization("OperatorOrAdmin");
@@ -943,3 +1243,12 @@ public sealed record AuditVerifyRequest(Guid? FromEntryId = null);
 public sealed record CreateWorkflowStepRequest(int Order, string Name, string Description, string AgentType, Dictionary<string, string> Inputs);
 public sealed record CreateWorkflowRequest(string Name, string Description, string Strategy, IReadOnlyList<CreateWorkflowStepRequest> Steps, Dictionary<string, string>? Metadata = null);
 public sealed record ExecuteWorkflowRequest(string TenantId, Dictionary<string, string>? Metadata = null);
+public sealed record ProvisionTenantRequest(string Name, string DisplayName, TenantTier Tier, Dictionary<string, string>? Metadata = null);
+public sealed record SuspendTenantRequest(string Reason);
+public sealed record RegisterWorkflowRequest(string TenantId, string Name, string Description, string Strategy, int StepCount, Dictionary<string, string>? Metadata = null);
+public sealed record UpdateManagedStatusRequest(ManagedWorkflowStatus Status);
+public sealed record RegisterManagedAgentRequest(string TenantId, string Name, string Version, IReadOnlyList<string> Capabilities, Dictionary<string, string>? Configuration = null);
+public sealed record UpdateManagedAgentStatusRequest(ManagedAgentStatus Status);
+public sealed record CreatePlatformPolicyRequest(string TenantId, string Name, string Description, PlatformPolicyType PolicyType, string TargetResource, Dictionary<string, string> Rules, int Priority);
+public sealed record UpdatePlatformPolicyRequest(bool IsEnabled, Dictionary<string, string>? Rules = null, int? Priority = null);
+public sealed record SetConfigurationRequest(string TenantId, string Scope, string Key, string Value, string? Description = null, bool IsSecret = false);

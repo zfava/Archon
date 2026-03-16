@@ -20,6 +20,7 @@
     <ProjectReference Include="..\ArchonAI.Agents.Sales\ArchonAI.Agents.Sales.csproj" />
     <ProjectReference Include="..\ArchonAI.Agents.Support\ArchonAI.Agents.Support.csproj" />
     <ProjectReference Include="..\ArchonAI.Registry\ArchonAI.Registry.csproj" />
+    <ProjectReference Include="..\ArchonAI.ControlPlane\ArchonAI.ControlPlane.csproj" />
   </ItemGroup>
 
   <ItemGroup>
