@@ -3,9 +3,10 @@ using ArchonAI.Agents;
 using ArchonAI.Api.Security;
 using ArchonAI.Connectors;
 using ArchonAI.Core.Interfaces;
-using ArchonAI.Core.Models.Planning;
 using ArchonAI.Core.Models.AuditLog;
+using ArchonAI.Core.Models.Planning;
 using ArchonAI.Core.Models.Rbac;
+using ArchonAI.Core.Models.Workflow;
 using ArchonAI.Infrastructure;
 using ArchonAI.Plugins;
 using ArchonAI.Registry;
@@ -770,6 +771,63 @@ observability.MapGet("/agents/metrics", async (IObservabilityService obsService,
     return Results.Ok(metrics);
 });
 
+// Workflow design endpoints
+var workflows = v1.MapGroup("/workflows")
+    .RequireAuthorization("OperatorOrAdmin");
+
+workflows.MapGet("/status", (IWorkflowDesignService wfService) =>
+    Results.Ok(wfService.GetStatus()));
+
+workflows.MapGet("", async (WorkflowDesignStatus? status, int? offset, int? limit,
+    IWorkflowDesignService wfService, CancellationToken ct) =>
+{
+    var list = await wfService.ListWorkflowsAsync(status, offset ?? 0, limit ?? 50, ct);
+    return Results.Ok(list);
+});
+
+workflows.MapGet("/{workflowId:guid}", async (Guid workflowId, IWorkflowDesignService wfService, CancellationToken ct) =>
+{
+    var workflow = await wfService.GetWorkflowAsync(workflowId, ct);
+    return workflow is null ? Results.NotFound() : Results.Ok(workflow);
+});
+
+workflows.MapPost("", async (CreateWorkflowRequest request, IWorkflowDesignService wfService, CancellationToken ct) =>
+{
+    var steps = request.Steps.Select(s => new WorkflowStepDefinition(
+        s.Order, s.Name, s.Description, s.AgentType, s.Inputs)).ToList();
+
+    var workflow = await wfService.CreateWorkflowAsync(
+        request.Name, request.Description, request.Strategy, steps, request.Metadata, ct);
+
+    return Results.Created($"/api/v1/workflows/{workflow.Id}", workflow);
+});
+
+workflows.MapPost("/{workflowId:guid}/validate", async (Guid workflowId, IWorkflowDesignService wfService, CancellationToken ct) =>
+{
+    var result = await wfService.ValidateWorkflowAsync(workflowId, ct);
+    return Results.Ok(result);
+});
+
+workflows.MapPost("/{workflowId:guid}/execute", async (Guid workflowId, ExecuteWorkflowRequest request,
+    IWorkflowDesignService wfService, CancellationToken ct) =>
+{
+    try
+    {
+        var summary = await wfService.ExecuteWorkflowAsync(workflowId, request.TenantId, request.Metadata, ct);
+        return Results.Ok(summary);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+workflows.MapDelete("/{workflowId:guid}", async (Guid workflowId, IWorkflowDesignService wfService, CancellationToken ct) =>
+{
+    var deleted = await wfService.DeleteWorkflowAsync(workflowId, ct);
+    return deleted ? Results.Ok(new { workflowId, deleted = true }) : Results.NotFound();
+});
+
 // Audit log endpoints
 var audit = v1.MapGroup("/audit")
     .RequireAuthorization("OperatorOrAdmin");
@@ -850,3 +908,6 @@ public sealed record UpdatePolicyEnabledRequest(bool IsEnabled);
 public sealed record EvaluateAccessRequest(string SubjectId, string Resource, string Action);
 public sealed record AuditRecordRequest(string EventType, string Category, string Source, string SubjectId, string SubjectType, string Action, string ResourceType, string ResourceId, string Description, Dictionary<string, string>? Metadata = null);
 public sealed record AuditVerifyRequest(Guid? FromEntryId = null);
+public sealed record CreateWorkflowStepRequest(int Order, string Name, string Description, string AgentType, Dictionary<string, string> Inputs);
+public sealed record CreateWorkflowRequest(string Name, string Description, string Strategy, IReadOnlyList<CreateWorkflowStepRequest> Steps, Dictionary<string, string>? Metadata = null);
+public sealed record ExecuteWorkflowRequest(string TenantId, Dictionary<string, string>? Metadata = null);

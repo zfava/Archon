@@ -35,6 +35,7 @@ public static class ObservabilityServiceCollectionExtensions
 
         builder.Services.AddSingleton<IObservabilityService, ObservabilityService>();
         builder.Services.AddSingleton<IAuditLogService, AuditLogService>();
+        builder.Services.AddSingleton<IWorkflowDesignService, WorkflowDesignService>();
         builder.Services.AddSingleton<TracingAgentExecutor>();
 
         return builder;
