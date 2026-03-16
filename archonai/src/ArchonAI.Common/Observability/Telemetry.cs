@@ -84,4 +84,29 @@ public static class Telemetry
     public static readonly Counter<long> FinanceSummaries = Meter.CreateCounter<long>("archonai.finance.summaries");
     public static readonly Counter<long> FinanceBudgetWorkflows = Meter.CreateCounter<long>("archonai.finance.budget.workflows");
     public static readonly Counter<long> FinanceDataFabricQueries = Meter.CreateCounter<long>("archonai.finance.datafabric.queries");
+
+    // Sales agent metrics
+    public static readonly Counter<long> SalesPipelineAnalyses = Meter.CreateCounter<long>("archonai.sales.pipeline.analyses");
+    public static readonly Counter<long> SalesOpportunitiesPrioritized = Meter.CreateCounter<long>("archonai.sales.opportunities.prioritized");
+    public static readonly Counter<long> SalesOutreachRecommendations = Meter.CreateCounter<long>("archonai.sales.outreach.recommendations");
+    public static readonly Counter<long> SalesMetricsGenerated = Meter.CreateCounter<long>("archonai.sales.metrics.generated");
+    public static readonly Counter<long> SalesDataFabricQueries = Meter.CreateCounter<long>("archonai.sales.datafabric.queries");
+
+    // Marketing agent metrics
+    public static readonly Counter<long> MarketingCampaignAnalyses = Meter.CreateCounter<long>("archonai.marketing.campaign.analyses");
+    public static readonly Counter<long> MarketingStrategyRecommendations = Meter.CreateCounter<long>("archonai.marketing.strategy.recommendations");
+    public static readonly Counter<long> MarketingMetricsGenerated = Meter.CreateCounter<long>("archonai.marketing.metrics.generated");
+    public static readonly Counter<long> MarketingDataFabricQueries = Meter.CreateCounter<long>("archonai.marketing.datafabric.queries");
+
+    // Support agent metrics
+    public static readonly Counter<long> SupportTicketAnalyses = Meter.CreateCounter<long>("archonai.support.ticket.analyses");
+    public static readonly Counter<long> SupportRecurringIssueScans = Meter.CreateCounter<long>("archonai.support.recurring.issue.scans");
+    public static readonly Counter<long> SupportAutoResponses = Meter.CreateCounter<long>("archonai.support.auto.responses");
+    public static readonly Counter<long> SupportDataFabricQueries = Meter.CreateCounter<long>("archonai.support.datafabric.queries");
+
+    // Admin service metrics
+    public static readonly Counter<long> AdminAgentQueries = Meter.CreateCounter<long>("archonai.admin.agent.queries");
+    public static readonly Counter<long> AdminWorkflowQueries = Meter.CreateCounter<long>("archonai.admin.workflow.queries");
+    public static readonly Counter<long> AdminPolicyUpdates = Meter.CreateCounter<long>("archonai.admin.policy.updates");
+    public static readonly Counter<long> AdminMonitoringSnapshots = Meter.CreateCounter<long>("archonai.admin.monitoring.snapshots");
 }

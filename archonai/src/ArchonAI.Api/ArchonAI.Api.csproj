@@ -13,8 +13,12 @@
     <ProjectReference Include="..\ArchonAI.Agents\ArchonAI.Agents.csproj" />
     <ProjectReference Include="..\ArchonAI.Connectors\ArchonAI.Connectors.csproj" />
     <ProjectReference Include="..\ArchonAI.Plugins\ArchonAI.Plugins.csproj" />
+    <ProjectReference Include="..\ArchonAI.AdminAPI\ArchonAI.AdminAPI.csproj" />
     <ProjectReference Include="..\ArchonAI.Agents.Finance\ArchonAI.Agents.Finance.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents.Marketing\ArchonAI.Agents.Marketing.csproj" />
     <ProjectReference Include="..\ArchonAI.Agents.Operations\ArchonAI.Agents.Operations.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents.Sales\ArchonAI.Agents.Sales.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents.Support\ArchonAI.Agents.Support.csproj" />
     <ProjectReference Include="..\ArchonAI.Registry\ArchonAI.Registry.csproj" />
   </ItemGroup>
 

@@ -7,8 +7,12 @@ using ArchonAI.Core.Models.Planning;
 using ArchonAI.Infrastructure;
 using ArchonAI.Plugins;
 using ArchonAI.Registry;
+using ArchonAI.AdminAPI;
 using ArchonAI.Agents.Finance;
+using ArchonAI.Agents.Marketing;
 using ArchonAI.Agents.Operations;
+using ArchonAI.Agents.Sales;
+using ArchonAI.Agents.Support;
 using ArchonAI.Runtime;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -23,6 +27,10 @@ builder.Services.AddArchonAIRegistry();
 builder.Services.AddArchonAIRuntime();
 builder.Services.AddArchonAIOperations(builder.Configuration);
 builder.Services.AddArchonAIFinance(builder.Configuration);
+builder.Services.AddArchonAISales(builder.Configuration);
+builder.Services.AddArchonAIMarketing(builder.Configuration);
+builder.Services.AddArchonAISupport(builder.Configuration);
+builder.Services.AddArchonAIAdmin(builder.Configuration);
 
 var app = builder.Build();
 
@@ -493,6 +501,144 @@ finance.MapPost("/budget", async (BudgetAssistRequest budgetRequest, IFinanceEng
     return result.IsSuccess ? Results.Ok(result) : Results.Problem("Budget workflow failed", statusCode: 400);
 });
 
+// Sales endpoints
+var sales = v1.MapGroup("/sales")
+    .RequireAuthorization("OperatorOrAdmin");
+
+sales.MapGet("/status", (ISalesEngine salesEngine) => Results.Ok(salesEngine.GetStatus()));
+
+sales.MapPost("/pipelines/{pipelineId}/analyze", async (string pipelineId, Dictionary<string, string>? parameters, ISalesEngine salesEngine, CancellationToken ct) =>
+{
+    var result = await salesEngine.AnalyzePipelineAsync(pipelineId, parameters ?? new Dictionary<string, string>(), ct);
+    return Results.Ok(result);
+});
+
+sales.MapGet("/pipelines/{pipelineId}/opportunities", async (string pipelineId, int? maxResults, ISalesEngine salesEngine, CancellationToken ct) =>
+{
+    var opportunities = await salesEngine.PrioritizeOpportunitiesAsync(pipelineId, maxResults ?? 20, ct);
+    return Results.Ok(opportunities);
+});
+
+sales.MapGet("/opportunities/{opportunityId}/outreach", async (string opportunityId, ISalesEngine salesEngine, CancellationToken ct) =>
+{
+    var recommendations = await salesEngine.RecommendOutreachAsync(opportunityId, ct);
+    return Results.Ok(recommendations);
+});
+
+sales.MapGet("/metrics", async (string? scope, string? period, ISalesEngine salesEngine, CancellationToken ct) =>
+{
+    var metrics = await salesEngine.GetMetricsAsync(scope ?? "*", period ?? "current", ct);
+    return Results.Ok(metrics);
+});
+
+// Marketing endpoints
+var marketing = v1.MapGroup("/marketing")
+    .RequireAuthorization("OperatorOrAdmin");
+
+marketing.MapGet("/status", (IMarketingEngine mktEngine) => Results.Ok(mktEngine.GetStatus()));
+
+marketing.MapPost("/campaigns/{campaignId}/analyze", async (string campaignId, Dictionary<string, string>? parameters, IMarketingEngine mktEngine, CancellationToken ct) =>
+{
+    var result = await mktEngine.AnalyzeCampaignAsync(campaignId, parameters ?? new Dictionary<string, string>(), ct);
+    return Results.Ok(result);
+});
+
+marketing.MapGet("/strategies", async (string? scope, IMarketingEngine mktEngine, CancellationToken ct) =>
+{
+    var strategies = await mktEngine.RecommendStrategiesAsync(scope ?? "*", ct);
+    return Results.Ok(strategies);
+});
+
+marketing.MapGet("/engagement", async (string? scope, string? period, IMarketingEngine mktEngine, CancellationToken ct) =>
+{
+    var metrics = await mktEngine.GetEngagementMetricsAsync(scope ?? "*", period ?? "current", ct);
+    return Results.Ok(metrics);
+});
+
+// Support endpoints
+var support = v1.MapGroup("/support")
+    .RequireAuthorization("OperatorOrAdmin");
+
+support.MapGet("/status", (ISupportEngine supEngine) => Results.Ok(supEngine.GetStatus()));
+
+support.MapPost("/tickets/analyze", async (SupportAnalysisRequest analysisRequest, ISupportEngine supEngine, CancellationToken ct) =>
+{
+    var result = await supEngine.AnalyzeTicketsAsync(analysisRequest.Scope, analysisRequest.Parameters, ct);
+    return Results.Ok(result);
+});
+
+support.MapGet("/recurring-issues", async (string? scope, int? minOccurrences, ISupportEngine supEngine, CancellationToken ct) =>
+{
+    var issues = await supEngine.DetectRecurringIssuesAsync(scope ?? "*", minOccurrences ?? 3, ct);
+    return Results.Ok(issues);
+});
+
+support.MapGet("/auto-responses/{issueCategory}", async (string issueCategory, ISupportEngine supEngine, CancellationToken ct) =>
+{
+    var responses = await supEngine.RecommendAutoResponsesAsync(issueCategory, ct);
+    return Results.Ok(responses);
+});
+
+// Admin endpoints
+var admin = v1.MapGroup("/admin")
+    .RequireAuthorization("AdminOnly");
+
+admin.MapGet("/status", (IAdminService adminService) => Results.Ok(adminService.GetStatus()));
+
+admin.MapGet("/agents", async (IAdminService adminService, CancellationToken ct) =>
+{
+    var agents = await adminService.GetAgentsAsync(ct);
+    return Results.Ok(agents);
+});
+
+admin.MapGet("/agents/{agentId:guid}", async (Guid agentId, IAdminService adminService, CancellationToken ct) =>
+{
+    var agent = await adminService.GetAgentAsync(agentId, ct);
+    return agent is null ? Results.NotFound() : Results.Ok(agent);
+});
+
+admin.MapPatch("/agents/{agentId:guid}/enabled", async (Guid agentId, AgentEnabledRequest enabledRequest, IAdminService adminService, CancellationToken ct) =>
+{
+    await adminService.SetAgentEnabledAsync(agentId, enabledRequest.Enabled, ct);
+    return Results.Ok(new { agentId, enabled = enabledRequest.Enabled });
+});
+
+admin.MapGet("/workflows", async (IAdminService adminService, CancellationToken ct) =>
+{
+    var workflows = await adminService.GetWorkflowsAsync(ct);
+    return Results.Ok(workflows);
+});
+
+admin.MapGet("/workflows/{workflowId:guid}", async (Guid workflowId, IAdminService adminService, CancellationToken ct) =>
+{
+    var workflow = await adminService.GetWorkflowAsync(workflowId, ct);
+    return workflow is null ? Results.NotFound() : Results.Ok(workflow);
+});
+
+admin.MapPost("/workflows/{workflowId:guid}/cancel", async (Guid workflowId, IAdminService adminService, CancellationToken ct) =>
+{
+    await adminService.CancelWorkflowAsync(workflowId, ct);
+    return Results.Ok(new { workflowId, cancelled = true });
+});
+
+admin.MapGet("/policy", async (IAdminService adminService, CancellationToken ct) =>
+{
+    var policy = await adminService.GetPolicyConfigAsync(ct);
+    return Results.Ok(policy);
+});
+
+admin.MapPut("/policy", async (ArchonAI.Core.Models.Admin.PolicyConfiguration policy, IAdminService adminService, CancellationToken ct) =>
+{
+    await adminService.UpdatePolicyConfigAsync(policy, ct);
+    return Results.Ok(new { updated = true });
+});
+
+admin.MapGet("/monitoring", async (IAdminService adminService, CancellationToken ct) =>
+{
+    var snapshot = await adminService.GetSystemSnapshotAsync(ct);
+    return Results.Ok(snapshot);
+});
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")
@@ -523,3 +669,5 @@ public sealed record WorkflowCoordinationRequest(string WorkflowTemplate, IReadO
 public sealed record FinanceAnalysisRequest(string Scope, Dictionary<string, string> Parameters);
 public sealed record FinanceSummaryRequest(string Scope, string Period);
 public sealed record BudgetAssistRequest(string DepartmentId, Dictionary<string, string> Parameters);
+public sealed record SupportAnalysisRequest(string Scope, Dictionary<string, string> Parameters);
+public sealed record AgentEnabledRequest(bool Enabled);
