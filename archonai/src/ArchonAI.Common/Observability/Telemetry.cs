@@ -17,4 +17,12 @@ public static class Telemetry
     public static readonly Counter<long> EventsPublished = Meter.CreateCounter<long>("archonai.events.published");
     public static readonly Counter<long> EventsDeadLettered = Meter.CreateCounter<long>("archonai.events.dlq");
     public static readonly Counter<long> MemoryQueries = Meter.CreateCounter<long>("archonai.memory.queries");
+
+    // Salesforce connector metrics
+    public static readonly Counter<long> SalesforceAuthAttempts = Meter.CreateCounter<long>("archonai.salesforce.auth.attempts");
+    public static readonly Counter<long> SalesforceQueryOps = Meter.CreateCounter<long>("archonai.salesforce.query.ops");
+    public static readonly Counter<long> SalesforceWriteOps = Meter.CreateCounter<long>("archonai.salesforce.write.ops");
+    public static readonly Counter<long> SalesforceErrors = Meter.CreateCounter<long>("archonai.salesforce.errors");
+    public static readonly Counter<long> SalesforceRetries = Meter.CreateCounter<long>("archonai.salesforce.retries");
+    public static readonly Histogram<double> SalesforceRateLimitRemaining = Meter.CreateHistogram<double>("archonai.salesforce.ratelimit.remaining");
 }

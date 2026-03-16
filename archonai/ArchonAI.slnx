@@ -43,4 +43,7 @@
     <Project Path="src/ArchonAI.Api/ArchonAI.Api.csproj" />
     <Project Path="src/ArchonAI.Cli/ArchonAI.Cli.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ArchonAI.Connectors.Tests/ArchonAI.Connectors.Tests.csproj" />
+  </Folder>
 </Solution>

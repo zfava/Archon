@@ -14,7 +14,7 @@ var builder = WebApplication.CreateBuilder(args)
 
 builder.Services.AddArchonAISecurity(builder.Configuration);
 builder.Services.AddArchonAIInfrastructure();
-builder.Services.AddArchonAIConnectors();
+builder.Services.AddArchonAIConnectors(builder.Configuration);
 builder.Services.AddArchonAIAgentTooling();
 builder.Services.AddArchonAIPlugins(builder.Configuration);
 builder.Services.AddArchonAIRegistry();
@@ -108,6 +108,51 @@ strategies.MapPost("", async (
 {
     await strategyStore.SaveAsync(strategy, ct);
     return Results.Accepted();
+});
+
+var salesforce = v1.MapGroup("/connectors/salesforce")
+    .RequireAuthorization("OperatorOrAdmin");
+
+salesforce.MapGet("/status", (ISalesforceConnector sfConnector) =>
+{
+    var status = sfConnector.GetStatus();
+    return Results.Ok(status);
+});
+
+salesforce.MapPost("/authenticate", async (ISalesforceConnector sfConnector, CancellationToken ct) =>
+{
+    var result = await sfConnector.AuthenticateAsync(ct);
+    return result.IsAuthenticated ? Results.Ok(result) : Results.Problem(result.Error ?? "Authentication failed", statusCode: 401);
+});
+
+salesforce.MapGet("/accounts", async (string? filter, ISalesforceConnector sfConnector, CancellationToken ct) =>
+{
+    var records = await sfConnector.QueryAccountsAsync(filter ?? string.Empty, ct);
+    return Results.Ok(records);
+});
+
+salesforce.MapGet("/contacts", async (string? filter, ISalesforceConnector sfConnector, CancellationToken ct) =>
+{
+    var records = await sfConnector.QueryContactsAsync(filter ?? string.Empty, ct);
+    return Results.Ok(records);
+});
+
+salesforce.MapGet("/opportunities", async (string? filter, ISalesforceConnector sfConnector, CancellationToken ct) =>
+{
+    var records = await sfConnector.QueryOpportunitiesAsync(filter ?? string.Empty, ct);
+    return Results.Ok(records);
+});
+
+salesforce.MapPost("/records/{objectType}", async (string objectType, Dictionary<string, string> fields, ISalesforceConnector sfConnector, CancellationToken ct) =>
+{
+    string recordId = await sfConnector.CreateRecordAsync(objectType, fields, ct);
+    return Results.Created($"/api/v1/connectors/salesforce/records/{objectType}/{recordId}", new { recordId });
+});
+
+salesforce.MapPatch("/records/{objectType}/{recordId}", async (string objectType, string recordId, Dictionary<string, string> fields, ISalesforceConnector sfConnector, CancellationToken ct) =>
+{
+    await sfConnector.UpdateRecordAsync(objectType, recordId, fields, ct);
+    return Results.Ok(new { recordId, updated = true });
 });
 
 var v2 = app.MapGroup("/api/v2")
