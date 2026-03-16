@@ -7,6 +7,7 @@ using ArchonAI.Core.Models.Planning;
 using ArchonAI.Infrastructure;
 using ArchonAI.Plugins;
 using ArchonAI.Registry;
+using ArchonAI.Agents.Finance;
 using ArchonAI.Agents.Operations;
 using ArchonAI.Runtime;
 
@@ -21,6 +22,7 @@ builder.Services.AddArchonAIPlugins(builder.Configuration);
 builder.Services.AddArchonAIRegistry();
 builder.Services.AddArchonAIRuntime();
 builder.Services.AddArchonAIOperations(builder.Configuration);
+builder.Services.AddArchonAIFinance(builder.Configuration);
 
 var app = builder.Build();
 
@@ -458,6 +460,39 @@ ops.MapPost("/workflows/coordinate", async (WorkflowCoordinationRequest coordReq
     return result.IsSuccess ? Results.Ok(result) : Results.Problem("Coordination failed", statusCode: 400);
 });
 
+var finance = v1.MapGroup("/finance")
+    .RequireAuthorization("OperatorOrAdmin");
+
+finance.MapGet("/status", (IFinanceEngine finEngine) =>
+{
+    var status = finEngine.GetStatus();
+    return Results.Ok(status);
+});
+
+finance.MapPost("/analyze", async (FinanceAnalysisRequest analysisRequest, IFinanceEngine finEngine, CancellationToken ct) =>
+{
+    var result = await finEngine.AnalyzePerformanceAsync(analysisRequest.Scope, analysisRequest.Parameters, ct);
+    return Results.Ok(result);
+});
+
+finance.MapGet("/anomalies", async (string? scope, double? sensitivity, int? maxResults, IFinanceEngine finEngine, CancellationToken ct) =>
+{
+    var anomalies = await finEngine.DetectAnomaliesAsync(scope ?? "*", sensitivity ?? 0.7, maxResults ?? 20, ct);
+    return Results.Ok(anomalies);
+});
+
+finance.MapPost("/summary", async (FinanceSummaryRequest summaryRequest, IFinanceEngine finEngine, CancellationToken ct) =>
+{
+    var summary = await finEngine.GenerateSummaryAsync(summaryRequest.Scope, summaryRequest.Period, ct);
+    return Results.Ok(summary);
+});
+
+finance.MapPost("/budget", async (BudgetAssistRequest budgetRequest, IFinanceEngine finEngine, CancellationToken ct) =>
+{
+    var result = await finEngine.AssistBudgetingAsync(budgetRequest.DepartmentId, budgetRequest.Parameters, ct);
+    return result.IsSuccess ? Results.Ok(result) : Results.Problem("Budget workflow failed", statusCode: 400);
+});
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")
@@ -485,3 +520,6 @@ public sealed record GoogleSheetWriteRequest(string Range, IReadOnlyList<IReadOn
 public sealed record M365SendEmailRequest(string To, string Subject, string Body, bool IsHtml = false);
 public sealed record M365TeamsMessageRequest(string Content);
 public sealed record WorkflowCoordinationRequest(string WorkflowTemplate, IReadOnlyList<string> AgentCapabilities, Dictionary<string, string> Inputs);
+public sealed record FinanceAnalysisRequest(string Scope, Dictionary<string, string> Parameters);
+public sealed record FinanceSummaryRequest(string Scope, string Period);
+public sealed record BudgetAssistRequest(string DepartmentId, Dictionary<string, string> Parameters);

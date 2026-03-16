@@ -77,4 +77,11 @@ public static class Telemetry
     public static readonly Counter<long> OperationsDataFabricQueries = Meter.CreateCounter<long>("archonai.operations.datafabric.queries");
     public static readonly Counter<long> OperationsStrategyLookups = Meter.CreateCounter<long>("archonai.operations.strategy.lookups");
     public static readonly Histogram<double> OperationsCoordinationDurationMs = Meter.CreateHistogram<double>("archonai.operations.coordination.duration.ms");
+
+    // Finance agent metrics
+    public static readonly Counter<long> FinanceAnalyses = Meter.CreateCounter<long>("archonai.finance.analyses");
+    public static readonly Counter<long> FinanceAnomalyScans = Meter.CreateCounter<long>("archonai.finance.anomaly.scans");
+    public static readonly Counter<long> FinanceSummaries = Meter.CreateCounter<long>("archonai.finance.summaries");
+    public static readonly Counter<long> FinanceBudgetWorkflows = Meter.CreateCounter<long>("archonai.finance.budget.workflows");
+    public static readonly Counter<long> FinanceDataFabricQueries = Meter.CreateCounter<long>("archonai.finance.datafabric.queries");
 }
