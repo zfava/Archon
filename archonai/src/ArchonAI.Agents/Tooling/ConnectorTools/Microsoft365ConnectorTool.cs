@@ -40,7 +40,7 @@ public sealed class Microsoft365ConnectorTool : IAgentTool
 
     private async global::System.Threading.Tasks.Task<ToolExecutionResult> GetEmailsAsync(ToolExecutionRequest request, CancellationToken ct)
     {
-        string? filter = request.Parameters.GetValueOrDefault("filter", null);
+        string? filter = request.Parameters.GetValueOrDefault("filter");
         _ = int.TryParse(request.Parameters.GetValueOrDefault("top", "20"), out int top);
 
         var messages = await _connector.GetEmailsAsync(filter, top, ct);
@@ -119,7 +119,7 @@ public sealed class Microsoft365ConnectorTool : IAgentTool
     private async global::System.Threading.Tasks.Task<ToolExecutionResult> GetSharePointItemsAsync(ToolExecutionRequest request, CancellationToken ct)
     {
         string siteId = request.Parameters.GetValueOrDefault("siteId", string.Empty);
-        string? listId = request.Parameters.GetValueOrDefault("listId", null);
+        string? listId = request.Parameters.GetValueOrDefault("listId");
         _ = int.TryParse(request.Parameters.GetValueOrDefault("top", "50"), out int top);
 
         var items = await _connector.GetSharePointItemsAsync(siteId, listId, top, ct);
@@ -152,7 +152,7 @@ public sealed class Microsoft365ConnectorTool : IAgentTool
 
     private async global::System.Threading.Tasks.Task<ToolExecutionResult> ListOneDriveFilesAsync(ToolExecutionRequest request, CancellationToken ct)
     {
-        string? folderId = request.Parameters.GetValueOrDefault("folderId", null);
+        string? folderId = request.Parameters.GetValueOrDefault("folderId");
         _ = int.TryParse(request.Parameters.GetValueOrDefault("top", "50"), out int top);
 
         var files = await _connector.ListOneDriveFilesAsync(folderId, top, ct);

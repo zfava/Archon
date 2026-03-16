@@ -17,7 +17,7 @@ public sealed class ObservabilityService : IObservabilityService
 
     private long _tracesCollected;
     private long _metricsSnapshots;
-    private long _alertsGenerated;
+    private long _alertsGenerated = 0;
 
     public ObservabilityService(ILogger<ObservabilityService> logger)
     {

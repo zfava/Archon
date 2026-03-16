@@ -153,7 +153,7 @@ public sealed class AuditLogService : IAuditLogService
         {
             if (!started)
             {
-                if (id == fromEntryId.Value)
+                if (fromEntryId.HasValue && id == fromEntryId.Value)
                     started = true;
                 else
                     continue;

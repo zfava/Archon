@@ -37,8 +37,8 @@ public sealed class QuickBooksConnectorTool : IAgentTool
     private async global::System.Threading.Tasks.Task<ToolExecutionResult> GetReportsAsync(ToolExecutionRequest request, CancellationToken ct)
     {
         string reportType = request.Parameters.GetValueOrDefault("reportType", "ProfitAndLoss");
-        string? startDate = request.Parameters.GetValueOrDefault("startDate", null);
-        string? endDate = request.Parameters.GetValueOrDefault("endDate", null);
+        string? startDate = request.Parameters.GetValueOrDefault("startDate");
+        string? endDate = request.Parameters.GetValueOrDefault("endDate");
 
         var records = await _connector.GetFinancialReportsAsync(reportType, startDate, endDate, ct);
 
@@ -61,7 +61,7 @@ public sealed class QuickBooksConnectorTool : IAgentTool
             string desc = request.Parameters.GetValueOrDefault($"line.{index}.description", string.Empty);
             decimal amount = decimal.TryParse(request.Parameters.GetValueOrDefault($"line.{index}.amount", "0"), NumberStyles.Any, CultureInfo.InvariantCulture, out var a) ? a : 0;
             decimal qty = decimal.TryParse(request.Parameters.GetValueOrDefault($"line.{index}.quantity", "1"), NumberStyles.Any, CultureInfo.InvariantCulture, out var q) ? q : 1;
-            string? itemRef = request.Parameters.GetValueOrDefault($"line.{index}.itemRef", null);
+            string? itemRef = request.Parameters.GetValueOrDefault($"line.{index}.itemRef");
 
             lineItems.Add(new QuickBooksLineItem(desc, amount, qty, itemRef));
             index++;
@@ -108,9 +108,9 @@ public sealed class QuickBooksConnectorTool : IAgentTool
 
     private async global::System.Threading.Tasks.Task<ToolExecutionResult> GetTransactionsAsync(ToolExecutionRequest request, CancellationToken ct)
     {
-        string? accountId = request.Parameters.GetValueOrDefault("accountId", null);
-        string? startDate = request.Parameters.GetValueOrDefault("startDate", null);
-        string? endDate = request.Parameters.GetValueOrDefault("endDate", null);
+        string? accountId = request.Parameters.GetValueOrDefault("accountId");
+        string? startDate = request.Parameters.GetValueOrDefault("startDate");
+        string? endDate = request.Parameters.GetValueOrDefault("endDate");
         _ = int.TryParse(request.Parameters.GetValueOrDefault("limit", "100"), out int limit);
 
         var records = await _connector.GetTransactionHistoryAsync(accountId, startDate, endDate, limit, ct);

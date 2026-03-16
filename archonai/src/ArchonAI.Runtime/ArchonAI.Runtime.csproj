@@ -13,7 +13,4 @@
     <ProjectReference Include="..\ArchonAI.TaskRuntime\ArchonAI.TaskRuntime.csproj" />
     <ProjectReference Include="..\ArchonAI.Registry\ArchonAI.Registry.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
 </Project>

@@ -37,7 +37,7 @@ public sealed class SlackConnectorTool : IAgentTool
     {
         string channel = request.Parameters.GetValueOrDefault("channel", string.Empty);
         string text = request.Parameters.GetValueOrDefault("text", string.Empty);
-        string? threadTs = request.Parameters.GetValueOrDefault("threadTs", null);
+        string? threadTs = request.Parameters.GetValueOrDefault("threadTs");
 
         var result = await _connector.SendMessageAsync(channel, text, threadTs, ct);
 
@@ -53,8 +53,8 @@ public sealed class SlackConnectorTool : IAgentTool
     {
         string channel = request.Parameters.GetValueOrDefault("channel", string.Empty);
         _ = int.TryParse(request.Parameters.GetValueOrDefault("limit", "50"), out int limit);
-        string? oldest = request.Parameters.GetValueOrDefault("oldest", null);
-        string? latest = request.Parameters.GetValueOrDefault("latest", null);
+        string? oldest = request.Parameters.GetValueOrDefault("oldest");
+        string? latest = request.Parameters.GetValueOrDefault("latest");
 
         var messages = await _connector.ReadChannelHistoryAsync(channel, limit, oldest, latest, ct);
 

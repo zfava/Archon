@@ -156,7 +156,7 @@ public sealed class SlackConnectorTests : IDisposable
             messages = new[]
             {
                 new { ts = "1710000000.000001", user = "U001", text = "Hello!", thread_ts = (string?)null },
-                new { ts = "1710000001.000002", user = "U002", text = "World!", thread_ts = "1710000000.000001" }
+                new { ts = "1710000001.000002", user = "U002", text = "World!", thread_ts = (string?)"1710000000.000001" }
             }
         }));
 

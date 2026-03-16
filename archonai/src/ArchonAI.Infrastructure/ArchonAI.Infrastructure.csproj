@@ -41,9 +41,6 @@
     <ProjectReference Include="..\ArchonAI.Agents\ArchonAI.Agents.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="Npgsql" Version="8.0.4" />
     <PackageReference Include="Pgvector" Version="0.3.0" />
       <PackageReference Include="NATS.Client" Version="1.1.8" />

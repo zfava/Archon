@@ -39,7 +39,7 @@ public sealed class GoogleWorkspaceConnectorTool : IAgentTool
 
     private async global::System.Threading.Tasks.Task<ToolExecutionResult> GetEmailsAsync(ToolExecutionRequest request, CancellationToken ct)
     {
-        string? query = request.Parameters.GetValueOrDefault("query", null);
+        string? query = request.Parameters.GetValueOrDefault("query");
         _ = int.TryParse(request.Parameters.GetValueOrDefault("maxResults", "20"), out int maxResults);
 
         var messages = await _connector.GetEmailsAsync(query, maxResults, ct);
@@ -88,7 +88,7 @@ public sealed class GoogleWorkspaceConnectorTool : IAgentTool
     private async global::System.Threading.Tasks.Task<ToolExecutionResult> CreateDocumentAsync(ToolExecutionRequest request, CancellationToken ct)
     {
         string title = request.Parameters.GetValueOrDefault("title", string.Empty);
-        string? content = request.Parameters.GetValueOrDefault("content", null);
+        string? content = request.Parameters.GetValueOrDefault("content");
 
         string documentId = await _connector.CreateDocumentAsync(title, content, ct);
 
@@ -166,7 +166,7 @@ public sealed class GoogleWorkspaceConnectorTool : IAgentTool
 
     private async global::System.Threading.Tasks.Task<ToolExecutionResult> ListFilesAsync(ToolExecutionRequest request, CancellationToken ct)
     {
-        string? query = request.Parameters.GetValueOrDefault("query", null);
+        string? query = request.Parameters.GetValueOrDefault("query");
         _ = int.TryParse(request.Parameters.GetValueOrDefault("maxResults", "50"), out int maxResults);
 
         var files = await _connector.ListFilesAsync(query, maxResults, ct);
