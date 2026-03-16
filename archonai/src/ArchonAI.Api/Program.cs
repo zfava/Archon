@@ -20,6 +20,7 @@ using ArchonAI.Agents.Support;
 using ArchonAI.ControlPlane;
 using ArchonAI.Core.Models.ControlPlane;
 using ArchonAI.Runtime;
+using ArchonAI.WorkflowDesigner;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -38,6 +39,7 @@ builder.Services.AddArchonAIMarketing(builder.Configuration);
 builder.Services.AddArchonAISupport(builder.Configuration);
 builder.Services.AddArchonAIAdmin(builder.Configuration);
 builder.Services.AddArchonAIControlPlane(builder.Configuration);
+builder.Services.AddArchonAIWorkflowDesigner();
 
 var app = builder.Build();
 
@@ -832,6 +834,86 @@ workflows.MapDelete("/{workflowId:guid}", async (Guid workflowId, IWorkflowDesig
     return deleted ? Results.Ok(new { workflowId, deleted = true }) : Results.NotFound();
 });
 
+// Workflow designer endpoints
+var designer = v1.MapGroup("/designer/workflows")
+    .RequireAuthorization("OperatorOrAdmin");
+
+designer.MapGet("", async (string? nameFilter, int? offset, int? limit,
+    IWorkflowDesignerService designerService, CancellationToken ct) =>
+{
+    var list = await designerService.ListWorkflowGraphsAsync(nameFilter, offset ?? 0, limit ?? 50, ct);
+    return Results.Ok(list);
+});
+
+designer.MapGet("/{graphId:guid}", async (Guid graphId,
+    IWorkflowDesignerService designerService, CancellationToken ct) =>
+{
+    var graph = await designerService.GetWorkflowGraphAsync(graphId, ct);
+    return graph is null ? Results.NotFound() : Results.Ok(graph);
+});
+
+designer.MapPost("", async (CreateWorkflowGraphRequest request,
+    IWorkflowDesignerService designerService, CancellationToken ct) =>
+{
+    var nodes = request.Nodes.Select(n => new WorkflowNode(
+        Guid.NewGuid(), n.Name, n.Description, n.NodeType, n.Configuration)).ToList();
+
+    var nodeIdMap = nodes.Select((n, i) => (i, n.Id)).ToDictionary(x => x.i, x => x.Id);
+
+    var edges = request.Edges.Select(e => new WorkflowEdge(
+        Guid.NewGuid(),
+        nodeIdMap.GetValueOrDefault(e.SourceNodeIndex),
+        nodeIdMap.GetValueOrDefault(e.TargetNodeIndex),
+        e.Label)).ToList();
+
+    var graph = await designerService.CreateWorkflowGraphAsync(
+        request.Name, request.Description, nodes, edges, request.Metadata, ct);
+
+    return Results.Created($"/api/v1/designer/workflows/{graph.Id}", graph);
+});
+
+designer.MapPost("/{graphId:guid}/validate", async (Guid graphId,
+    IWorkflowDesignerService designerService, CancellationToken ct) =>
+{
+    var result = await designerService.ValidateWorkflowGraphAsync(graphId, ct);
+    return Results.Ok(result);
+});
+
+designer.MapPost("/{graphId:guid}/simulate", async (Guid graphId,
+    IWorkflowDesignerService designerService, CancellationToken ct) =>
+{
+    try
+    {
+        var result = await designerService.SimulateWorkflowGraphAsync(graphId, ct);
+        return Results.Ok(result);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+designer.MapPost("/{graphId:guid}/export", async (Guid graphId, string? version,
+    IWorkflowDesignerService designerService, CancellationToken ct) =>
+{
+    try
+    {
+        var export = await designerService.ExportWorkflowGraphAsync(graphId, version ?? "1.0", ct);
+        return Results.Ok(export);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+designer.MapDelete("/{graphId:guid}", async (Guid graphId,
+    IWorkflowDesignerService designerService, CancellationToken ct) =>
+{
+    var deleted = await designerService.DeleteWorkflowGraphAsync(graphId, ct);
+    return deleted ? Results.Ok(new { graphId, deleted = true }) : Results.NotFound();
+});
+
 // Control plane endpoints
 var controlPlane = v1.MapGroup("/control-plane")
     .RequireAuthorization("AdminOnly");
@@ -1252,3 +1334,6 @@ public sealed record UpdateManagedAgentStatusRequest(ManagedAgentStatus Status);
 public sealed record CreatePlatformPolicyRequest(string TenantId, string Name, string Description, PlatformPolicyType PolicyType, string TargetResource, Dictionary<string, string> Rules, int Priority);
 public sealed record UpdatePlatformPolicyRequest(bool IsEnabled, Dictionary<string, string>? Rules = null, int? Priority = null);
 public sealed record SetConfigurationRequest(string TenantId, string Scope, string Key, string Value, string? Description = null, bool IsSecret = false);
+public sealed record CreateWorkflowNodeRequest(string Name, string Description, WorkflowNodeType NodeType, Dictionary<string, string> Configuration);
+public sealed record CreateWorkflowEdgeRequest(int SourceNodeIndex, int TargetNodeIndex, string? Label = null);
+public sealed record CreateWorkflowGraphRequest(string Name, string Description, IReadOnlyList<CreateWorkflowNodeRequest> Nodes, IReadOnlyList<CreateWorkflowEdgeRequest> Edges, Dictionary<string, string>? Metadata = null);

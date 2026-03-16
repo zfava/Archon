@@ -53,6 +53,7 @@
     <Project Path="src/ArchonAI.Worker.Agents/ArchonAI.Worker.Agents.csproj" />
     <Project Path="src/ArchonAI.ControlPlane/ArchonAI.ControlPlane.csproj" />
     <Project Path="src/ArchonAI.Gateway/ArchonAI.Gateway.csproj" />
+    <Project Path="src/ArchonAI.WorkflowDesigner/ArchonAI.WorkflowDesigner.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ArchonAI.Connectors.Tests/ArchonAI.Connectors.Tests.csproj" />
@@ -62,5 +63,6 @@
     <Project Path="tests/ArchonAI.Agents.Marketing.Tests/ArchonAI.Agents.Marketing.Tests.csproj" />
     <Project Path="tests/ArchonAI.Agents.Support.Tests/ArchonAI.Agents.Support.Tests.csproj" />
     <Project Path="tests/ArchonAI.AdminAPI.Tests/ArchonAI.AdminAPI.Tests.csproj" />
+    <Project Path="tests/ArchonAI.WorkflowDesigner.Tests/ArchonAI.WorkflowDesigner.Tests.csproj" />
   </Folder>
 </Solution>
