@@ -1,3 +1,4 @@
+using ArchonAI.Connectors.GoogleWorkspace;
 using ArchonAI.Connectors.HubSpot;
 using ArchonAI.Connectors.Implementations;
 using ArchonAI.Connectors.QuickBooks;
@@ -114,6 +115,29 @@ public static class DependencyInjection
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SlackOptions>>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<ISlackConnector>());
+
+        // Google Workspace connector
+        if (configuration is not null)
+        {
+            services.Configure<GoogleWorkspaceOptions>(configuration.GetSection(GoogleWorkspaceOptions.SectionName));
+        }
+        else
+        {
+            services.Configure<GoogleWorkspaceOptions>(_ => { });
+        }
+
+        services.AddHttpClient("GoogleWorkspace");
+        services.AddSingleton<IGoogleWorkspaceConnector>(sp =>
+        {
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("GoogleWorkspace");
+            return new GoogleWorkspaceConnector(
+                httpClient,
+                sp.GetRequiredService<IEventBus>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GoogleWorkspaceConnector>>(),
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<GoogleWorkspaceOptions>>());
+        });
+        services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IGoogleWorkspaceConnector>());
 
         return services;
     }

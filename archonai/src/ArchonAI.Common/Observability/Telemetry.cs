@@ -51,4 +51,12 @@ public static class Telemetry
     public static readonly Counter<long> SlackErrors = Meter.CreateCounter<long>("archonai.slack.errors");
     public static readonly Counter<long> SlackRetries = Meter.CreateCounter<long>("archonai.slack.retries");
     public static readonly Histogram<double> SlackRateLimitRemaining = Meter.CreateHistogram<double>("archonai.slack.ratelimit.remaining");
+
+    // Google Workspace connector metrics
+    public static readonly Counter<long> GoogleWorkspaceAuthAttempts = Meter.CreateCounter<long>("archonai.google.workspace.auth.attempts");
+    public static readonly Counter<long> GoogleWorkspaceQueryOps = Meter.CreateCounter<long>("archonai.google.workspace.query.ops");
+    public static readonly Counter<long> GoogleWorkspaceWriteOps = Meter.CreateCounter<long>("archonai.google.workspace.write.ops");
+    public static readonly Counter<long> GoogleWorkspaceErrors = Meter.CreateCounter<long>("archonai.google.workspace.errors");
+    public static readonly Counter<long> GoogleWorkspaceRetries = Meter.CreateCounter<long>("archonai.google.workspace.retries");
+    public static readonly Histogram<double> GoogleWorkspaceRateLimitRemaining = Meter.CreateHistogram<double>("archonai.google.workspace.ratelimit.remaining");
 }

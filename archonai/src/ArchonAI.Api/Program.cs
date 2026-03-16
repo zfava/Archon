@@ -282,6 +282,73 @@ slack.MapPost("/webhooks/events", async (HttpContext context, ISlackConnector sl
     return processed ? Results.Ok(new { ok = true }) : Results.Problem("Webhook verification failed", statusCode: 401);
 }).AllowAnonymous();
 
+var gws = v1.MapGroup("/connectors/google-workspace")
+    .RequireAuthorization("OperatorOrAdmin");
+
+gws.MapGet("/status", (IGoogleWorkspaceConnector gwsConnector) =>
+{
+    var status = gwsConnector.GetStatus();
+    return Results.Ok(status);
+});
+
+gws.MapPost("/authenticate", async (IGoogleWorkspaceConnector gwsConnector, CancellationToken ct) =>
+{
+    var result = await gwsConnector.AuthenticateAsync(ct);
+    return result.IsAuthenticated ? Results.Ok(result) : Results.Problem(result.Error ?? "Authentication failed", statusCode: 401);
+});
+
+// Gmail endpoints
+gws.MapGet("/gmail/messages", async (string? query, int? maxResults, IGoogleWorkspaceConnector gwsConnector, CancellationToken ct) =>
+{
+    var messages = await gwsConnector.GetEmailsAsync(query, maxResults ?? 20, ct);
+    return Results.Ok(messages);
+});
+
+gws.MapPost("/gmail/send", async (GmailSendRequest emailRequest, IGoogleWorkspaceConnector gwsConnector, CancellationToken ct) =>
+{
+    var result = await gwsConnector.SendEmailAsync(emailRequest.To, emailRequest.Subject, emailRequest.Body, emailRequest.IsHtml, ct);
+    return result.IsSuccess ? Results.Ok(result) : Results.Problem(result.Error ?? "Send failed", statusCode: 400);
+});
+
+// Google Docs endpoints
+gws.MapGet("/docs/{documentId}", async (string documentId, IGoogleWorkspaceConnector gwsConnector, CancellationToken ct) =>
+{
+    var doc = await gwsConnector.GetDocumentAsync(documentId, ct);
+    return Results.Ok(doc);
+});
+
+gws.MapPost("/docs", async (GoogleDocCreateRequest docRequest, IGoogleWorkspaceConnector gwsConnector, CancellationToken ct) =>
+{
+    string documentId = await gwsConnector.CreateDocumentAsync(docRequest.Title, docRequest.Content, ct);
+    return Results.Created($"/api/v1/connectors/google-workspace/docs/{documentId}", new { documentId });
+});
+
+// Google Sheets endpoints
+gws.MapGet("/sheets/{spreadsheetId}", async (string spreadsheetId, string? range, IGoogleWorkspaceConnector gwsConnector, CancellationToken ct) =>
+{
+    var data = await gwsConnector.ReadSpreadsheetAsync(spreadsheetId, range ?? "Sheet1!A1:Z1000", ct);
+    return Results.Ok(data);
+});
+
+gws.MapPut("/sheets/{spreadsheetId}", async (string spreadsheetId, GoogleSheetWriteRequest writeRequest, IGoogleWorkspaceConnector gwsConnector, CancellationToken ct) =>
+{
+    int updatedCells = await gwsConnector.WriteSpreadsheetAsync(spreadsheetId, writeRequest.Range, writeRequest.Values, ct);
+    return Results.Ok(new { spreadsheetId, updatedCells });
+});
+
+// Google Drive endpoints
+gws.MapGet("/drive/files", async (string? query, int? maxResults, IGoogleWorkspaceConnector gwsConnector, CancellationToken ct) =>
+{
+    var files = await gwsConnector.ListFilesAsync(query, maxResults ?? 50, ct);
+    return Results.Ok(files);
+});
+
+gws.MapGet("/drive/files/{fileId}", async (string fileId, IGoogleWorkspaceConnector gwsConnector, CancellationToken ct) =>
+{
+    var file = await gwsConnector.GetFileMetadataAsync(fileId, ct);
+    return Results.Ok(file);
+});
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")
@@ -303,3 +370,6 @@ app.Run();
 public sealed record QuickBooksInvoiceRequest(string CustomerId, IReadOnlyList<QuickBooksLineItem> LineItems);
 public sealed record SlackSendMessageRequest(string Channel, string Text, string? ThreadTs = null);
 public sealed record SlackAlertRequest(string Channel, string AlertLevel, string Title, string Details);
+public sealed record GmailSendRequest(string To, string Subject, string Body, bool IsHtml = false);
+public sealed record GoogleDocCreateRequest(string Title, string? Content = null);
+public sealed record GoogleSheetWriteRequest(string Range, IReadOnlyList<IReadOnlyList<string>> Values);
