@@ -4,7 +4,7 @@ WORKDIR /src
 COPY ./archonai/ArchonAI.slnx ./
 COPY ./archonai/src ./src
 
-RUN dotnet restore ./ArchonAI.slnx
+RUN dotnet restore ./src/ArchonAI.Api/ArchonAI.Api.csproj
 RUN dotnet publish ./src/ArchonAI.Api/ArchonAI.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
