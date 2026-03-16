@@ -109,4 +109,19 @@ public static class Telemetry
     public static readonly Counter<long> AdminWorkflowQueries = Meter.CreateCounter<long>("archonai.admin.workflow.queries");
     public static readonly Counter<long> AdminPolicyUpdates = Meter.CreateCounter<long>("archonai.admin.policy.updates");
     public static readonly Counter<long> AdminMonitoringSnapshots = Meter.CreateCounter<long>("archonai.admin.monitoring.snapshots");
+
+    // RBAC metrics
+    public static readonly Counter<long> RbacAccessChecks = Meter.CreateCounter<long>("archonai.rbac.access.checks");
+    public static readonly Counter<long> RbacAccessDenials = Meter.CreateCounter<long>("archonai.rbac.access.denials");
+    public static readonly Counter<long> RbacRoleChanges = Meter.CreateCounter<long>("archonai.rbac.role.changes");
+    public static readonly Counter<long> RbacPolicyChanges = Meter.CreateCounter<long>("archonai.rbac.policy.changes");
+
+    // Observability service metrics
+    public static readonly Counter<long> ObservabilityTracesCollected = Meter.CreateCounter<long>("archonai.observability.traces.collected");
+    public static readonly Counter<long> ObservabilityMetricsSnapshots = Meter.CreateCounter<long>("archonai.observability.metrics.snapshots");
+    public static readonly Counter<long> ObservabilityAlerts = Meter.CreateCounter<long>("archonai.observability.alerts");
+
+    // Audit log metrics
+    public static readonly Counter<long> AuditEntriesRecorded = Meter.CreateCounter<long>("archonai.audit.entries.recorded");
+    public static readonly Counter<long> AuditIntegrityChecks = Meter.CreateCounter<long>("archonai.audit.integrity.checks");
 }

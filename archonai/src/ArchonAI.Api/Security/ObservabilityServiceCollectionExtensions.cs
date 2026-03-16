@@ -1,4 +1,5 @@
 using ArchonAI.Common.Observability;
+using ArchonAI.Core.Interfaces;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -31,6 +32,10 @@ public static class ObservabilityServiceCollectionExtensions
                 .AddRuntimeInstrumentation()
                 .AddProcessInstrumentation()
                 .AddPrometheusExporter());
+
+        builder.Services.AddSingleton<IObservabilityService, ObservabilityService>();
+        builder.Services.AddSingleton<IAuditLogService, AuditLogService>();
+        builder.Services.AddSingleton<TracingAgentExecutor>();
 
         return builder;
     }

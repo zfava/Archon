@@ -1,4 +1,5 @@
 using System.Text;
+using ArchonAI.Core.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -44,12 +45,20 @@ public static class SecurityServiceCollectionExtensions
                 };
             });
 
+        services.AddSingleton<IRbacService, RbacService>();
+        services.AddSingleton<IAuthorizationHandler, PermissionRequirementHandler>();
+
         services.AddAuthorizationBuilder()
             .SetFallbackPolicy(new AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
                 .Build())
             .AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"))
-            .AddPolicy("OperatorOrAdmin", policy => policy.RequireRole("Operator", "Admin"));
+            .AddPolicy("OperatorOrAdmin", policy => policy.RequireRole("Operator", "Admin"))
+            .AddPolicy("AgentRead", policy => policy.Requirements.Add(new PermissionRequirement("agents:read")))
+            .AddPolicy("AgentWrite", policy => policy.Requirements.Add(new PermissionRequirement("agents:write")))
+            .AddPolicy("ConnectorAccess", policy => policy.Requirements.Add(new PermissionRequirement("connectors:execute")))
+            .AddPolicy("PolicyManagement", policy => policy.Requirements.Add(new PermissionRequirement("policy:write")))
+            .AddPolicy("RbacManagement", policy => policy.Requirements.Add(new PermissionRequirement("rbac:write")));
 
         services.AddRateLimiter(options =>
         {
