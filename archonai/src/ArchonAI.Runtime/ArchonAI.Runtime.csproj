@@ -10,6 +10,7 @@
     <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
     <ProjectReference Include="..\ArchonAI.Workflow\ArchonAI.Workflow.csproj" />
     <ProjectReference Include="..\ArchonAI.WorkflowRuntime\ArchonAI.WorkflowRuntime.csproj" />
+    <ProjectReference Include="..\ArchonAI.TaskRuntime\ArchonAI.TaskRuntime.csproj" />
     <ProjectReference Include="..\ArchonAI.Registry\ArchonAI.Registry.csproj" />
   </ItemGroup>
   <ItemGroup>

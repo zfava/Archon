@@ -8,6 +8,7 @@ using ArchonAI.Core.Models.Evaluation;
 using ArchonAI.Core.Models.Policy;
 using ArchonAI.Core.Models.Trace;
 using ArchonAI.Core.Models.Telemetry;
+using ArchonAI.Core.Models.TaskRuntime;
 using ArchonAI.Core.Models.Governance;
 using ArchonAI.Runtime.Execution;
 using ArchonAI.Registry;
@@ -35,6 +36,7 @@ public sealed class AgentRuntime : IRuntime
     private readonly IEventBus _eventBus;
     private readonly IWorkflowEngine _workflowEngine;
     private readonly IWorkflowExecutionEngine _workflowExecutionEngine;
+    private readonly ITaskExecutionEngine _taskExecutionEngine;
     private readonly IAgentCapabilityRegistry _capabilityRegistry;
     private readonly IEvaluationEngine _evaluationEngine;
     private readonly IGovernanceKernel _governanceKernel;
@@ -55,6 +57,7 @@ public sealed class AgentRuntime : IRuntime
         IEventBus eventBus,
         IWorkflowEngine workflowEngine,
         IWorkflowExecutionEngine workflowExecutionEngine,
+        ITaskExecutionEngine taskExecutionEngine,
         IAgentCapabilityRegistry capabilityRegistry,
         IEvaluationEngine evaluationEngine,
         IGovernanceKernel governanceKernel,
@@ -71,6 +74,7 @@ public sealed class AgentRuntime : IRuntime
         _eventBus = eventBus;
         _workflowEngine = workflowEngine;
         _workflowExecutionEngine = workflowExecutionEngine;
+        _taskExecutionEngine = taskExecutionEngine;
         _capabilityRegistry = capabilityRegistry;
         _evaluationEngine = evaluationEngine;
         _governanceKernel = governanceKernel;
@@ -152,7 +156,6 @@ public sealed class AgentRuntime : IRuntime
 
         IReadOnlyList<ExecutionResult> results = await _taskOrchestrator.ExecuteAllAsync(context, async (task, ct) =>
         {
-            var taskStopwatch = Stopwatch.StartNew();
             await RecordTraceAsync(task, "reasoning-step", "Starting task execution lifecycle.", new Dictionary<string, string>
             {
                 ["phase"] = "execute"
@@ -160,255 +163,41 @@ public sealed class AgentRuntime : IRuntime
 
             TransitionWorkflow(task.Id, WorkflowTrigger.StartExecuting);
 
-            IReadOnlyList<IAgent> candidateAgents = _agentImplementations
-                .Where(a =>
-                {
-                    Agent descriptor = a.Describe();
-                    return descriptor.IsEnabled
-                        && descriptor.Capabilities.Any(capability =>
-                            capability.Name.Equals(task.RequiredCapability, StringComparison.OrdinalIgnoreCase));
-                })
-                .ToArray();
+            TaskExecutionOutcome outcome = await _taskExecutionEngine.ExecuteTaskAsync(
+                task,
+                context,
+                _agentImplementations.ToArray(),
+                ct);
 
-            IAgent? agent = null;
-            if (candidateAgents.Count > 0)
+            if (outcome.AgentId != Guid.Empty)
             {
-                Agent? selectedDescriptor = await _agentSupervisor.SelectAgentAsync(
-                    candidateAgents.Select(candidate => candidate.Describe()).ToArray(),
-                    task,
-                    ct);
-
-                if (selectedDescriptor is not null)
-                {
-                    agent = candidateAgents.FirstOrDefault(candidate => candidate.Describe().Id == selectedDescriptor.Id)
-                        ?? candidateAgents[0];
-                }
-            }
-
-            if (agent is null)
-            {
-                await RecordTraceAsync(task, "decision", "No matching agent found for required capability.", new Dictionary<string, string>
-                {
-                    ["requiredCapability"] = task.RequiredCapability
-                }, ct);
-
-                TransitionWorkflow(task.Id, WorkflowTrigger.StartEvaluating);
-
-                var failedResult = new ExecutionResult(
-                    task.Id,
-                    IsSuccess: false,
-                    Summary: $"No registered agent for capability '{task.RequiredCapability}'.",
-                    Outputs: new Dictionary<string, string>(),
-                    Warnings: Array.Empty<string>(),
-                    Errors: new[] { "AgentNotFound" },
-                    CompletedAtUtc: DateTimeOffset.UtcNow);
-
-                await RecordTaskTelemetryAsync(
-                    objectiveId: task.ObjectiveId,
-                    workflowId: context.CorrelationId,
-                    agentId: Guid.Empty,
-                    taskId: task.Id,
-                    executionTimeMs: taskStopwatch.Elapsed.TotalMilliseconds,
-                    cost: 0,
-                    success: false,
-                    errorType: "AgentNotFound",
+                await _identityStore.RecordExecutionAsync(
+                    agentId: outcome.AgentId,
+                    taskId: outcome.Result.TaskId,
+                    success: outcome.Result.IsSuccess,
+                    executionTimeMs: outcome.ExecutionTimeMs,
+                    cost: outcome.Cost,
+                    errorType: outcome.ErrorType,
+                    executedAtUtc: outcome.CompletedAtUtc,
                     cancellationToken: ct);
-
-                TransitionWorkflow(task.Id, WorkflowTrigger.Fail);
-                await PublishResultEventAsync(task, failedResult, cancellationToken);
-                return failedResult;
             }
 
-            Agent agentSnapshot = agent.Describe();
-            var taskContext = context with
-            {
-                Metadata = new Dictionary<string, string>(context.Metadata)
-                {
-                    ["requiredCapability"] = task.RequiredCapability,
-                    ["scheduledOrder"] = task.Order.ToString()
-                }
-            };
+            await RecordTaskTelemetryAsync(
+                objectiveId: task.ObjectiveId,
+                workflowId: context.CorrelationId,
+                agentId: outcome.AgentId,
+                taskId: task.Id,
+                executionTimeMs: outcome.ExecutionTimeMs,
+                cost: outcome.Cost,
+                success: outcome.Result.IsSuccess,
+                errorType: outcome.ErrorType,
+                cancellationToken: ct);
 
-            var supervisionDecision = await _agentSupervisor.ValidateExecutionAsync(agentSnapshot, task, taskContext, ct);
-            await RecordTraceAsync(task, "decision", "Supervisor decision generated.", new Dictionary<string, string>
-            {
-                ["isAllowed"] = supervisionDecision.IsAllowed.ToString(),
-                ["supervisorReason"] = supervisionDecision.Reason,
-                ["action"] = supervisionDecision.Action,
-                ["signals"] = string.Join('|', supervisionDecision.Signals)
-            }, ct);
+            TransitionWorkflow(task.Id, WorkflowTrigger.StartEvaluating);
+            TransitionWorkflow(task.Id, outcome.Result.IsSuccess ? WorkflowTrigger.Complete : WorkflowTrigger.Fail);
 
-            if (!supervisionDecision.IsAllowed)
-            {
-                TransitionWorkflow(task.Id, WorkflowTrigger.StartEvaluating);
-
-                var deniedBySupervisorResult = new ExecutionResult(
-                    task.Id,
-                    IsSuccess: false,
-                    Summary: $"Supervisor denied task execution: {supervisionDecision.Reason}",
-                    Outputs: new Dictionary<string, string>(),
-                    Warnings: supervisionDecision.Signals,
-                    Errors: new[] { "SupervisorDenied" },
-                    CompletedAtUtc: DateTimeOffset.UtcNow);
-
-                await RecordTaskTelemetryAsync(
-                    objectiveId: task.ObjectiveId,
-                    workflowId: context.CorrelationId,
-                    agentId: agentSnapshot.Id,
-                    taskId: task.Id,
-                    executionTimeMs: taskStopwatch.Elapsed.TotalMilliseconds,
-                    cost: 0,
-                    success: false,
-                    errorType: "SupervisorDenied",
-                    cancellationToken: ct);
-
-                TransitionWorkflow(task.Id, WorkflowTrigger.Fail);
-                await PublishResultEventAsync(task, deniedBySupervisorResult, ct);
-                await _agentSupervisor.RecordExecutionCompletedAsync(agentSnapshot, deniedBySupervisorResult, taskStopwatch.Elapsed.TotalMilliseconds, ct);
-                await RecordIdentityExecutionAsync(agentSnapshot, deniedBySupervisorResult, taskStopwatch.Elapsed.TotalMilliseconds, ct);
-                return deniedBySupervisorResult;
-            }
-
-            var sandboxDecision = await _agentSandboxManager.EnsureSandboxAsync(agentSnapshot, task, taskContext, ct);
-            await RecordTraceAsync(task, "decision", "Sandbox decision generated.", new Dictionary<string, string>
-            {
-                ["isAllowed"] = sandboxDecision.IsAllowed.ToString(),
-                ["sandboxId"] = sandboxDecision.SandboxId.ToString(),
-                ["memoryLimitMb"] = sandboxDecision.MemoryLimitMb.ToString(),
-                ["cpuQuotaPercent"] = sandboxDecision.CpuQuotaPercent.ToString(),
-                ["networkAccessAllowed"] = sandboxDecision.NetworkAccessAllowed.ToString(),
-                ["violations"] = string.Join('|', sandboxDecision.Violations)
-            }, ct);
-
-            if (!sandboxDecision.IsAllowed)
-            {
-                TransitionWorkflow(task.Id, WorkflowTrigger.StartEvaluating);
-
-                var sandboxDeniedResult = new ExecutionResult(
-                    task.Id,
-                    IsSuccess: false,
-                    Summary: $"Sandbox denied task execution: {sandboxDecision.Reason}",
-                    Outputs: new Dictionary<string, string>(),
-                    Warnings: sandboxDecision.Violations,
-                    Errors: new[] { "SandboxDenied" },
-                    CompletedAtUtc: DateTimeOffset.UtcNow);
-
-                await RecordTaskTelemetryAsync(
-                    objectiveId: task.ObjectiveId,
-                    workflowId: context.CorrelationId,
-                    agentId: agentSnapshot.Id,
-                    taskId: task.Id,
-                    executionTimeMs: taskStopwatch.Elapsed.TotalMilliseconds,
-                    cost: 0,
-                    success: false,
-                    errorType: "SandboxDenied",
-                    cancellationToken: ct);
-
-                TransitionWorkflow(task.Id, WorkflowTrigger.Fail);
-                await PublishResultEventAsync(task, sandboxDeniedResult, ct);
-                await _agentSupervisor.RecordExecutionCompletedAsync(agentSnapshot, sandboxDeniedResult, taskStopwatch.Elapsed.TotalMilliseconds, ct);
-                await RecordIdentityExecutionAsync(agentSnapshot, sandboxDeniedResult, taskStopwatch.Elapsed.TotalMilliseconds, ct);
-                return sandboxDeniedResult;
-            }
-
-            GovernanceDecision governanceDecision = await _governanceKernel.ValidateExecutionAsync(agentSnapshot, task, taskContext, ct);
-            PolicyDecision policyDecision = governanceDecision.PolicyDecision;
-            await RecordPolicyDecisionAsync(task, policyDecision, ct);
-            await RecordTraceAsync(task, "decision", "Governance decision generated.", new Dictionary<string, string>
-            {
-                ["isAllowed"] = governanceDecision.IsAllowed.ToString(),
-                ["governanceReason"] = governanceDecision.Reason,
-                ["riskScore"] = policyDecision.RiskScore.ToString("F2"),
-                ["requiresApproval"] = policyDecision.RequiresApproval.ToString(),
-                ["confidenceScore"] = policyDecision.ConfidenceScore.ToString("F3"),
-                ["manualOverrideState"] = policyDecision.ManualOverrideState,
-                ["approvalCheckpoint"] = policyDecision.ApprovalCheckpoint
-            }, ct);
-
-            if (!governanceDecision.IsAllowed)
-            {
-                TransitionWorkflow(task.Id, WorkflowTrigger.StartEvaluating);
-
-                var deniedResult = new ExecutionResult(
-                    task.Id,
-                    IsSuccess: false,
-                    Summary: $"Governance denied task execution: {governanceDecision.Reason}",
-                    Outputs: new Dictionary<string, string>(),
-                    Warnings: governanceDecision.Violations,
-                    Errors: new[] { "GovernanceDenied" },
-                    CompletedAtUtc: DateTimeOffset.UtcNow);
-
-                await RecordTaskTelemetryAsync(
-                    objectiveId: task.ObjectiveId,
-                    workflowId: context.CorrelationId,
-                    agentId: agentSnapshot.Id,
-                    taskId: task.Id,
-                    executionTimeMs: taskStopwatch.Elapsed.TotalMilliseconds,
-                    cost: 0,
-                    success: false,
-                    errorType: "GovernanceDenied",
-                    cancellationToken: ct);
-
-                TransitionWorkflow(task.Id, WorkflowTrigger.Fail);
-                await PublishResultEventAsync(task, deniedResult, ct);
-                await _agentSupervisor.RecordExecutionCompletedAsync(agentSnapshot, deniedResult, taskStopwatch.Elapsed.TotalMilliseconds, ct);
-                await RecordIdentityExecutionAsync(agentSnapshot, deniedResult, taskStopwatch.Elapsed.TotalMilliseconds, ct);
-                return deniedResult;
-            }
-
-            var stopwatch = Stopwatch.StartNew();
-            try
-            {
-                ExecutionResult result = await agent.ExecuteAsync(task, taskContext, ct);
-                stopwatch.Stop();
-
-                decimal executionCost = result.IsSuccess ? 0.01m : 0.02m;
-                await _capabilityRegistry.ReportExecutionAsync(agentSnapshot.Id, stopwatch.Elapsed.TotalMilliseconds, executionCost, ct);
-
-                EvaluationReport evaluation = await _evaluationEngine.EvaluateAsync(
-                    agentSnapshot,
-                    task,
-                    result,
-                    stopwatch.Elapsed.TotalMilliseconds,
-                    executionCost,
-                    ct);
-
-                await RecordTraceAsync(task, "reasoning-step", "Evaluation completed.", new Dictionary<string, string>
-                {
-                    ["score"] = evaluation.Score.ToString("F2"),
-                    ["isFailure"] = evaluation.IsFailure.ToString()
-                }, ct);
-
-                await RecordEvaluationAsync(task, result, evaluation, ct);
-
-                await RecordTaskTelemetryAsync(
-                    objectiveId: task.ObjectiveId,
-                    workflowId: context.CorrelationId,
-                    agentId: agentSnapshot.Id,
-                    taskId: task.Id,
-                    executionTimeMs: taskStopwatch.Elapsed.TotalMilliseconds,
-                    cost: executionCost,
-                    success: result.IsSuccess,
-                    errorType: result.IsSuccess
-                        ? "none"
-                        : (result.Errors.FirstOrDefault() ?? "ExecutionFailed"),
-                    cancellationToken: ct);
-
-                TransitionWorkflow(task.Id, WorkflowTrigger.StartEvaluating);
-                TransitionWorkflow(task.Id, result.IsSuccess ? WorkflowTrigger.Complete : WorkflowTrigger.Fail);
-                await PublishResultEventAsync(task, result, ct);
-                await _agentSupervisor.RecordExecutionCompletedAsync(agentSnapshot, result, stopwatch.Elapsed.TotalMilliseconds, ct);
-                await RecordIdentityExecutionAsync(agentSnapshot, result, stopwatch.Elapsed.TotalMilliseconds, ct);
-                return result;
-            }
-            finally
-            {
-                await _governanceKernel.MarkExecutionCompletedAsync(agentSnapshot.Id, ct);
-                if (sandboxDecision.IsAllowed)
-                {
-                    await _agentSandboxManager.RecordExecutionCompletedAsync(sandboxDecision.SandboxId, ct);
-                }
-            }
+            await PublishResultEventAsync(task, outcome.Result, ct);
+            return outcome.Result;
         }, cancellationToken);
 
         ReportResults(results);
