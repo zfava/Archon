@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
+    <ProjectReference Include="..\ArchonAI.Scheduler\ArchonAI.Scheduler.csproj" />
+    <ProjectReference Include="..\ArchonAI.Governance\ArchonAI.Governance.csproj" />
+    <ProjectReference Include="..\ArchonAI.Supervisor\ArchonAI.Supervisor.csproj" />
+  </ItemGroup>
+</Project>

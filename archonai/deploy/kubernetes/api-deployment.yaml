@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archonai-api
+  namespace: archonai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: archonai-api
+  template:
+    metadata:
+      labels:
+        app: archonai-api
+    spec:
+      containers:
+        - name: api
+          image: archonai/api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: archonai-config
+            - secretRef:
+                name: archonai-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: archonai-api
+  namespace: archonai
+spec:
+  selector:
+    app: archonai-api
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
