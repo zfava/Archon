@@ -15,4 +15,19 @@ public sealed record OnboardingDeployResult(
     IReadOnlyList<string> AgentsConfigured,
     IReadOnlyList<string> StrategiesApplied,
     IReadOnlyList<string> IntegrationsActive,
+    IReadOnlyList<string> WorkflowsCreated,
     int EstimatedReadyMinutes);
+
+public sealed record OnboardingTemplateDeployRequest(
+    string TemplateId,
+    IReadOnlyList<string> ConnectedSystems,
+    string BusinessType,
+    string AutomationLevel,
+    IReadOnlyList<DepartmentConfig> Departments,
+    IReadOnlyList<string> Agents,
+    IReadOnlyList<TemplateWorkflowConfig> Workflows,
+    IReadOnlyList<string> Strategies);
+
+public sealed record TemplateWorkflowConfig(
+    string Name,
+    IReadOnlyList<string> Steps);

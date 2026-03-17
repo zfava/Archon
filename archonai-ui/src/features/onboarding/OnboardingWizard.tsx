@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useOnboardingWizard } from './hooks/useOnboardingWizard';
+import { TemplateSelector } from './components/TemplateSelector';
 import { ConnectSystems } from './components/ConnectSystems';
 import { SelectBusinessType } from './components/SelectBusinessType';
 import { ConfigureAutomation } from './components/ConfigureAutomation';
@@ -8,6 +9,7 @@ import type { OnboardingStep } from './types';
 import './onboarding.css';
 
 const STEP_META: { id: OnboardingStep; label: string }[] = [
+  { id: 'template', label: 'Template' },
   { id: 'connect', label: 'Connect' },
   { id: 'business', label: 'Business' },
   { id: 'automation', label: 'Automation' },
@@ -26,6 +28,9 @@ export function OnboardingWizard() {
     goNext,
     goBack,
     goToStep,
+    selectTemplate,
+    skipTemplate,
+    autoDeployTemplate,
     toggleSystem,
     setBusinessType,
     setAutomationLevel,
@@ -48,6 +53,11 @@ export function OnboardingWizard() {
           <h1 className="ob-page-title">Setup Wizard</h1>
         </div>
         <div className="ob-header-right">
+          {state.selectedTemplate && (
+            <span className="ob-tpl-badge">
+              {state.selectedTemplate.name}
+            </span>
+          )}
           {connectedCount > 0 && (
             <span className="ob-connected-badge">
               {connectedCount} system{connectedCount !== 1 ? 's' : ''} connected
@@ -84,6 +94,15 @@ export function OnboardingWizard() {
 
       {/* Content */}
       <div className="ob-content">
+        {state.step === 'template' && (
+          <TemplateSelector
+            selected={state.selectedTemplate}
+            onSelect={selectTemplate}
+            onSkip={skipTemplate}
+            onAutoDeploy={autoDeployTemplate}
+            deploying={state.deploying}
+          />
+        )}
         {state.step === 'connect' && (
           <ConnectSystems systems={state.systems} onToggle={toggleSystem} />
         )}
@@ -99,12 +118,16 @@ export function OnboardingWizard() {
           />
         )}
         {state.step === 'review' && (
-          <ReviewDeploy state={state} deployResult={deployResult} onDeploy={deploy} />
+          <ReviewDeploy
+            state={state}
+            deployResult={deployResult}
+            onDeploy={deploy}
+          />
         )}
       </div>
 
       {/* Footer navigation */}
-      {!state.deployed && (
+      {!state.deployed && state.step !== 'template' && (
         <footer className="ob-footer">
           <button
             className="exec-btn exec-btn--secondary"

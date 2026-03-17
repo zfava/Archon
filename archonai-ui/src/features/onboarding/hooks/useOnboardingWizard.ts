@@ -7,9 +7,10 @@ import type {
   BusinessType,
   AutomationLevel,
   DeploymentResult,
+  OnboardingTemplate,
 } from '../types';
 
-const STEPS: OnboardingStep[] = ['connect', 'business', 'automation', 'review'];
+const STEPS: OnboardingStep[] = ['template', 'connect', 'business', 'automation', 'review'];
 
 const DEFAULT_SYSTEMS: SystemConnection[] = [
   { id: 'salesforce', name: 'Salesforce', category: 'crm', description: 'CRM & sales pipeline', connected: false, configuring: false },
@@ -32,7 +33,7 @@ const DEFAULT_DEPARTMENTS = [
 
 export function useOnboardingWizard() {
   const [state, setState] = useState<OnboardingState>({
-    step: 'connect',
+    step: 'template',
     systems: DEFAULT_SYSTEMS,
     businessType: null,
     automation: { level: 'assisted', departments: DEFAULT_DEPARTMENTS },
@@ -40,6 +41,7 @@ export function useOnboardingWizard() {
     deployed: false,
     deployError: null,
     estimatedMinutes: 45,
+    selectedTemplate: null,
   });
 
   const [deployResult, setDeployResult] = useState<DeploymentResult | null>(null);
@@ -47,6 +49,7 @@ export function useOnboardingWizard() {
   const stepIndex = STEPS.indexOf(state.step);
   const canGoNext = useMemo(() => {
     switch (state.step) {
+      case 'template': return true;
       case 'connect': return state.systems.some(s => s.connected);
       case 'business': return state.businessType !== null;
       case 'automation': return true;
@@ -75,6 +78,43 @@ export function useOnboardingWizard() {
     }
   }, [state.deploying, state.deployed]);
 
+  const selectTemplate = useCallback((template: OnboardingTemplate) => {
+    setState(s => ({ ...s, selectedTemplate: template }));
+  }, []);
+
+  const skipTemplate = useCallback(() => {
+    setState(s => ({ ...s, selectedTemplate: null, step: 'connect' }));
+  }, []);
+
+  const autoDeployTemplate = useCallback(async (template: OnboardingTemplate) => {
+    setState(s => ({ ...s, deploying: true, deployError: null, selectedTemplate: template }));
+    try {
+      const result = await api.deployOnboardingTemplate({
+        templateId: template.id,
+        connectedSystems: template.systems,
+        businessType: template.id,
+        automationLevel: template.automationLevel,
+        departments: template.departments
+          .filter(d => d.enabled)
+          .map(d => ({ name: d.name, level: d.level })),
+        agents: template.agents.map(a => a.name),
+        workflows: template.workflows.map(w => ({
+          name: w.name,
+          steps: w.steps,
+        })),
+        strategies: template.strategies,
+      });
+      setDeployResult(result);
+      setState(s => ({ ...s, deploying: false, deployed: true, step: 'review' }));
+    } catch (err) {
+      setState(s => ({
+        ...s,
+        deploying: false,
+        deployError: err instanceof Error ? err.message : 'Template deployment failed',
+      }));
+    }
+  }, []);
+
   const toggleSystem = useCallback((systemId: string) => {
     setState(s => ({
       ...s,
@@ -84,7 +124,6 @@ export function useOnboardingWizard() {
           : sys
       ),
     }));
-    // Simulate connection handshake
     setTimeout(() => {
       setState(s => ({
         ...s,
@@ -171,6 +210,9 @@ export function useOnboardingWizard() {
     goNext,
     goBack,
     goToStep,
+    selectTemplate,
+    skipTemplate,
+    autoDeployTemplate,
     toggleSystem,
     setBusinessType,
     setAutomationLevel,

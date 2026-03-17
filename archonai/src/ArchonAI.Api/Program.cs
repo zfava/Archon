@@ -2641,6 +2641,15 @@ onboarding.MapPost("/deploy", async (
     return Results.Ok(result);
 });
 
+onboarding.MapPost("/deploy-template", async (
+    ArchonAI.Core.Models.Onboarding.OnboardingTemplateDeployRequest req,
+    IOnboardingService onboardingSvc,
+    CancellationToken ct) =>
+{
+    var result = await onboardingSvc.DeployTemplateAsync(req, ct);
+    return Results.Ok(result);
+});
+
 // ══════════════════════════════════════════════════════════════
 //  Integration Marketplace
 // ══════════════════════════════════════════════════════════════

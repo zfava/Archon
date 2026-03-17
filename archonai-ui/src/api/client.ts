@@ -270,4 +270,19 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  deployOnboardingTemplate: (body: {
+    templateId: string;
+    connectedSystems: string[];
+    businessType: string;
+    automationLevel: string;
+    departments: { name: string; level: string }[];
+    agents: string[];
+    workflows: { name: string; steps: string[] }[];
+    strategies: string[];
+  }) =>
+    request('/onboarding/deploy-template', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };

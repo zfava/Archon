@@ -1,4 +1,4 @@
-export type OnboardingStep = 'connect' | 'business' | 'automation' | 'review';
+export type OnboardingStep = 'template' | 'connect' | 'business' | 'automation' | 'review';
 
 export interface SystemConnection {
   id: string;
@@ -16,6 +16,9 @@ export type BusinessType =
   | 'financial-services'
   | 'manufacturing'
   | 'professional-services'
+  | 'pool-service'
+  | 'pest-control'
+  | 'landscaping'
   | 'other';
 
 export interface BusinessTypeOption {
@@ -38,6 +41,31 @@ export interface DepartmentAutomation {
   level: AutomationLevel;
 }
 
+export interface OnboardingTemplate {
+  id: string;
+  name: string;
+  industry: string;
+  description: string;
+  agents: TemplateAgent[];
+  workflows: TemplateWorkflow[];
+  strategies: string[];
+  systems: string[];
+  automationLevel: AutomationLevel;
+  departments: DepartmentAutomation[];
+  estimatedMinutes: number;
+}
+
+export interface TemplateAgent {
+  name: string;
+  role: string;
+}
+
+export interface TemplateWorkflow {
+  name: string;
+  description: string;
+  steps: string[];
+}
+
 export interface OnboardingState {
   step: OnboardingStep;
   systems: SystemConnection[];
@@ -47,6 +75,7 @@ export interface OnboardingState {
   deployed: boolean;
   deployError: string | null;
   estimatedMinutes: number;
+  selectedTemplate: OnboardingTemplate | null;
 }
 
 export interface DeploymentResult {
@@ -54,5 +83,6 @@ export interface DeploymentResult {
   agentsConfigured: string[];
   strategiesApplied: string[];
   integrationsActive: string[];
+  workflowsCreated: string[];
   estimatedReadyMinutes: number;
 }

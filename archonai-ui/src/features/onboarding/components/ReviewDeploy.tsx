@@ -13,6 +13,9 @@ const BIZ_LABELS: Record<string, string> = {
   'financial-services': 'Financial Services',
   manufacturing: 'Manufacturing',
   'professional-services': 'Professional Services',
+  'pool-service': 'Pool Service',
+  'pest-control': 'Pest Control',
+  landscaping: 'Landscaping',
   other: 'Other',
 };
 
@@ -25,6 +28,7 @@ interface Props {
 export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
   const connectedSystems = state.systems.filter(s => s.connected);
   const enabledDepts = state.automation.departments.filter(d => d.enabled);
+  const tpl = state.selectedTemplate;
 
   if (state.deployed && deployResult) {
     return (
@@ -36,7 +40,9 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
               <path d="M8 12l3 3 5-5" />
             </svg>
           </div>
-          <h2 className="ob-step-title">Deployment complete</h2>
+          <h2 className="ob-step-title">
+            {tpl ? `${tpl.name} deployed` : 'Deployment complete'}
+          </h2>
           <p className="ob-step-desc">
             ArchonAI is configured and ready. Estimated time to full operational readiness:{' '}
             <strong>{deployResult.estimatedReadyMinutes} minutes</strong>.
@@ -51,6 +57,16 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
                 ))}
               </div>
             </div>
+            {deployResult.workflowsCreated && deployResult.workflowsCreated.length > 0 && (
+              <div className="ob-summary-section">
+                <span className="ob-group-label">Workflows Created</span>
+                <div className="ob-chip-list">
+                  {deployResult.workflowsCreated.map(w => (
+                    <span key={w} className="ob-workflow-chip">{w}</span>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="ob-summary-section">
               <span className="ob-group-label">Strategies Applied</span>
               <div className="ob-chip-list">
@@ -84,6 +100,15 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
       </div>
 
       <div className="ob-review-grid">
+        {/* Template */}
+        {tpl && (
+          <div className="ob-review-card">
+            <span className="ob-group-label">Template</span>
+            <span className="ob-review-value">{tpl.name}</span>
+            <span className="ob-review-sub">{tpl.industry}</span>
+          </div>
+        )}
+
         {/* Systems */}
         <div className="ob-review-card">
           <span className="ob-group-label">Connected Systems</span>
