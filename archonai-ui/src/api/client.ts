@@ -246,6 +246,19 @@ export const api = {
   getSystemHealth: () =>
     request('/control-plane/observability/system-health'),
 
+  // ── Integrations / Connectors ─────────────────────────
+  getConnectorStatus: (path: string) =>
+    request(path),
+
+  connectIntegration: (connectorId: string) =>
+    request(`/integrations/${connectorId}/connect`, { method: 'POST' }),
+
+  disconnectIntegration: (connectorId: string) =>
+    request(`/integrations/${connectorId}/disconnect`, { method: 'POST' }),
+
+  listIntegrations: () =>
+    request('/integrations'),
+
   // ── Onboarding ─────────────────────────────────────────
   deployOnboarding: (body: {
     connectedSystems: string[];

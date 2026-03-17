@@ -2642,6 +2642,86 @@ onboarding.MapPost("/deploy", async (
 });
 
 // ══════════════════════════════════════════════════════════════
+//  Integration Marketplace
+// ══════════════════════════════════════════════════════════════
+
+var integrations = v1.MapGroup("/integrations")
+    .RequireAuthorization("OperatorOrAdmin");
+
+integrations.MapGet("/", (IEnumerable<IConnector> connectors) =>
+{
+    var list = connectors.Select(c => new
+    {
+        id = c.SystemName.ToLowerInvariant().Replace(' ', '-'),
+        name = c.SystemName,
+        status = "registered"
+    });
+    return Results.Ok(list);
+});
+
+integrations.MapPost("/{connectorId}/connect", async (
+    string connectorId,
+    IEnumerable<IConnector> connectors,
+    CancellationToken ct) =>
+{
+    // Authenticate the matching connector
+    var connector = connectors.FirstOrDefault(c =>
+        c.SystemName.Equals(connectorId, StringComparison.OrdinalIgnoreCase) ||
+        c.SystemName.ToLowerInvariant().Replace(' ', '-') == connectorId);
+
+    if (connector is null)
+        return Results.NotFound(new { error = $"Connector '{connectorId}' not found." });
+
+    // Attempt to authenticate based on connector type
+    if (connector is ISalesforceConnector sf)
+    {
+        var result = await sf.AuthenticateAsync(ct);
+        return result.IsAuthenticated ? Results.Ok(new { status = "connected" }) : Results.Problem(result.Error ?? "Authentication failed");
+    }
+    if (connector is IHubSpotConnector hs)
+    {
+        var result = await hs.AuthenticateAsync(ct);
+        return result.IsAuthenticated ? Results.Ok(new { status = "connected" }) : Results.Problem(result.Error ?? "Authentication failed");
+    }
+    if (connector is ISlackConnector sl)
+    {
+        var result = await sl.AuthenticateAsync(ct);
+        return result.IsAuthenticated ? Results.Ok(new { status = "connected" }) : Results.Problem(result.Error ?? "Authentication failed");
+    }
+    if (connector is IQuickBooksConnector qb)
+    {
+        var result = await qb.AuthenticateAsync(ct);
+        return result.IsAuthenticated ? Results.Ok(new { status = "connected" }) : Results.Problem(result.Error ?? "Authentication failed");
+    }
+    if (connector is IMicrosoft365Connector m365)
+    {
+        var result = await m365.AuthenticateAsync(ct);
+        return result.IsAuthenticated ? Results.Ok(new { status = "connected" }) : Results.Problem(result.Error ?? "Authentication failed");
+    }
+    if (connector is IGoogleWorkspaceConnector gw)
+    {
+        var result = await gw.AuthenticateAsync(ct);
+        return result.IsAuthenticated ? Results.Ok(new { status = "connected" }) : Results.Problem(result.Error ?? "Authentication failed");
+    }
+
+    return Results.Ok(new { status = "connected", note = "Basic connector — no authentication required." });
+});
+
+integrations.MapPost("/{connectorId}/disconnect", (
+    string connectorId,
+    IEnumerable<IConnector> connectors) =>
+{
+    var connector = connectors.FirstOrDefault(c =>
+        c.SystemName.Equals(connectorId, StringComparison.OrdinalIgnoreCase) ||
+        c.SystemName.ToLowerInvariant().Replace(' ', '-') == connectorId);
+
+    if (connector is null)
+        return Results.NotFound(new { error = $"Connector '{connectorId}' not found." });
+
+    return Results.Ok(new { status = "disconnected" });
+});
+
+// ══════════════════════════════════════════════════════════════
 //  Strategy Learning
 // ══════════════════════════════════════════════════════════════
 

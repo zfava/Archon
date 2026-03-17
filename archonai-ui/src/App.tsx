@@ -7,6 +7,7 @@ import { AuditLogView } from './features/audit';
 import { ImpactDashboard } from './features/impact';
 import { AttributionView } from './features/attribution';
 import { OnboardingWizard } from './features/onboarding';
+import { IntegrationMarketplace } from './features/integrations';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         <Route path="/" element={<CommandConsole />} />
         <Route path="/onboarding" element={<OnboardingWizard />} />
+        <Route path="/integrations" element={<IntegrationMarketplace />} />
         <Route path="/strategy/:goalId" element={<StrategyView />} />
         <Route path="/attribution/:goalId" element={<AttributionView />} />
         <Route path="/activity" element={<SystemActivityView />} />
