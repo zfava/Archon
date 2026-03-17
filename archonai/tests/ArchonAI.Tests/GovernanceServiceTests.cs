@@ -221,4 +221,122 @@ public class GovernanceServiceTests
         var tB = await _gov.GetApprovalHistoryAsync("t-B", null, 50);
         Assert.All(tB, e => Assert.Equal("t-B", e.TenantId));
     }
+
+    // ── Approval Completion Loop Tests ───────────────────────────────
+
+    [Fact]
+    public async Task ApprovedGate_StoresActionPayload()
+    {
+        var payload = """{"workflowId":"abc-123"}""";
+        var gate = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "reason", payload);
+
+        Assert.Equal(payload, gate.ActionPayload);
+        Assert.Equal(GateExecutionStatus.NotExecuted, gate.ExecutionStatus);
+    }
+
+    [Fact]
+    public async Task RecordExecutionResult_Succeeded()
+    {
+        var gate = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "reason", """{"workflowId":"wf-1"}""");
+        await _gov.ReviewApprovalAsync(gate.Id, "t1", "user-b", "Admin", true, "ok");
+
+        var updated = await _gov.RecordExecutionResultAsync(gate.Id, GateExecutionStatus.Succeeded, null);
+
+        Assert.Equal(GateExecutionStatus.Succeeded, updated.ExecutionStatus);
+        Assert.Null(updated.ExecutionError);
+        Assert.NotNull(updated.ExecutedAtUtc);
+    }
+
+    [Fact]
+    public async Task RecordExecutionResult_Failed_StoresError()
+    {
+        var gate = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "reason", """{"workflowId":"wf-1"}""");
+        await _gov.ReviewApprovalAsync(gate.Id, "t1", "user-b", "Admin", true, "ok");
+
+        var updated = await _gov.RecordExecutionResultAsync(
+            gate.Id, GateExecutionStatus.Failed, "Workflow not found");
+
+        Assert.Equal(GateExecutionStatus.Failed, updated.ExecutionStatus);
+        Assert.Equal("Workflow not found", updated.ExecutionError);
+        Assert.NotNull(updated.ExecutedAtUtc);
+    }
+
+    [Fact]
+    public async Task DeniedGate_HasNoExecutionPayloadTriggered()
+    {
+        var gate = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "reason", """{"workflowId":"wf-1"}""");
+        var denied = await _gov.ReviewApprovalAsync(gate.Id, "t1", "user-b", "Admin", false, "nope");
+
+        Assert.Equal(ApprovalStatus.Denied, denied.Status);
+        Assert.Equal(GateExecutionStatus.NotExecuted, denied.ExecutionStatus);
+        Assert.Null(denied.ExecutedAtUtc);
+    }
+
+    // ── Deduplication Tests ──────────────────────────────────────────
+
+    [Fact]
+    public async Task DuplicateRequest_ReturnsSamePendingGate()
+    {
+        var gate1 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "first request");
+        var gate2 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-b", "second request");
+
+        // Same gate ID returned — no duplicate created
+        Assert.Equal(gate1.Id, gate2.Id);
+    }
+
+    [Fact]
+    public async Task DuplicateRequest_DifferentResource_CreatesSeparateGates()
+    {
+        var gate1 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "reason");
+        var gate2 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-2", "t1", "user-a", "reason");
+
+        Assert.NotEqual(gate1.Id, gate2.Id);
+    }
+
+    [Fact]
+    public async Task DuplicateRequest_DifferentTenant_CreatesSeparateGates()
+    {
+        var gate1 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t-A", "user-a", "reason");
+        var gate2 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t-B", "user-a", "reason");
+
+        Assert.NotEqual(gate1.Id, gate2.Id);
+    }
+
+    [Fact]
+    public async Task DuplicateRequest_AfterApproval_CreatesNewGate()
+    {
+        var gate1 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "first");
+        await _gov.ReviewApprovalAsync(gate1.Id, "t1", "user-b", "Admin", true, "ok");
+
+        // After approval, a new request for the same action should create a new gate
+        var gate2 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "second");
+
+        Assert.NotEqual(gate1.Id, gate2.Id);
+        Assert.Equal(ApprovalStatus.Pending, gate2.Status);
+    }
+
+    [Fact]
+    public async Task DuplicateRequest_AfterDenial_CreatesNewGate()
+    {
+        var gate1 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "first");
+        await _gov.ReviewApprovalAsync(gate1.Id, "t1", "user-b", "Admin", false, "no");
+
+        var gate2 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "retry");
+
+        Assert.NotEqual(gate1.Id, gate2.Id);
+    }
 }

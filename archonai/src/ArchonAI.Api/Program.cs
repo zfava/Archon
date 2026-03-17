@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Serilog;
 using ArchonAI.Agents;
 using ArchonAI.Api.Security;
@@ -831,9 +832,10 @@ admin.MapPost("/workflows/{workflowId:guid}/cancel", async (
 
     if (await gov.RequiresApprovalAsync("workflow.cancel", ct))
     {
+        var payload = JsonSerializer.Serialize(new { workflowId = workflowId.ToString() });
         var gate = await gov.RequestApprovalAsync(
             "workflow.cancel", workflowId.ToString(), tenantId, userId,
-            "Workflow cancellation requested", ct);
+            "Workflow cancellation requested", payload, ct);
         return Results.Accepted($"/api/v1/governance/{gate.Id}", gate);
     }
 
@@ -2891,9 +2893,10 @@ integrations.MapPost("/{connectorId}/disconnect", async (
 
     if (await gov.RequiresApprovalAsync("connector.disconnect", ct))
     {
+        var payload = JsonSerializer.Serialize(new { connectorId });
         var gate = await gov.RequestApprovalAsync(
             "connector.disconnect", connectorId, tenantId, userId,
-            "Connector disconnect requested", ct);
+            "Connector disconnect requested", payload, ct);
         return Results.Accepted($"/api/v1/governance/{gate.Id}", gate);
     }
 
@@ -3072,9 +3075,10 @@ overrides.MapPost("/modify-strategy", async (
 
     if (await gov.RequiresApprovalAsync("strategy.override", ct))
     {
+        var payload = JsonSerializer.Serialize(req);
         var gate = await gov.RequestApprovalAsync(
             "strategy.override", req.WorkflowId.ToString(), tenantId, userId,
-            "Strategy override requested", ct);
+            "Strategy override requested", payload, ct);
         return Results.Accepted($"/api/v1/governance/{gate.Id}", gate);
     }
 
@@ -3135,7 +3139,7 @@ governance.MapPost("/request", async (
     if (tenantId is null || userId is null) return Results.Unauthorized();
 
     var gate = await gov.RequestApprovalAsync(
-        req.ActionType, req.ResourceId, tenantId, userId, req.Justification, ct);
+        req.ActionType, req.ResourceId, tenantId, userId, req.Justification, ct: ct);
     return Results.Ok(gate);
 }).RequireAuthorization("OperatorOrAdmin");
 
@@ -3169,6 +3173,7 @@ governance.MapPost("/{gateId:guid}/review", async (
     ReviewApprovalRequest req,
     HttpContext ctx,
     IGovernanceService gov,
+    IGatedActionExecutor executor,
     CancellationToken ct) =>
 {
     var reviewerId = ctx.User?.FindFirst("sub")?.Value
@@ -3182,6 +3187,25 @@ governance.MapPost("/{gateId:guid}/review", async (
     {
         var gate = await gov.ReviewApprovalAsync(
             gateId, tenantId, reviewerId, reviewerRole ?? "Viewer", req.Approve, req.Notes, ct);
+
+        // Execute the gated action on approval
+        if (gate.Status == ApprovalStatus.Approved && gate.ActionPayload is not null)
+        {
+            try
+            {
+                var result = await executor.ExecuteAsync(gate, ct);
+                gate = await gov.RecordExecutionResultAsync(
+                    gate.Id,
+                    result.Success ? GateExecutionStatus.Succeeded : GateExecutionStatus.Failed,
+                    result.Error, ct);
+            }
+            catch (Exception ex)
+            {
+                gate = await gov.RecordExecutionResultAsync(
+                    gate.Id, GateExecutionStatus.Failed, ex.Message, ct);
+            }
+        }
+
         return Results.Ok(gate);
     }
     catch (UnauthorizedAccessException ex)

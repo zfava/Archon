@@ -38,8 +38,19 @@ public sealed class GovernanceService : IGovernanceService
 
     public Task<ApprovalGate> RequestApprovalAsync(
         string actionType, string resourceId, string tenantId,
-        string requestedBy, string justification, CancellationToken ct = default)
+        string requestedBy, string justification,
+        string? actionPayload = null, CancellationToken ct = default)
     {
+        // Deduplication: return existing pending gate for same (actionType, resourceId, tenant)
+        var existing = _gates.Values.FirstOrDefault(g =>
+            g.Status == ApprovalStatus.Pending
+            && g.ActionType == actionType
+            && g.ResourceId == resourceId
+            && string.Equals(g.TenantId, tenantId, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is not null)
+            return Task.FromResult(existing);
+
         var gate = new ApprovalGate(
             Id: Guid.NewGuid(),
             ActionType: actionType,
@@ -51,7 +62,10 @@ public sealed class GovernanceService : IGovernanceService
             ReviewedBy: null,
             ReviewNotes: null,
             RequestedAtUtc: DateTimeOffset.UtcNow,
-            ReviewedAtUtc: null);
+            ReviewedAtUtc: null)
+        {
+            ActionPayload = actionPayload
+        };
 
         _gates[gate.Id] = gate;
         return Task.FromResult(gate);
@@ -175,5 +189,21 @@ public sealed class GovernanceService : IGovernanceService
             .Take(limit)
             .ToList();
         return Task.FromResult(result);
+    }
+
+    public Task<ApprovalGate> RecordExecutionResultAsync(
+        Guid gateId, GateExecutionStatus status, string? error, CancellationToken ct = default)
+    {
+        if (!_gates.TryGetValue(gateId, out var gate))
+            throw new KeyNotFoundException($"Approval gate {gateId} not found.");
+
+        var updated = gate with
+        {
+            ExecutionStatus = status,
+            ExecutionError = error,
+            ExecutedAtUtc = DateTimeOffset.UtcNow,
+        };
+        _gates[gateId] = updated;
+        return Task.FromResult(updated);
     }
 }

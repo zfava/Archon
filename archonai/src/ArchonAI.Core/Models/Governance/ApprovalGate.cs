@@ -14,7 +14,20 @@ public sealed record ApprovalGate(
     string? ReviewedBy,
     string? ReviewNotes,
     DateTimeOffset RequestedAtUtc,
-    DateTimeOffset? ReviewedAtUtc);
+    DateTimeOffset? ReviewedAtUtc)
+{
+    /// <summary>Serialised action parameters needed to execute after approval.</summary>
+    public string? ActionPayload { get; init; }
+
+    /// <summary>Tracks whether the approved action has been executed.</summary>
+    public GateExecutionStatus ExecutionStatus { get; init; } = GateExecutionStatus.NotExecuted;
+
+    /// <summary>Error message if execution failed.</summary>
+    public string? ExecutionError { get; init; }
+
+    /// <summary>Timestamp of action execution.</summary>
+    public DateTimeOffset? ExecutedAtUtc { get; init; }
+}
 
 public enum ApprovalStatus
 {
@@ -22,6 +35,13 @@ public enum ApprovalStatus
     Approved,
     Denied,
     Expired
+}
+
+public enum GateExecutionStatus
+{
+    NotExecuted,
+    Succeeded,
+    Failed
 }
 
 /// <summary>
