@@ -25,6 +25,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IMemoryCompressionEngine, MemoryCompressionEngine>();
         services.AddSingleton<IMemoryRetrievalOptimizer, MemoryRetrievalOptimizer>();
+        services.AddSingleton<IOrganizationalMemoryStore, OrganizationalMemoryStore>();
         return services;
     }
 }

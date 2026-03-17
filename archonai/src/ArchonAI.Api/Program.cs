@@ -37,6 +37,7 @@ using ArchonAI.OrganizationState;
 using ArchonAI.Core.Models.OrganizationState;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Evaluation;
+using ArchonAI.Core.Models.Memory;
 using ArchonAI.Core.Models.Models.Routing;
 using ArchonAI.Core.Models.Reasoning;
 using ArchonAI.ModelRouter;
@@ -991,6 +992,52 @@ memory.MapPost("/index/rebuild", async (RebuildIndexRequest request, IMemoryRetr
 {
     await retriever.RebuildIndexAsync(request.Scope, ct);
     return Results.Ok(new { scope = request.Scope, rebuilt = true });
+});
+
+// ══════════════════════════════════════════════════════════════
+//  Organizational Memory
+// ══════════════════════════════════════════════════════════════
+
+var orgMemory = v1.MapGroup("/org-memory")
+    .RequireAuthorization("OperatorOrAdmin");
+
+orgMemory.MapPost("/store", async (OrganizationalMemoryEntry entry, IOrganizationalMemoryStore store, CancellationToken ct) =>
+{
+    await store.StoreAsync(entry, ct);
+    return Results.Ok(new { stored = true, entryId = entry.EntryId });
+});
+
+orgMemory.MapPost("/search", async (OrgMemorySearchRequest request, IOrganizationalMemoryStore store, CancellationToken ct) =>
+{
+    OrganizationalMemoryType? filterType = null;
+    if (!string.IsNullOrWhiteSpace(request.FilterType)
+        && Enum.TryParse<OrganizationalMemoryType>(request.FilterType, ignoreCase: true, out var parsed))
+    {
+        filterType = parsed;
+    }
+    var result = await store.SearchAsync(request.QueryText, filterType, request.FilterCategory, request.TopK ?? 10, ct);
+    return Results.Ok(result);
+});
+
+orgMemory.MapGet("/timeline/{entryType}", async (string entryType, string? category, int? limit, IOrganizationalMemoryStore store, CancellationToken ct) =>
+{
+    if (!Enum.TryParse<OrganizationalMemoryType>(entryType, ignoreCase: true, out var parsed))
+        return Results.BadRequest(new { error = $"Invalid entry type: {entryType}" });
+
+    var timeline = await store.GetTimelineAsync(parsed, category, limit ?? 50, ct);
+    return Results.Ok(timeline);
+});
+
+orgMemory.MapPost("/analyze", async (IOrganizationalMemoryStore store, CancellationToken ct) =>
+{
+    var report = await store.AnalyzeAsync(ct);
+    return Results.Ok(report);
+});
+
+orgMemory.MapGet("/related/{knowledgeNodeId}", async (string knowledgeNodeId, IOrganizationalMemoryStore store, CancellationToken ct) =>
+{
+    var entries = await store.GetRelatedEntriesAsync(knowledgeNodeId, ct);
+    return Results.Ok(entries);
 });
 
 // Observability endpoints
@@ -2687,6 +2734,7 @@ public sealed record RecordHistoricalExecutionRequest(Guid WorkflowGraphId, bool
 public sealed record RequestTaskSupportInput(Guid RequestingAgentId, string RequestingAgentName, Guid TaskId, string RequiredCapability, string Reason, Dictionary<string, string>? Context = null, int? TimeoutSeconds = null);
 public sealed record ShareKnowledgeInput(Guid SourceAgentId, string SourceAgentName, Guid? TargetAgentId, string Topic, string Content, Dictionary<string, string>? Metadata = null);
 public sealed record DelegateTaskInput(Guid DelegatingAgentId, string DelegatingAgentName, Guid TargetAgentId, string TargetAgentName, Guid OriginalTaskId, string RequiredCapability, Dictionary<string, string>? TaskInputs = null, int? TimeoutSeconds = null);
+public sealed record OrgMemorySearchRequest(string QueryText, string? FilterType = null, string? FilterCategory = null, int? TopK = null);
 public sealed record CompressMemoryRequest(string Scope);
 public sealed record DeduplicateMemoryRequest(string Scope);
 public sealed record ClusterMemoryRequest(string Scope);
