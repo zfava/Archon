@@ -196,4 +196,22 @@ public static class Telemetry
     public static readonly Counter<long> GatewayAuthFailures = Meter.CreateCounter<long>("archonai.gateway.auth.failures");
     public static readonly Counter<long> GatewayRateLimitHits = Meter.CreateCounter<long>("archonai.gateway.ratelimit.hits");
     public static readonly Histogram<double> GatewayRequestDurationMs = Meter.CreateHistogram<double>("archonai.gateway.request.duration.ms");
+
+    // Intelligence loop metrics
+    public static readonly Counter<long> IntelligenceLoopCyclesCompleted = Meter.CreateCounter<long>("archonai.loop.cycles.completed");
+    public static readonly Counter<long> IntelligenceLoopCycleFailures = Meter.CreateCounter<long>("archonai.loop.cycles.failures");
+    public static readonly Counter<long> IntelligenceLoopSignalsObserved = Meter.CreateCounter<long>("archonai.loop.signals.observed");
+    public static readonly Counter<long> IntelligenceLoopGoalsGenerated = Meter.CreateCounter<long>("archonai.loop.goals.generated");
+    public static readonly Counter<long> IntelligenceLoopStrategiesEvaluated = Meter.CreateCounter<long>("archonai.loop.strategies.evaluated");
+    public static readonly Counter<long> IntelligenceLoopSimulationsRun = Meter.CreateCounter<long>("archonai.loop.simulations.run");
+    public static readonly Counter<long> IntelligenceLoopTaskGraphsBuilt = Meter.CreateCounter<long>("archonai.loop.taskgraphs.built");
+    public static readonly Counter<long> IntelligenceLoopTasksExecuted = Meter.CreateCounter<long>("archonai.loop.tasks.executed");
+    public static readonly Counter<long> IntelligenceLoopOutcomesEvaluated = Meter.CreateCounter<long>("archonai.loop.outcomes.evaluated");
+    public static readonly Counter<long> IntelligenceLoopLearningCycles = Meter.CreateCounter<long>("archonai.loop.learning.cycles");
+    public static readonly Histogram<double> IntelligenceLoopCycleDurationMs = Meter.CreateHistogram<double>("archonai.loop.cycle.duration.ms");
+
+    // Base connector metrics (CRM, ERP, Financial, Messaging)
+    public static readonly Counter<long> ConnectorWriteOps = Meter.CreateCounter<long>("archonai.connector.write.ops");
+    public static readonly Counter<long> ConnectorErrors = Meter.CreateCounter<long>("archonai.connector.errors");
+    public static readonly Counter<long> ConnectorRetries = Meter.CreateCounter<long>("archonai.connector.retries");
 }

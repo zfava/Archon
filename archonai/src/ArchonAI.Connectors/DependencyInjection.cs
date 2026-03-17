@@ -15,10 +15,53 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddArchonAIConnectors(this IServiceCollection services, IConfiguration? configuration = null)
     {
-        services.AddSingleton<ICrmConnector, CrmConnector>();
-        services.AddSingleton<IErpConnector, ErpConnector>();
-        services.AddSingleton<IMessagingConnector, MessagingConnector>();
-        services.AddSingleton<IFinancialConnector, FinancialConnector>();
+        // CRM connector
+        services.AddHttpClient("CRM");
+        services.AddSingleton<ICrmConnector>(sp =>
+        {
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("CRM");
+            return new CrmConnector(
+                httpClient,
+                sp.GetRequiredService<IEventBus>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CrmConnector>>());
+        });
+
+        // ERP connector
+        services.AddHttpClient("ERP");
+        services.AddSingleton<IErpConnector>(sp =>
+        {
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("ERP");
+            return new ErpConnector(
+                httpClient,
+                sp.GetRequiredService<IEventBus>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ErpConnector>>());
+        });
+
+        // Messaging connector
+        services.AddHttpClient("Messaging");
+        services.AddSingleton<IMessagingConnector>(sp =>
+        {
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("Messaging");
+            return new MessagingConnector(
+                httpClient,
+                sp.GetRequiredService<IEventBus>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<MessagingConnector>>());
+        });
+
+        // Financial connector
+        services.AddHttpClient("Financial");
+        services.AddSingleton<IFinancialConnector>(sp =>
+        {
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("Financial");
+            return new FinancialConnector(
+                httpClient,
+                sp.GetRequiredService<IEventBus>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<FinancialConnector>>());
+        });
 
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<ICrmConnector>());
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IErpConnector>());
