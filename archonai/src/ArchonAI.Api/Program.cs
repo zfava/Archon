@@ -4,6 +4,7 @@ using ArchonAI.Api.Security;
 using ArchonAI.Connectors;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.AuditLog;
+using ArchonAI.Core.Models.Governance;
 using ArchonAI.Core.Models.Planning;
 using ArchonAI.Core.Models.Rbac;
 using ArchonAI.Core.Models.Monitoring;
@@ -1378,6 +1379,55 @@ monitoring.MapGet("/system", async (IMonitoringDashboardService monService, Canc
     return Results.Ok(performance);
 });
 
+// Security metrics endpoints
+var security = admin.MapGroup("/security");
+
+security.MapGet("/metrics", (ISecurityPolicyEngine securityEngine) =>
+    Results.Ok(securityEngine.GetMetrics()));
+
+security.MapGet("/policies", async (string? category, ISecurityPolicyEngine securityEngine, CancellationToken ct) =>
+{
+    var policies = await securityEngine.GetPoliciesAsync(category, ct);
+    return Results.Ok(policies);
+});
+
+security.MapPost("/policies", async (AddSecurityPolicyRequest request, ISecurityPolicyEngine securityEngine, CancellationToken ct) =>
+{
+    var now = DateTimeOffset.UtcNow;
+    var policy = new ArchonAI.Core.Models.Governance.SecurityPolicy(
+        Id: Guid.NewGuid(),
+        Name: request.Name,
+        Category: request.Category,
+        Rule: new ArchonAI.Core.Models.Governance.SecurityPolicyRule(
+            request.RuleType,
+            request.AllowedValues ?? Array.Empty<string>(),
+            request.DeniedValues ?? Array.Empty<string>(),
+            request.Limits ?? new Dictionary<string, string>()),
+        IsEnabled: true,
+        CreatedAtUtc: now,
+        UpdatedAtUtc: now);
+    await securityEngine.AddPolicyAsync(policy, ct);
+    return Results.Created($"/api/v1/admin/security/policies/{policy.Id}", policy);
+});
+
+security.MapDelete("/policies/{policyId:guid}", async (Guid policyId, ISecurityPolicyEngine securityEngine, CancellationToken ct) =>
+{
+    await securityEngine.RemovePolicyAsync(policyId, ct);
+    return Results.Ok(new { policyId, removed = true });
+});
+
+security.MapPost("/evaluate/data-access", async (EvaluateDataAccessRequest request, ISecurityPolicyEngine securityEngine, CancellationToken ct) =>
+{
+    var result = await securityEngine.EvaluateDataAccessAsync(request.SubjectId, request.ResourceType, request.Action, ct);
+    return Results.Ok(result);
+});
+
+security.MapPost("/evaluate/workflow-limits", async (EvaluateWorkflowLimitsRequest request, ISecurityPolicyEngine securityEngine, CancellationToken ct) =>
+{
+    var result = await securityEngine.EvaluateWorkflowLimitsAsync(request.WorkflowId, request.StepCount, request.ConcurrentAgents, ct);
+    return Results.Ok(result);
+});
+
 // Audit log endpoints
 var audit = v1.MapGroup("/audit")
     .RequireAuthorization("OperatorOrAdmin");
@@ -1844,3 +1894,6 @@ public sealed record ClusterMemoryRequest(string Scope);
 public sealed record SummarizeMemoryRequest(string Scope, IReadOnlyList<Guid> SourceRecordIds);
 public sealed record SearchMemoryRequest(string Scope, IReadOnlyList<float> QueryEmbedding, int? TopK = null);
 public sealed record RebuildIndexRequest(string Scope);
+public sealed record AddSecurityPolicyRequest(string Name, string Category, string RuleType, IReadOnlyList<string>? AllowedValues = null, IReadOnlyList<string>? DeniedValues = null, Dictionary<string, string>? Limits = null);
+public sealed record EvaluateDataAccessRequest(string SubjectId, string ResourceType, string Action);
+public sealed record EvaluateWorkflowLimitsRequest(Guid WorkflowId, int StepCount, int ConcurrentAgents);

@@ -10,6 +10,7 @@ public static class DependencyInjection
         services.AddOptions<GovernanceOptions>()
             .BindConfiguration("Governance");
 
+        services.AddSingleton<ISecurityPolicyEngine, SecurityPolicyEngine>();
         services.AddSingleton<IGovernanceKernel, GovernanceKernel>();
         return services;
     }

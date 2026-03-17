@@ -15,17 +15,23 @@ public sealed class GovernanceKernel : IGovernanceKernel
     private readonly GovernanceOptions _options;
     private readonly IPolicyEngine _policyEngine;
     private readonly IAgentIdentityStore _identityStore;
+    private readonly ISecurityPolicyEngine _securityPolicyEngine;
+    private readonly IAuditLogService _auditLogService;
     private readonly ConcurrentDictionary<Guid, int> _activeExecutionsByAgent = new();
     private readonly ConcurrentDictionary<Guid, ConcurrentQueue<DateTimeOffset>> _executionHistoryByAgent = new();
 
     public GovernanceKernel(
         IOptions<GovernanceOptions> options,
         IPolicyEngine policyEngine,
-        IAgentIdentityStore identityStore)
+        IAgentIdentityStore identityStore,
+        ISecurityPolicyEngine securityPolicyEngine,
+        IAuditLogService auditLogService)
     {
         _options = options.Value;
         _policyEngine = policyEngine;
         _identityStore = identityStore;
+        _securityPolicyEngine = securityPolicyEngine;
+        _auditLogService = auditLogService;
     }
 
     public async global::System.Threading.Tasks.Task<GovernanceDecision> ValidateAgentRegistrationAsync(
@@ -74,6 +80,20 @@ public sealed class GovernanceKernel : IGovernanceKernel
         }
 
         bool allowed = violations.Count == 0;
+
+        await AuditAsync(
+            allowed ? "agent-registration-approved" : "agent-registration-denied",
+            "agent",
+            agent.Id.ToString(),
+            "agent",
+            "register",
+            "agent",
+            agent.Id.ToString(),
+            allowed
+                ? $"Agent '{agent.Name}' registration approved."
+                : $"Agent '{agent.Name}' registration denied: {string.Join(", ", violations)}",
+            cancellationToken);
+
         return new GovernanceDecision(
             IsAllowed: allowed,
             Reason: allowed ? "Agent registration passed governance validation." : $"Agent registration blocked: {string.Join(',', violations)}",
@@ -153,6 +173,17 @@ public sealed class GovernanceKernel : IGovernanceKernel
             violations.Add("resource-quota-hourly-exceeded");
         }
 
+        // Security policy enforcement: agent permissions
+        SecurityEvaluationResult securityResult = await _securityPolicyEngine.EvaluateAgentPermissionsAsync(
+            agent, task, context, cancellationToken);
+        if (!securityResult.IsAllowed)
+        {
+            foreach (string violation in securityResult.Violations)
+            {
+                violations.Add($"security:{violation}");
+            }
+        }
+
         PolicyDecision policyDecision = await _policyEngine.EvaluateAsync(agent, task, context, cancellationToken);
         if (!policyDecision.IsAllowed)
         {
@@ -166,6 +197,19 @@ public sealed class GovernanceKernel : IGovernanceKernel
             history.Enqueue(DateTimeOffset.UtcNow);
         }
 
+        await AuditAsync(
+            isAllowed ? "execution-approved" : "execution-denied",
+            "agent",
+            agent.Id.ToString(),
+            "agent",
+            "execute",
+            "task",
+            task.Id.ToString(),
+            isAllowed
+                ? $"Execution approved for agent '{agent.Name}' on task '{task.Name}'."
+                : $"Execution denied for agent '{agent.Name}': {string.Join(", ", violations)}",
+            cancellationToken);
+
         return new GovernanceDecision(
             IsAllowed: isAllowed,
             Reason: isAllowed ? "Governance checks passed." : $"Governance blocked execution: {string.Join(',', violations)}",
@@ -173,14 +217,49 @@ public sealed class GovernanceKernel : IGovernanceKernel
             PolicyDecision: policyDecision);
     }
 
-    public global::System.Threading.Tasks.Task MarkExecutionCompletedAsync(
+    public async global::System.Threading.Tasks.Task MarkExecutionCompletedAsync(
         Guid agentId,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         _activeExecutionsByAgent.AddOrUpdate(agentId, 0, (_, current) => Math.Max(0, current - 1));
-        return global::System.Threading.Tasks.Task.CompletedTask;
+
+        await AuditAsync(
+            "execution-completed",
+            "agent",
+            agentId.ToString(),
+            "agent",
+            "complete",
+            "execution",
+            agentId.ToString(),
+            $"Execution slot released for agent {agentId}.",
+            cancellationToken);
+    }
+
+    private async global::System.Threading.Tasks.Task AuditAsync(
+        string eventType,
+        string category,
+        string subjectId,
+        string subjectType,
+        string action,
+        string resourceType,
+        string resourceId,
+        string description,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _auditLogService.RecordAsync(
+                eventType, category, nameof(GovernanceKernel),
+                subjectId, subjectType, action,
+                resourceType, resourceId, description,
+                ct: cancellationToken);
+        }
+        catch
+        {
+            // Audit failures must not break governance
+        }
     }
 
     private static PolicyDecision BuildDefaultPolicyDecision(string reason)
