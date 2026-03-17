@@ -19,6 +19,7 @@
     <Project Path="src/ArchonAI.Trace/ArchonAI.Trace.csproj" />
     <Project Path="src/ArchonAI.Telemetry/ArchonAI.Telemetry.csproj" />
     <Project Path="src/ArchonAI.Patterns/ArchonAI.Patterns.csproj" />
+    <Project Path="src/ArchonAI.OrganizationState/ArchonAI.OrganizationState.csproj" />
     <Project Path="src/ArchonAI.PatternDiscovery/ArchonAI.PatternDiscovery.csproj" />
     <Project Path="src/ArchonAI.Learning/ArchonAI.Learning.csproj" />
     <Project Path="src/ArchonAI.Optimization/ArchonAI.Optimization.csproj" />

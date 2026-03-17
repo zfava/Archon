@@ -27,6 +27,7 @@
     <ProjectReference Include="..\ArchonAI.WorkflowSimulation\ArchonAI.WorkflowSimulation.csproj" />
     <ProjectReference Include="..\ArchonAI.Memory\ArchonAI.Memory.csproj" />
     <ProjectReference Include="..\ArchonAI.Perception\ArchonAI.Perception.csproj" />
+    <ProjectReference Include="..\ArchonAI.OrganizationState\ArchonAI.OrganizationState.csproj" />
   </ItemGroup>
 
   <ItemGroup>

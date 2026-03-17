@@ -33,6 +33,8 @@ using ArchonAI.ControlPlane.Hubs;
 using ArchonAI.Memory;
 using ArchonAI.Perception;
 using ArchonAI.Core.Models.Perception;
+using ArchonAI.OrganizationState;
+using ArchonAI.Core.Models.OrganizationState;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -57,6 +59,7 @@ builder.Services.AddArchonAIStrategyLibrary();
 builder.Services.AddArchonAIWorkflowSimulation(builder.Configuration);
 builder.Services.AddArchonAIMemory(builder.Configuration);
 builder.Services.AddArchonAIPerception();
+builder.Services.AddArchonAIOrganizationState();
 
 var app = builder.Build();
 
@@ -2153,6 +2156,56 @@ perception.MapPost("/polling/stop", async (ISignalIngestionService ingestion, Ca
 {
     await ingestion.StopPollingAsync(ct);
     return Results.Ok(new { polling = "stopped" });
+}).RequireAuthorization("AdminOnly");
+
+// ══════════════════════════════════════════════════════════════
+//  Organization State
+// ══════════════════════════════════════════════════════════════
+
+var orgState = v1.MapGroup("/organization-state")
+    .RequireAuthorization("OperatorOrAdmin");
+
+orgState.MapGet("", async (IOrganizationStateEngine engine, CancellationToken ct) =>
+{
+    var state = await engine.GetCurrentStateAsync(ct);
+    return Results.Ok(state);
+});
+
+orgState.MapGet("/dashboard", async (IOrganizationStateEngine engine, CancellationToken ct) =>
+{
+    var dashboard = await engine.GetDashboardAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+orgState.MapGet("/departments/{departmentId}", async (string departmentId, IOrganizationStateEngine engine, CancellationToken ct) =>
+{
+    var dept = await engine.GetDepartmentStateAsync(departmentId, ct);
+    return dept is null ? Results.NotFound() : Results.Ok(dept);
+});
+
+orgState.MapGet("/departments/{departmentId}/resources", async (string departmentId, IOrganizationStateEngine engine, CancellationToken ct) =>
+{
+    var resources = await engine.GetResourcesByDepartmentAsync(departmentId, ct);
+    return Results.Ok(resources);
+});
+
+orgState.MapGet("/customers/{customerId}", async (string customerId, IOrganizationStateEngine engine, CancellationToken ct) =>
+{
+    var customer = await engine.GetCustomerStateAsync(customerId, ct);
+    return customer is null ? Results.NotFound() : Results.Ok(customer);
+});
+
+orgState.MapGet("/customers/by-health/{status}", async (string status, IOrganizationStateEngine engine, CancellationToken ct) =>
+{
+    var healthStatus = Enum.Parse<CustomerHealthStatus>(status, true);
+    var customers = await engine.GetCustomersByHealthAsync(healthStatus, ct);
+    return Results.Ok(customers);
+});
+
+orgState.MapPost("/snapshots", async (IOrganizationStateEngine engine, CancellationToken ct) =>
+{
+    var snapshot = await engine.TakeSnapshotAsync(ct);
+    return Results.Ok(new { snapshotId = snapshot.SnapshotId, version = snapshot.Version });
 }).RequireAuthorization("AdminOnly");
 
 app.Run();
