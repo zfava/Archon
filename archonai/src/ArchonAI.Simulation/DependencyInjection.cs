@@ -11,6 +11,7 @@ public static class DependencyInjection
             .BindConfiguration("Simulation");
 
         services.AddSingleton<ISimulationEngine, SimulationEngine>();
+        services.AddSingleton<IScenarioEngine, ScenarioEngine>();
         return services;
     }
 }

@@ -11,7 +11,7 @@ namespace ArchonAI.Infrastructure.Services;
 
 /// <summary>
 /// Operational planner that consumes strategic workflow definitions and emits executable tasks.
-/// Runs strategy simulations before execution planning.
+/// Runs scenario simulations before execution planning so that simulation results influence final decisions.
 /// </summary>
 public sealed class PlannerService : IPlanner
 {
@@ -19,6 +19,7 @@ public sealed class PlannerService : IPlanner
     private readonly IStrategicPlanner _strategicPlanner;
     private readonly IKnowledgeGraphStore _knowledgeGraphStore;
     private readonly ISimulationEngine _simulationEngine;
+    private readonly IScenarioEngine _scenarioEngine;
     private readonly IStrategyStore _strategyStore;
     private readonly IContextEngine _contextEngine;
     private readonly IPerceptionEngine _perceptionEngine;
@@ -33,6 +34,7 @@ public sealed class PlannerService : IPlanner
         IStrategicPlanner strategicPlanner,
         IKnowledgeGraphStore knowledgeGraphStore,
         ISimulationEngine simulationEngine,
+        IScenarioEngine scenarioEngine,
         IStrategyStore strategyStore,
         IContextEngine contextEngine,
         IPerceptionEngine perceptionEngine,
@@ -46,6 +48,7 @@ public sealed class PlannerService : IPlanner
         _strategicPlanner = strategicPlanner;
         _knowledgeGraphStore = knowledgeGraphStore;
         _simulationEngine = simulationEngine;
+        _scenarioEngine = scenarioEngine;
         _strategyStore = strategyStore;
         _contextEngine = contextEngine;
         _perceptionEngine = perceptionEngine;
@@ -120,7 +123,25 @@ public sealed class PlannerService : IPlanner
             candidates,
             cancellationToken);
 
-        string strategy = simulation.RecommendedStrategy;
+        // Run scenario-level validation to assess multi-step risk and adjust strategy
+        SimulationValidatedPlan validatedPlan = await _scenarioEngine.ValidatePlanAsync(
+            perceivedObjective,
+            optimizedWorkflow,
+            candidates,
+            cancellationToken);
+
+        // Scenario simulation results influence the final strategy selection:
+        // If the scenario engine overrides the comparison winner, use its recommendation
+        string strategy = validatedPlan.SimulationApproved
+            ? simulation.RecommendedStrategy
+            : validatedPlan.ValidatedStrategy;
+
+        // If scenario detected critical risk, apply its workflow adjustments
+        if (!validatedPlan.SimulationApproved)
+        {
+            optimizedWorkflow = validatedPlan.Workflow;
+        }
+
         string relatedSystemsCsv = string.Join(',', relatedSystems.Select(n => n.DisplayName).Distinct(StringComparer.OrdinalIgnoreCase));
 
         string organizationId = perceivedObjective.Constraints.GetValueOrDefault("organizationId", "default-org");
@@ -174,7 +195,13 @@ public sealed class PlannerService : IPlanner
                     ["dataFabricRows"] = dataFabricResult.Rows.Count.ToString(),
                     ["dataFabricReason"] = dataFabricResult.Reason,
                     ["simulationRecommendedStrategy"] = simulation.RecommendedStrategy,
-                    ["simulationReason"] = simulation.Reason
+                    ["simulationReason"] = simulation.Reason,
+                    ["scenarioValidated"] = validatedPlan.SimulationApproved.ToString(),
+                    ["scenarioStrategy"] = validatedPlan.ValidatedStrategy,
+                    ["scenarioAdjustmentReason"] = validatedPlan.AdjustmentReason,
+                    ["scenarioRiskLevel"] = validatedPlan.SimulationOutcome.RiskAssessment.RiskLevel,
+                    ["scenarioSuccessProbability"] = validatedPlan.SimulationOutcome.OverallSuccessProbability.ToString("F3"),
+                    ["scenarioRiskScore"] = validatedPlan.SimulationOutcome.OverallRiskScore.ToString("F3")
                 },
                 now,
                 null,

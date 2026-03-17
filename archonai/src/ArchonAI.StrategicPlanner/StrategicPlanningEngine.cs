@@ -1,14 +1,23 @@
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Planning;
+using ArchonAI.Core.Models.Simulation;
 
 namespace ArchonAI.StrategicPlanner;
 
 /// <summary>
 /// Builds optimized workflow definitions from objective intent and constraints.
+/// Runs scenario simulations before finalizing plans.
 /// </summary>
 public sealed class StrategicPlanningEngine : IStrategicPlanner
 {
+    private readonly IScenarioEngine _scenarioEngine;
+
+    public StrategicPlanningEngine(IScenarioEngine scenarioEngine)
+    {
+        _scenarioEngine = scenarioEngine;
+    }
+
     public global::System.Threading.Tasks.Task<WorkflowDefinition> BuildWorkflowAsync(
         Objective objective,
         CancellationToken cancellationToken = default)
@@ -69,6 +78,22 @@ public sealed class StrategicPlanningEngine : IStrategicPlanner
             CreatedAtUtc: DateTimeOffset.UtcNow);
 
         return global::System.Threading.Tasks.Task.FromResult(definition);
+    }
+
+    public async global::System.Threading.Tasks.Task<SimulationValidatedPlan> BuildAndValidateWorkflowAsync(
+        Objective objective,
+        IReadOnlyList<string>? candidateStrategies = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        WorkflowDefinition workflow = await BuildWorkflowAsync(objective, cancellationToken);
+
+        var strategies = candidateStrategies is { Count: > 0 }
+            ? candidateStrategies
+            : (IReadOnlyList<string>)new[] { workflow.Strategy, "safe-mode", "balanced", "throughput-optimized", "cost-optimized" };
+
+        return await _scenarioEngine.ValidatePlanAsync(objective, workflow, strategies, cancellationToken);
     }
 
     private static string SelectStrategy(IReadOnlyDictionary<string, string> constraints, Objective objective)
