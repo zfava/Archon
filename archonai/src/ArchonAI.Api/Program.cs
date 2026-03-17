@@ -2781,6 +2781,21 @@ modelRouting.MapPost("/select", (
     });
 });
 
+modelRouting.MapGet("/capabilities", () =>
+{
+    return Results.Ok(ArchonAI.Core.Models.Models.ModelCapabilityRegistry.All);
+});
+
+modelRouting.MapGet("/providers/status", (IModelProvider provider) =>
+{
+    // Return provider type info — actual health requires a live call
+    return Results.Ok(new
+    {
+        providerType = provider.ProviderName,
+        availableModels = ArchonAI.Core.Models.Models.ModelCapabilityRegistry.All.Keys
+    });
+});
+
 // ══════════════════════════════════════════════════════════════
 //  Onboarding
 // ══════════════════════════════════════════════════════════════

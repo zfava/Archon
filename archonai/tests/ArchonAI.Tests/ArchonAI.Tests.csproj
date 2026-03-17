@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ArchonAI.Identity\ArchonAI.Identity.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.Core\ArchonAI.Core.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Models\ArchonAI.Models.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.Api\ArchonAI.Api.csproj" />
   </ItemGroup>
 

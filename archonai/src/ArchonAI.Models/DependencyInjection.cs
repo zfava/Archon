@@ -10,7 +10,10 @@ public static class DependencyInjection
         services.AddOptions<ModelProviderOptions>()
             .BindConfiguration("ModelProviders");
 
-        services.AddHttpClient();
+        services.AddHttpClient("OpenAI");
+        services.AddHttpClient("Anthropic");
+        services.AddHttpClient("AzureOpenAI");
+        services.AddHttpClient("Local");
 
         services.AddSingleton<OpenAiModelProvider>();
         services.AddSingleton<AzureOpenAiModelProvider>();
