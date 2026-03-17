@@ -36,7 +36,9 @@ using ArchonAI.Core.Models.Perception;
 using ArchonAI.OrganizationState;
 using ArchonAI.Core.Models.OrganizationState;
 using ArchonAI.Core.Models;
+using ArchonAI.Core.Models.Evaluation;
 using ArchonAI.Core.Models.Reasoning;
+using ArchonAI.Core.Models.Simulation;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -2449,6 +2451,35 @@ economics.MapPost("/evaluate-single", async (SingleStrategyEvaluationRequest req
 });
 
 // ══════════════════════════════════════════════════════════════
+//  Outcome Evaluation
+// ══════════════════════════════════════════════════════════════
+
+var outcomeEval = v1.MapGroup("/outcome-evaluation")
+    .RequireAuthorization("OperatorOrAdmin");
+
+outcomeEval.MapPost("/evaluate", async (EvaluateOutcomeRequest req, IOutcomeEvaluator evaluator, IStrategySimulator simulator, ITaskGraphBuilder graphBuilder, CancellationToken ct) =>
+{
+    var graph = await graphBuilder.GetGraphAsync(req.SimulationResult.GraphId, ct);
+    if (graph is null)
+        return Results.NotFound(new { error = $"Task graph '{req.SimulationResult.GraphId}' not found." });
+
+    var result = await evaluator.EvaluateAsync(req.SimulationResult, req.ActualResult, ct);
+    return Results.Ok(result);
+});
+
+outcomeEval.MapGet("/goal/{goalId:guid}", async (Guid goalId, IOutcomeEvaluator evaluator, CancellationToken ct) =>
+{
+    var evaluations = await evaluator.GetEvaluationsForGoalAsync(goalId, ct);
+    return Results.Ok(evaluations);
+});
+
+outcomeEval.MapGet("/strategy/{strategy}", async (string strategy, IOutcomeEvaluator evaluator, CancellationToken ct) =>
+{
+    var evaluations = await evaluator.GetEvaluationsForStrategyAsync(strategy, ct);
+    return Results.Ok(evaluations);
+});
+
+// ══════════════════════════════════════════════════════════════
 //  Task Graphs
 // ══════════════════════════════════════════════════════════════
 
@@ -2657,3 +2688,7 @@ public sealed record SimulateGoalStrategiesRequest(
 public sealed record SimulationGuidedPlanRequest(
     Guid GoalId,
     IReadOnlyList<string>? Strategies);
+
+public sealed record EvaluateOutcomeRequest(
+    StrategySimulationResult SimulationResult,
+    TaskGraphExecutionResult ActualResult);

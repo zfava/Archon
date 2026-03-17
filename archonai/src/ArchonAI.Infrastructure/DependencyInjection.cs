@@ -84,6 +84,7 @@ public static class DependencyInjection
         services.AddScoped<IPlanner, PlannerService>();
         services.AddScoped<IReasoner, ReasoningEngine>();
         services.AddScoped<IEconomicEvaluator, EconomicEvaluator>();
+        services.AddScoped<IOutcomeEvaluator, OutcomeEvaluator>();
         services.AddSingleton<IStrategyStore, TenantStrategyStore>();
 
         services.AddSingleton<IMemoryRecordRepository, PostgresMemoryRecordRepository>();
