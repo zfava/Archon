@@ -36,7 +36,7 @@ builder.Services.AddArchonAIConnectors(builder.Configuration);
 builder.Services.AddArchonAIAgentTooling();
 builder.Services.AddArchonAIPlugins(builder.Configuration);
 builder.Services.AddArchonAIRegistry();
-builder.Services.AddArchonAIRuntime();
+builder.Services.AddArchonAIRuntime(builder.Configuration);
 builder.Services.AddArchonAIOperations(builder.Configuration);
 builder.Services.AddArchonAIFinance(builder.Configuration);
 builder.Services.AddArchonAISales(builder.Configuration);
@@ -743,6 +743,34 @@ rbac.MapGet("/permissions/{subjectId}", async (string subjectId, IRbacService rb
 {
     var permissions = await rbacService.GetEffectivePermissionsAsync(subjectId, ct);
     return Results.Ok(permissions);
+});
+
+// Runtime health endpoints
+var runtimeHealth = admin.MapGroup("/runtime/health");
+
+runtimeHealth.MapGet("/", async (IRuntimeHealthManager healthManager, CancellationToken ct) =>
+{
+    var snapshot = await healthManager.GetHealthSnapshotAsync();
+    return Results.Ok(snapshot);
+});
+
+runtimeHealth.MapGet("/policies", (IRuntimeHealthManager healthManager) =>
+{
+    var policies = healthManager.GetRecoveryPolicies();
+    return Results.Ok(policies);
+});
+
+runtimeHealth.MapGet("/recoveries", async (int? limit, IRuntimeHealthManager healthManager, CancellationToken ct) =>
+{
+    var history = await healthManager.GetRecoveryHistoryAsync(limit ?? 50);
+    return Results.Ok(history);
+});
+
+runtimeHealth.MapPost("/check", async (IRuntimeHealthManager healthManager, CancellationToken ct) =>
+{
+    await healthManager.RunHealthCheckAsync(ct);
+    var snapshot = await healthManager.GetHealthSnapshotAsync();
+    return Results.Ok(snapshot);
 });
 
 // Observability endpoints

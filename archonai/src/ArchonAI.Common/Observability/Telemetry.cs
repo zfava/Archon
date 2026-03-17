@@ -161,6 +161,17 @@ public static class Telemetry
     public static readonly Counter<long> WorkflowSimulationResourceEstimates = Meter.CreateCounter<long>("archonai.workflowsimulation.resource.estimates");
     public static readonly Counter<long> WorkflowSimulationLatencyEstimates = Meter.CreateCounter<long>("archonai.workflowsimulation.latency.estimates");
 
+    // Runtime health metrics
+    public static readonly Counter<long> RuntimeHealthChecks = Meter.CreateCounter<long>("archonai.runtime.health.checks");
+    public static readonly Counter<long> RuntimeAgentFailures = Meter.CreateCounter<long>("archonai.runtime.agent.failures");
+    public static readonly Counter<long> RuntimeTaskTimeouts = Meter.CreateCounter<long>("archonai.runtime.task.timeouts");
+    public static readonly Counter<long> RuntimeRecoveriesAttempted = Meter.CreateCounter<long>("archonai.runtime.recoveries.attempted");
+    public static readonly Counter<long> RuntimeRecoveriesSucceeded = Meter.CreateCounter<long>("archonai.runtime.recoveries.succeeded");
+    public static readonly Counter<long> RuntimeAgentRestarts = Meter.CreateCounter<long>("archonai.runtime.agent.restarts");
+    public static readonly Counter<long> RuntimeTaskRetries = Meter.CreateCounter<long>("archonai.runtime.task.retries");
+    public static readonly Counter<long> RuntimeWorkflowRollbacks = Meter.CreateCounter<long>("archonai.runtime.workflow.rollbacks");
+    public static readonly Histogram<double> RuntimeQueueBacklog = Meter.CreateHistogram<double>("archonai.runtime.queue.backlog");
+
     // Gateway metrics
     public static readonly Counter<long> GatewayRequestsTotal = Meter.CreateCounter<long>("archonai.gateway.requests.total");
     public static readonly Counter<long> GatewayRequestsFailed = Meter.CreateCounter<long>("archonai.gateway.requests.failed");
