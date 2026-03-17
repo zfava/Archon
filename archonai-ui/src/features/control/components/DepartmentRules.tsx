@@ -17,18 +17,18 @@ function effectiveLabel(rule: DepartmentRule, globalMode: ExecutionMode): string
     return rule.approval === 'require-approval' ? 'Approval required' : 'Auto-execute';
   }
   switch (globalMode) {
-    case 'manual': return 'Manual (inherited)';
-    case 'assisted': return 'Assisted (inherited)';
-    case 'autonomous': return 'Autonomous (inherited)';
+    case 'observe': return 'Observe (inherited)';
+    case 'recommend': return 'Recommend (inherited)';
+    case 'execute': return 'Execute (inherited)';
   }
 }
 
 function effectiveClass(rule: DepartmentRule, globalMode: ExecutionMode): string {
   if (rule.approval === 'require-approval') return 'cp-eff--approval';
   if (rule.approval === 'auto-execute') return 'cp-eff--auto';
-  if (globalMode === 'manual') return 'cp-eff--approval';
-  if (globalMode === 'autonomous') return 'cp-eff--auto';
-  return 'cp-eff--assisted';
+  if (globalMode === 'observe') return 'cp-eff--observe';
+  if (globalMode === 'execute') return 'cp-eff--execute';
+  return 'cp-eff--recommend';
 }
 
 export function DepartmentRules({ rules, globalMode, onChange }: Props) {

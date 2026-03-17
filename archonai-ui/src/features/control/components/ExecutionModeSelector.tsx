@@ -7,9 +7,9 @@ interface Props {
 }
 
 const MODE_ICONS: Record<ExecutionMode, string> = {
-  manual: '\u270B',     // raised hand
-  assisted: '\u2696',   // scales
-  autonomous: '\u26A1', // lightning
+  observe: '\uD83D\uDC41',   // eye
+  recommend: '\uD83D\uDCA1', // light bulb
+  execute: '\u26A1',          // lightning
 };
 
 export function ExecutionModeSelector({ value, onChange }: Props) {
@@ -21,15 +21,23 @@ export function ExecutionModeSelector({ value, onChange }: Props) {
       </p>
 
       <div className="cp-mode-grid">
-        {EXECUTION_MODES.map(({ mode, description }) => (
+        {EXECUTION_MODES.map(({ mode, label, description, behaviors }) => (
           <button
             key={mode}
             className={`cp-mode-btn ${value === mode ? 'cp-mode-btn--active' : ''}`}
             onClick={() => onChange(mode)}
           >
             <span className="cp-mode-icon">{MODE_ICONS[mode]}</span>
-            <span className="cp-mode-name">{mode}</span>
+            <span className="cp-mode-name">{label}</span>
             <span className="cp-mode-desc">{description}</span>
+
+            {value === mode && (
+              <ul className="cp-mode-behaviors">
+                {behaviors.map((b, i) => (
+                  <li key={i} className="cp-mode-behavior">{b}</li>
+                ))}
+              </ul>
+            )}
           </button>
         ))}
       </div>

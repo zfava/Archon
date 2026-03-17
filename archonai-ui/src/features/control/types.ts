@@ -1,24 +1,47 @@
 // ── Execution Modes ─────────────────────────────────────────────
 
-export type ExecutionMode = 'manual' | 'assisted' | 'autonomous';
+export type ExecutionMode = 'observe' | 'recommend' | 'execute';
 
 export interface ExecutionModeConfig {
   mode: ExecutionMode;
+  label: string;
   description: string;
+  behaviors: string[];
 }
 
 export const EXECUTION_MODES: ExecutionModeConfig[] = [
   {
-    mode: 'manual',
-    description: 'All actions require explicit human approval before execution.',
+    mode: 'observe',
+    label: 'Observe',
+    description: 'Agents monitor systems and surface insights. No actions are taken.',
+    behaviors: [
+      'Collects data from connected systems',
+      'Identifies anomalies and patterns',
+      'Logs observations to dashboard',
+      'Zero automated actions',
+    ],
   },
   {
-    mode: 'assisted',
-    description: 'Low-risk actions auto-execute. High-risk actions require approval.',
+    mode: 'recommend',
+    label: 'Recommend',
+    description: 'Agents analyze and recommend actions. Humans approve before execution.',
+    behaviors: [
+      'Everything in Observe, plus:',
+      'Generates actionable recommendations',
+      'Queues actions for human approval',
+      'Estimates impact before execution',
+    ],
   },
   {
-    mode: 'autonomous',
-    description: 'All actions execute automatically. Alerts on policy violations.',
+    mode: 'execute',
+    label: 'Execute',
+    description: 'Agents take action within policy guardrails. Alerts on exceptions.',
+    behaviors: [
+      'Everything in Recommend, plus:',
+      'Auto-executes within cost/risk limits',
+      'Escalates policy violations',
+      'Full audit trail for all actions',
+    ],
   },
 ];
 
@@ -115,7 +138,7 @@ export interface ControlSettings {
 }
 
 export const DEFAULT_SETTINGS: ControlSettings = {
-  executionMode: 'assisted',
+  executionMode: 'recommend',
   departmentRules: DEPARTMENTS.map((dept) => ({
     department: dept,
     approval: 'inherit' as DepartmentApproval,

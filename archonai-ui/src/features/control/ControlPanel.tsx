@@ -3,6 +3,7 @@ import { useControlPanel } from './hooks/useControlPanel';
 import { ExecutionModeSelector } from './components/ExecutionModeSelector';
 import { DepartmentRules } from './components/DepartmentRules';
 import { GovernanceStatus } from './components/GovernanceStatus';
+import { EXECUTION_MODES } from './types';
 import './control.css';
 
 export function ControlPanel() {
@@ -22,6 +23,8 @@ export function ControlPanel() {
     togglePolicy,
     save,
   } = useControlPanel();
+
+  const activeMode = EXECUTION_MODES.find((m) => m.mode === settings.executionMode);
 
   if (loading) {
     return (
@@ -46,6 +49,13 @@ export function ControlPanel() {
             Console
           </Link>
           <h1 className="cp-page-title">Control Panel</h1>
+
+          {/* Runtime mode badge */}
+          {activeMode && (
+            <span className={`cp-runtime-badge cp-runtime-badge--${activeMode.mode}`}>
+              {activeMode.label} Mode
+            </span>
+          )}
         </div>
         <div className="cp-header-right">
           {/* Tenant selector */}

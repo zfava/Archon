@@ -215,6 +215,54 @@
   color: #71717a;
 }
 
+/* --- Mode behavior list (shown when active) --- */
+.cp-mode-behaviors {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  text-align: left;
+  width: 100%;
+}
+
+.cp-mode-behavior {
+  font-size: 11px;
+  color: #71717a;
+  padding: 2px 0;
+  line-height: 1.4;
+}
+
+.cp-mode-behavior::before {
+  content: '\2713 ';
+  color: #6366f1;
+  font-weight: 700;
+}
+
+/* --- Runtime mode badge --- */
+.cp-runtime-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  animation: fadeSlideIn 0.2s ease-out;
+}
+
+.cp-runtime-badge--observe {
+  background: #1a2e2e;
+  color: #06b6d4;
+}
+
+.cp-runtime-badge--recommend {
+  background: #1a1a2e;
+  color: #818cf8;
+}
+
+.cp-runtime-badge--execute {
+  background: #052e16;
+  color: #4ade80;
+}
+
 /* --- Department rules --- */
 .cp-dept-list {
   display: flex;
@@ -259,9 +307,19 @@
   color: #4ade80;
 }
 
-.cp-eff--assisted {
+.cp-eff--observe {
+  background: #1a2e2e;
+  color: #06b6d4;
+}
+
+.cp-eff--recommend {
   background: #1a1a2e;
   color: #818cf8;
+}
+
+.cp-eff--execute {
+  background: #052e16;
+  color: #4ade80;
 }
 
 .cp-dept-controls {
