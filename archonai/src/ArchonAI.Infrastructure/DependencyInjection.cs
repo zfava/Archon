@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddSingleton<IPlanningFeedbackStore, InMemoryPlanningFeedbackStore>();
         services.AddSingleton<IConnector, DefaultConnector>();
         services.AddScoped<IStrategicPlanner, StrategicPlanningEngine>();
+        services.AddSingleton<IGoalGenerator, GoalGenerator>();
         services.AddScoped<IPlanner, PlannerService>();
         services.AddScoped<IReasoner, ReasoningEngine>();
         services.AddSingleton<IStrategyStore, TenantStrategyStore>();

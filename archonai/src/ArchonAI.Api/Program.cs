@@ -2208,6 +2208,50 @@ orgState.MapPost("/snapshots", async (IOrganizationStateEngine engine, Cancellat
     return Results.Ok(new { snapshotId = snapshot.SnapshotId, version = snapshot.Version });
 }).RequireAuthorization("AdminOnly");
 
+// ══════════════════════════════════════════════════════════════
+//  Goal Generator
+// ══════════════════════════════════════════════════════════════
+
+var goals = v1.MapGroup("/goals")
+    .RequireAuthorization("OperatorOrAdmin");
+
+goals.MapPost("/generate", async (IGoalGenerator generator, CancellationToken ct) =>
+{
+    var result = await generator.GenerateGoalsAsync(ct);
+    return Results.Ok(result);
+}).RequireAuthorization("AdminOnly");
+
+goals.MapGet("/dashboard", async (IGoalGenerator generator, CancellationToken ct) =>
+{
+    var dashboard = await generator.GetDashboardAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+goals.MapGet("/{goalId:guid}", async (Guid goalId, IGoalGenerator generator, CancellationToken ct) =>
+{
+    var goal = await generator.GetGoalAsync(goalId, ct);
+    return goal is null ? Results.NotFound() : Results.Ok(goal);
+});
+
+goals.MapGet("/by-status/{status}", async (string status, IGoalGenerator generator, CancellationToken ct) =>
+{
+    var goalStatus = Enum.Parse<GoalStatus>(status, true);
+    var result = await generator.GetGoalsByStatusAsync(goalStatus, ct);
+    return Results.Ok(result);
+});
+
+goals.MapPost("/{goalId:guid}/approve", async (Guid goalId, IGoalGenerator generator, CancellationToken ct) =>
+{
+    await generator.ApproveGoalAsync(goalId, ct);
+    return Results.Ok(new { goalId, status = "approved" });
+}).RequireAuthorization("AdminOnly");
+
+goals.MapPost("/{goalId:guid}/cancel", async (Guid goalId, CancelGoalRequest req, IGoalGenerator generator, CancellationToken ct) =>
+{
+    await generator.CancelGoalAsync(goalId, req.Reason, ct);
+    return Results.Ok(new { goalId, status = "cancelled" });
+}).RequireAuthorization("AdminOnly");
+
 app.Run();
 
 
@@ -2280,3 +2324,4 @@ public sealed record SystemPauseRequest(string Reason);
 public sealed record RaiseAlertRequest(string Severity, string Component, string Message);
 public sealed record IngestSignalRequest(string SignalType, string SourceSystem, string EntityId, DateTimeOffset? Timestamp, Dictionary<string, string> Payload);
 public sealed record IngestSignalBatchRequest(IReadOnlyList<IngestSignalRequest> Signals);
+public sealed record CancelGoalRequest(string Reason);
