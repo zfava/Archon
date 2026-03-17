@@ -872,6 +872,80 @@ coordination.MapPost("/delegate", async (DelegateTaskInput input, IAgentCoordina
     return Results.Ok(result);
 });
 
+// ══════════════════════════════════════════════════════════════
+//  Agent Collaboration
+// ══════════════════════════════════════════════════════════════
+
+var collaboration = v1.MapGroup("/collaboration")
+    .RequireAuthorization("OperatorOrAdmin");
+
+collaboration.MapGet("/status", (IAgentCollaborationManager collabManager) =>
+    Results.Ok(collabManager.GetStatus()));
+
+collaboration.MapPost("/sessions", async (CreateCollaborationSessionInput input, IAgentCollaborationManager collabManager, CancellationToken ct) =>
+{
+    var session = await collabManager.CreateSessionAsync(
+        input.InitiatorAgentId, input.InitiatorAgentName, input.Purpose, input.InitialContext, ct);
+    return Results.Created($"/api/v1/collaboration/sessions/{session.SessionId}", session);
+});
+
+collaboration.MapGet("/sessions/{sessionId:guid}", async (Guid sessionId, IAgentCollaborationManager collabManager, CancellationToken ct) =>
+{
+    var session = await collabManager.GetSessionAsync(sessionId, ct);
+    return session is null ? Results.NotFound() : Results.Ok(session);
+});
+
+collaboration.MapPost("/sessions/{sessionId:guid}/join", async (Guid sessionId, JoinCollaborationSessionInput input, IAgentCollaborationManager collabManager, CancellationToken ct) =>
+{
+    var session = await collabManager.JoinSessionAsync(sessionId, input.AgentId, input.AgentName, input.Role, ct);
+    return Results.Ok(session);
+});
+
+collaboration.MapPost("/sessions/{sessionId:guid}/context", async (Guid sessionId, ShareCollaborationContextInput input, IAgentCollaborationManager collabManager, CancellationToken ct) =>
+{
+    await collabManager.ShareContextAsync(sessionId, input.AgentId, input.Context, ct);
+    var session = await collabManager.GetSessionAsync(sessionId, ct);
+    return Results.Ok(session);
+});
+
+collaboration.MapPost("/sessions/{sessionId:guid}/complete", async (Guid sessionId, IAgentCollaborationManager collabManager, CancellationToken ct) =>
+{
+    var session = await collabManager.CompleteSessionAsync(sessionId, ct);
+    return Results.Ok(session);
+});
+
+collaboration.MapPost("/delegate-smart", async (SmartDelegationInput input, IAgentCollaborationManager collabManager, CancellationToken ct) =>
+{
+    var request = new ArchonAI.Core.Models.Collaboration.SmartDelegationRequest(
+        RequestId: Guid.NewGuid(),
+        DelegatingAgentId: input.DelegatingAgentId,
+        DelegatingAgentName: input.DelegatingAgentName,
+        RequiredCapability: input.RequiredCapability,
+        PreferredTaskType: input.PreferredTaskType,
+        TaskInputs: input.TaskInputs ?? new Dictionary<string, string>(),
+        FallbackAgentIds: input.FallbackAgentIds,
+        Timeout: TimeSpan.FromSeconds(input.TimeoutSeconds ?? 120),
+        RequestedAtUtc: DateTimeOffset.UtcNow);
+    var result = await collabManager.DelegateSmartAsync(request, ct);
+    return Results.Ok(result);
+});
+
+collaboration.MapPost("/assist", async (AssistanceRequestInput input, IAgentCollaborationManager collabManager, CancellationToken ct) =>
+{
+    var request = new ArchonAI.Core.Models.Collaboration.AssistanceRequest(
+        RequestId: Guid.NewGuid(),
+        RequestingAgentId: input.RequestingAgentId,
+        RequestingAgentName: input.RequestingAgentName,
+        Objective: input.Objective,
+        RequiredCapabilities: input.RequiredCapabilities,
+        Context: input.Context ?? new Dictionary<string, string>(),
+        MaxResponders: input.MaxResponders ?? 5,
+        Timeout: TimeSpan.FromSeconds(input.TimeoutSeconds ?? 120),
+        RequestedAtUtc: DateTimeOffset.UtcNow);
+    var result = await collabManager.RequestAssistanceAsync(request, ct);
+    return Results.Ok(result);
+});
+
 // Memory management endpoints
 var memory = v1.MapGroup("/memory")
     .RequireAuthorization("OperatorOrAdmin");
@@ -2487,3 +2561,36 @@ public sealed record BuildTaskGraphRequest(
 
 public sealed record RegisterTaskTypesRequest(
     IReadOnlyList<string> TaskTypes);
+
+public sealed record CreateCollaborationSessionInput(
+    Guid InitiatorAgentId,
+    string InitiatorAgentName,
+    string Purpose,
+    Dictionary<string, string>? InitialContext);
+
+public sealed record JoinCollaborationSessionInput(
+    Guid AgentId,
+    string AgentName,
+    string Role);
+
+public sealed record ShareCollaborationContextInput(
+    Guid AgentId,
+    Dictionary<string, string> Context);
+
+public sealed record SmartDelegationInput(
+    Guid DelegatingAgentId,
+    string DelegatingAgentName,
+    string RequiredCapability,
+    string? PreferredTaskType,
+    Dictionary<string, string>? TaskInputs,
+    IReadOnlyList<Guid>? FallbackAgentIds,
+    int? TimeoutSeconds);
+
+public sealed record AssistanceRequestInput(
+    Guid RequestingAgentId,
+    string RequestingAgentName,
+    string Objective,
+    IReadOnlyList<string> RequiredCapabilities,
+    Dictionary<string, string>? Context,
+    int? MaxResponders,
+    int? TimeoutSeconds);

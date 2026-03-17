@@ -1,6 +1,8 @@
 using ArchonAI.Core.Interfaces;
+using ArchonAI.Core.Models.Collaboration;
 using ArchonAI.Core.Models.Coordination;
 using ArchonAI.Core.Models.RuntimeHealth;
+using ArchonAI.Runtime.Collaboration;
 using ArchonAI.Runtime.Coordination;
 using ArchonAI.Runtime.Execution;
 using ArchonAI.Runtime.Health;
@@ -27,11 +29,14 @@ public static class DependencyInjection
                 configuration.GetSection(RuntimeHealthOptions.SectionName));
             services.Configure<CoordinationOptions>(
                 configuration.GetSection(CoordinationOptions.SectionName));
+            services.Configure<CollaborationOptions>(
+                configuration.GetSection(CollaborationOptions.SectionName));
         }
         else
         {
             services.Configure<RuntimeHealthOptions>(_ => { });
             services.Configure<CoordinationOptions>(_ => { });
+            services.Configure<CollaborationOptions>(_ => { });
         }
 
         services.AddSingleton<IWorkflowEngine, WorkflowEngine>();
@@ -41,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IRuntime, AgentRuntime>();
         services.AddSingleton<IRuntimeHealthManager, RuntimeHealthManager>();
         services.AddSingleton<IAgentCoordinationService, AgentCoordinationService>();
+        services.AddSingleton<IAgentCollaborationManager, AgentCollaborationManager>();
         services.AddHostedService<AgentRegistrationHostedService>();
         services.AddHostedService<RuntimeHealthMonitorService>();
         return services;
