@@ -1,0 +1,605 @@
+/* ═══════════════════════════════════════════════════════
+   ArchonAI Command Console — Minimal, fast, distraction-free
+   ═══════════════════════════════════════════════════════ */
+
+/* --- Console layout --- */
+.cmd-console {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100dvh;
+  background: #0a0a0b;
+  color: #e4e4e7;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+}
+
+/* --- Header --- */
+.cmd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid #1c1c1f;
+  flex-shrink: 0;
+}
+
+.cmd-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #a1a1aa;
+  letter-spacing: 0.02em;
+}
+
+.cmd-brand svg {
+  stroke: #6366f1;
+}
+
+/* --- Scroll area --- */
+.cmd-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: #27272a transparent;
+}
+
+.cmd-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.cmd-scroll::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 3px;
+}
+
+/* --- Empty state --- */
+.cmd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  gap: 16px;
+  opacity: 0.85;
+}
+
+.cmd-empty h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #e4e4e7;
+  margin: 0;
+}
+
+.cmd-empty p {
+  font-size: 14px;
+  color: #71717a;
+  margin: 0;
+  max-width: 400px;
+}
+
+.cmd-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cmd-examples button {
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: #a1a1aa;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.cmd-examples button:hover {
+  background: #1f1f23;
+  color: #e4e4e7;
+  border-color: #3f3f46;
+}
+
+/* --- Command entry --- */
+.cmd-entry {
+  margin-bottom: 24px;
+}
+
+.cmd-user-msg {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  color: #e4e4e7;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.cmd-chevron {
+  color: #6366f1;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* --- Input --- */
+.cmd-input-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid #1c1c1f;
+  background: #0f0f11;
+  flex-shrink: 0;
+}
+
+.cmd-prompt {
+  display: flex;
+  align-items: center;
+  padding-bottom: 4px;
+}
+
+.cmd-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e4e4e7;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  line-height: 1.5;
+  min-height: 24px;
+  max-height: 120px;
+}
+
+.cmd-input::placeholder {
+  color: #52525b;
+}
+
+.cmd-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: #6366f1;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.cmd-send:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.cmd-send:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* --- Response --- */
+.cmd-response {
+  background: #111113;
+  border: 1px solid #1c1c1f;
+  border-radius: 10px;
+  padding: 16px;
+  animation: fadeSlideIn 0.25s ease-out;
+}
+
+.cmd-response--loading {
+  padding: 20px;
+}
+
+.cmd-response--error {
+  border-color: #7f1d1d;
+}
+
+.response-skeleton {
+  height: 12px;
+  width: 60%;
+  background: linear-gradient(90deg, #1c1c1f 30%, #27272a 50%, #1c1c1f 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.response-section {
+  margin-bottom: 16px;
+}
+
+.response-section:last-child {
+  margin-bottom: 0;
+}
+
+.response-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #52525b;
+  margin-bottom: 6px;
+}
+
+.response-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f4f4f5;
+  margin: 0 0 4px;
+}
+
+.response-desc {
+  font-size: 13px;
+  color: #a1a1aa;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.response-meta {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.response-error-text {
+  color: #fca5a5;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* --- Tags --- */
+.meta-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #1c1c1f;
+  color: #a1a1aa;
+}
+
+.priority-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.priority-low      { background: #1a2e1a; color: #4ade80; }
+.priority-medium   { background: #2e2a1a; color: #facc15; }
+.priority-high     { background: #2e1a1a; color: #f97316; }
+.priority-critical { background: #3b1111; color: #ef4444; }
+
+/* --- Strategy card --- */
+.strategy-card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.strategy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.strategy-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e4e4e7;
+  text-transform: capitalize;
+}
+
+.strategy-reason {
+  font-size: 12px;
+  color: #71717a;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* --- Confidence badge --- */
+.confidence-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.confidence-high   { background: #052e16; color: #4ade80; }
+.confidence-medium { background: #2e2a1a; color: #facc15; }
+.confidence-low    { background: #3b1111; color: #ef4444; }
+
+/* --- Outcome grid --- */
+.outcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+}
+
+.outcome-stat {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  color: #f4f4f5;
+}
+
+.stat-label {
+  display: block;
+  font-size: 11px;
+  color: #71717a;
+  margin-top: 2px;
+}
+
+/* --- Confidence bar --- */
+.confidence-bar-wrap {
+  position: relative;
+  height: 28px;
+  background: #18181b;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #27272a;
+}
+
+.confidence-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #4f46e5, #6366f1);
+  border-radius: 6px 0 0 6px;
+  transition: width 0.6s ease-out;
+}
+
+.confidence-value {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  font-weight: 700;
+  color: #e4e4e7;
+}
+
+/* --- Comparison table --- */
+.comparison-table-wrap {
+  overflow-x: auto;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.comparison-table th {
+  text-align: left;
+  padding: 8px;
+  font-weight: 600;
+  color: #71717a;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #27272a;
+}
+
+.comparison-table td {
+  padding: 8px;
+  border-bottom: 1px solid #1c1c1f;
+  color: #a1a1aa;
+}
+
+.comparison-table .row-selected {
+  background: #1a1a2e;
+}
+
+.comparison-table .row-selected td {
+  color: #e4e4e7;
+}
+
+/* --- Risks --- */
+.risk-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.risk-list li {
+  font-size: 13px;
+  color: #a1a1aa;
+  padding: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.risk-list li::before {
+  content: '\26A0';
+  position: absolute;
+  left: 0;
+  color: #f97316;
+  font-size: 11px;
+}
+
+/* --- Dispatch --- */
+.dispatch-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dispatch-ok {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4ade80;
+}
+
+/* --- Phase indicator --- */
+.phase-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #71717a;
+}
+
+.phase-complete { color: #4ade80; }
+.phase-error    { color: #ef4444; }
+.phase-ready    { color: #6366f1; }
+
+.phase-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #27272a;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.phase-label {
+  font-weight: 500;
+}
+
+/* --- Execution controls --- */
+.exec-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.exec-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.exec-btn--primary {
+  background: #6366f1;
+  color: #fff;
+}
+
+.exec-btn--primary:hover {
+  background: #4f46e5;
+}
+
+.exec-btn--secondary {
+  background: #18181b;
+  color: #a1a1aa;
+  border: 1px solid #27272a;
+}
+
+.exec-btn--secondary:hover {
+  background: #27272a;
+  color: #e4e4e7;
+}
+
+.exec-btn--danger {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+.exec-btn--danger:hover {
+  background: #991b1b;
+}
+
+.exec-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4ade80;
+}
+
+/* --- Simulate dialog --- */
+.sim-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+}
+
+.sim-dialog {
+  background: #111113;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+  padding: 24px;
+  width: 400px;
+  max-width: 90vw;
+  animation: fadeSlideIn 0.2s ease-out;
+}
+
+.sim-dialog h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: #f4f4f5;
+}
+
+.sim-dialog p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #71717a;
+}
+
+.sim-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  color: #e4e4e7;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.sim-input:focus {
+  border-color: #6366f1;
+}
+
+.sim-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
