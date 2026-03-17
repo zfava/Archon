@@ -46,6 +46,7 @@ public sealed class AgentRuntime : IRuntime
     private readonly IMemoryStore _memoryStore;
     private readonly ITraceStore _traceStore;
     private readonly ITaskTelemetryStore _taskTelemetryStore;
+    private readonly IPerformanceAnalyzer _performanceAnalyzer;
     private readonly ILogger<AgentRuntime> _logger;
 
     private readonly SemaphoreSlim _subscriptionLock = new(1, 1);
@@ -67,6 +68,7 @@ public sealed class AgentRuntime : IRuntime
         IMemoryStore memoryStore,
         ITraceStore traceStore,
         ITaskTelemetryStore taskTelemetryStore,
+        IPerformanceAnalyzer performanceAnalyzer,
         ILogger<AgentRuntime> logger)
     {
         _agentImplementations = agentImplementations;
@@ -84,6 +86,7 @@ public sealed class AgentRuntime : IRuntime
         _memoryStore = memoryStore;
         _traceStore = traceStore;
         _taskTelemetryStore = taskTelemetryStore;
+        _performanceAnalyzer = performanceAnalyzer;
         _logger = logger;
     }
 
@@ -180,7 +183,24 @@ public sealed class AgentRuntime : IRuntime
                     errorType: outcome.ErrorType,
                     executedAtUtc: outcome.CompletedAtUtc,
                     cancellationToken: ct);
+
+                string agentName = _agentRegistry.TryGetValue(outcome.AgentId, out Agent? registeredAgent)
+                    ? registeredAgent.Name
+                    : outcome.AgentId.ToString();
+
+                _performanceAnalyzer.RecordAgentExecution(
+                    outcome.AgentId,
+                    agentName,
+                    outcome.Result.IsSuccess,
+                    outcome.ExecutionTimeMs,
+                    outcome.Cost);
             }
+
+            _performanceAnalyzer.RecordTaskCompletion(
+                task.RequiredCapability,
+                outcome.Result.IsSuccess,
+                outcome.ExecutionTimeMs,
+                outcome.Cost);
 
             await RecordTaskTelemetryAsync(
                 objectiveId: task.ObjectiveId,

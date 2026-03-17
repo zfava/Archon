@@ -10,13 +10,16 @@ public sealed class OptimizationEngine : IOptimizationEngine
 {
     private readonly OptimizationOptions _options;
     private readonly IPlanningFeedbackStore _planningFeedbackStore;
+    private readonly IPerformanceAnalyzer _performanceAnalyzer;
 
     public OptimizationEngine(
         IOptions<OptimizationOptions> options,
-        IPlanningFeedbackStore planningFeedbackStore)
+        IPlanningFeedbackStore planningFeedbackStore,
+        IPerformanceAnalyzer performanceAnalyzer)
     {
         _options = options.Value;
         _planningFeedbackStore = planningFeedbackStore;
+        _performanceAnalyzer = performanceAnalyzer;
     }
 
     public async global::System.Threading.Tasks.Task<WorkflowDefinition> OptimizeWorkflowAsync(
@@ -111,6 +114,27 @@ public sealed class OptimizationEngine : IOptimizationEngine
             cancellationToken);
 
         return true;
+    }
+
+    public async global::System.Threading.Tasks.Task<PerformanceReport> AnalyzePerformanceAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await _performanceAnalyzer.AnalyzeAsync(cancellationToken);
+    }
+
+    public async global::System.Threading.Tasks.Task<IReadOnlyList<ImprovementAction>> RunContinuousImprovementCycleAsync(
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var actions = await _performanceAnalyzer.GenerateImprovementsAsync(cancellationToken);
+
+        if (_options.AutoApplyImprovements && actions.Count > 0)
+        {
+            await _performanceAnalyzer.ApplyImprovementsAsync(actions, cancellationToken);
+        }
+
+        return actions;
     }
 
     private OptimizationInsight AnalyzeEfficiency(WorkflowDefinition workflow)

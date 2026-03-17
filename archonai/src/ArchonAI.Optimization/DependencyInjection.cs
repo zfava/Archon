@@ -10,6 +10,7 @@ public static class DependencyInjection
         services.AddOptions<OptimizationOptions>()
             .BindConfiguration("Optimization");
 
+        services.AddSingleton<IPerformanceAnalyzer, PerformanceAnalyzer>();
         services.AddSingleton<IOptimizationEngine, OptimizationEngine>();
         return services;
     }
