@@ -11,6 +11,9 @@ public static class DependencyInjection
             .BindConfiguration("Perception");
 
         services.AddSingleton<IPerceptionEngine, PerceptionEngine>();
+        services.AddSingleton<IBusinessPerceptionEngine, BusinessPerceptionEngine>();
+        services.AddSingleton<ISignalIngestionService, SignalIngestionService>();
+
         return services;
     }
 }

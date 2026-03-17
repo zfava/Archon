@@ -1,3 +1,5 @@
+using ArchonAI.Core.Models.Perception;
+
 namespace ArchonAI.Perception;
 
 public sealed class PerceptionOptions
@@ -9,4 +11,17 @@ public sealed class PerceptionOptions
     public IReadOnlyList<string> RequiredConstraintKeys { get; set; } = new[] { "objectiveType" };
 
     public IReadOnlyList<string> NoiseTokens { get; set; } = new[] { "um", "uh", "like", "you know", "basically" };
+
+    public int PollIntervalSeconds { get; set; } = 60;
+
+    public HashSet<SourceSystem> EnabledSources { get; set; } = new()
+    {
+        SourceSystem.CRM,
+        SourceSystem.ERP,
+        SourceSystem.Finance,
+        SourceSystem.Marketing,
+        SourceSystem.Logistics
+    };
+
+    public bool AutoTriggerStrategicPlanner { get; set; } = true;
 }

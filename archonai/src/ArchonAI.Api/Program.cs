@@ -31,6 +31,8 @@ using ArchonAI.Core.Models.Telemetry;
 using ArchonAI.Core.Models.Cluster;
 using ArchonAI.ControlPlane.Hubs;
 using ArchonAI.Memory;
+using ArchonAI.Perception;
+using ArchonAI.Core.Models.Perception;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -54,6 +56,7 @@ builder.Services.AddArchonAIAgentRegistry();
 builder.Services.AddArchonAIStrategyLibrary();
 builder.Services.AddArchonAIWorkflowSimulation(builder.Configuration);
 builder.Services.AddArchonAIMemory(builder.Configuration);
+builder.Services.AddArchonAIPerception();
 
 var app = builder.Build();
 
@@ -2098,7 +2101,62 @@ app.MapPrometheusScrapingEndpoint("/metrics")
     .RequireAuthorization("AdminOnly")
     .RequireRateLimiting("api");
 
+// ══════════════════════════════════════════════════════════════
+//  Business Perception Engine
+// ══════════════════════════════════════════════════════════════
+
+var perception = v1.MapGroup("/perception")
+    .RequireAuthorization("OperatorOrAdmin");
+
+perception.MapPost("/signals", async (IngestSignalRequest req, ISignalIngestionService ingestion, CancellationToken ct) =>
+{
+    var signal = new BusinessSignal(
+        SignalId: Guid.NewGuid(),
+        SignalType: Enum.Parse<SignalType>(req.SignalType, true),
+        SourceSystem: Enum.Parse<SourceSystem>(req.SourceSystem, true),
+        EntityId: req.EntityId,
+        Timestamp: req.Timestamp ?? DateTimeOffset.UtcNow,
+        Payload: req.Payload);
+
+    var result = await ingestion.IngestApiSignalAsync(signal, ct);
+    return result.Accepted ? Results.Ok(result) : Results.UnprocessableEntity(result);
+});
+
+perception.MapPost("/signals/batch", async (IngestSignalBatchRequest req, ISignalIngestionService ingestion, CancellationToken ct) =>
+{
+    var signals = req.Signals.Select(s => new BusinessSignal(
+        SignalId: Guid.NewGuid(),
+        SignalType: Enum.Parse<SignalType>(s.SignalType, true),
+        SourceSystem: Enum.Parse<SourceSystem>(s.SourceSystem, true),
+        EntityId: s.EntityId,
+        Timestamp: s.Timestamp ?? DateTimeOffset.UtcNow,
+        Payload: s.Payload)).ToList();
+
+    var source = Enum.Parse<SourceSystem>(req.Signals[0].SourceSystem, true);
+    var results = await ingestion.IngestScheduledPollSignalsAsync(source, signals, ct);
+    return Results.Ok(results);
+});
+
+perception.MapGet("/dashboard", async (IBusinessPerceptionEngine engine, CancellationToken ct) =>
+{
+    var dashboard = await engine.GetDashboardAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+perception.MapPost("/polling/start", async (ISignalIngestionService ingestion, CancellationToken ct) =>
+{
+    await ingestion.StartPollingAsync(ct);
+    return Results.Ok(new { polling = "started" });
+}).RequireAuthorization("AdminOnly");
+
+perception.MapPost("/polling/stop", async (ISignalIngestionService ingestion, CancellationToken ct) =>
+{
+    await ingestion.StopPollingAsync(ct);
+    return Results.Ok(new { polling = "stopped" });
+}).RequireAuthorization("AdminOnly");
+
 app.Run();
+
 
 public sealed record QuickBooksInvoiceRequest(string CustomerId, IReadOnlyList<QuickBooksLineItem> LineItems);
 public sealed record SlackSendMessageRequest(string Channel, string Text, string? ThreadTs = null);
@@ -2167,3 +2225,5 @@ public sealed record RegisterClusterNodeRequest(string HostName, string Role, in
 public sealed record NodeHeartbeatRequest(int ActiveTasks, int QueuedTasks, int ActiveAgents, double CpuUtilizationPercent, double MemoryUtilizationPercent, int GpuSlotsUsed);
 public sealed record SystemPauseRequest(string Reason);
 public sealed record RaiseAlertRequest(string Severity, string Component, string Message);
+public sealed record IngestSignalRequest(string SignalType, string SourceSystem, string EntityId, DateTimeOffset? Timestamp, Dictionary<string, string> Payload);
+public sealed record IngestSignalBatchRequest(IReadOnlyList<IngestSignalRequest> Signals);
