@@ -271,6 +271,29 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  // ── Explanations ─────────────────────────────────────
+  explainStrategy: (body: {
+    goalId: string;
+    goalTitle: string;
+    candidateStrategies: string[];
+  }) =>
+    request('/explanations/strategy', { method: 'POST', body: JSON.stringify(body) }),
+
+  explainAgent: (body: {
+    requiredCapability: string;
+    taskType: string | null;
+  }) =>
+    request('/explanations/agent', { method: 'POST', body: JSON.stringify(body) }),
+
+  explainDecision: (body: {
+    goalId: string;
+    goalTitle: string;
+    candidateStrategies: string[];
+    requiredCapability: string;
+    taskType: string | null;
+  }) =>
+    request('/explanations/decision', { method: 'POST', body: JSON.stringify(body) }),
+
   // ── Human Overrides ──────────────────────────────────
   pauseWorkflow: (body: { workflowId: string; reason: string; performedBy: string }) =>
     request('/overrides/pause', { method: 'POST', body: JSON.stringify(body) }),

@@ -9,6 +9,7 @@ import { AttributionView } from './features/attribution';
 import { OnboardingWizard } from './features/onboarding';
 import { IntegrationMarketplace } from './features/integrations';
 import { HumanOverridesView } from './features/overrides';
+import { ExplanationView } from './features/explanations';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/audit" element={<AuditLogView />} />
         <Route path="/impact" element={<ImpactDashboard />} />
         <Route path="/overrides" element={<HumanOverridesView />} />
+        <Route path="/explanations" element={<ExplanationView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

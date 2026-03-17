@@ -43,6 +43,7 @@ using ArchonAI.Core.Models.Reasoning;
 using ArchonAI.ModelRouter;
 using ArchonAI.Core.Models.Simulation;
 using ArchonAI.Core.Models.HumanOverride;
+using ArchonAI.Core.Models.Explanation;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -2823,6 +2824,41 @@ taskGraphs.MapGet("/{graphId:guid}/layers", async (Guid graphId, ITaskGraphBuild
     });
 });
 
+// ── Explanation Engine ─────────────────────────────────────────────────
+var explanations = v1.MapGroup("/explanations")
+    .RequireAuthorization("OperatorOrAdmin");
+
+explanations.MapPost("/strategy", async (
+    ExplainStrategyRequest req,
+    IExplanationEngine explanationEngine,
+    CancellationToken ct) =>
+{
+    var result = await explanationEngine.ExplainStrategyChoiceAsync(
+        req.GoalId, req.GoalTitle, req.CandidateStrategies, ct);
+    return Results.Ok(result);
+});
+
+explanations.MapPost("/agent", async (
+    ExplainAgentRequest req,
+    IExplanationEngine explanationEngine,
+    CancellationToken ct) =>
+{
+    var result = await explanationEngine.ExplainAgentSelectionAsync(
+        req.RequiredCapability, req.TaskType, ct);
+    return Results.Ok(result);
+});
+
+explanations.MapPost("/decision", async (
+    ExplainDecisionRequest req,
+    IExplanationEngine explanationEngine,
+    CancellationToken ct) =>
+{
+    var result = await explanationEngine.ExplainDecisionAsync(
+        req.GoalId, req.GoalTitle, req.CandidateStrategies,
+        req.RequiredCapability, req.TaskType, ct);
+    return Results.Ok(result);
+});
+
 // ── Human Override / Intervention ──────────────────────────────────────
 var overrides = v1.MapGroup("/overrides")
     .RequireAuthorization("OperatorOrAdmin");
@@ -3037,3 +3073,19 @@ public sealed record SimulationGuidedPlanRequest(
 public sealed record EvaluateOutcomeRequest(
     StrategySimulationResult SimulationResult,
     TaskGraphExecutionResult ActualResult);
+
+public sealed record ExplainStrategyRequest(
+    Guid GoalId,
+    string GoalTitle,
+    IReadOnlyList<string> CandidateStrategies);
+
+public sealed record ExplainAgentRequest(
+    string RequiredCapability,
+    string? TaskType);
+
+public sealed record ExplainDecisionRequest(
+    Guid GoalId,
+    string GoalTitle,
+    IReadOnlyList<string> CandidateStrategies,
+    string RequiredCapability,
+    string? TaskType);
