@@ -1951,6 +1951,53 @@ workflowSim.MapGet("/history/{workflowGraphId:guid}", async (
     return data is null ? Results.NotFound() : Results.Ok(data);
 });
 
+// ══════════════════════════════════════════════════════════════
+//  Strategy Simulation (TaskGraph-based)
+// ══════════════════════════════════════════════════════════════
+
+var strategySim = v1.MapGroup("/strategy-simulation")
+    .RequireAuthorization("OperatorOrAdmin");
+
+strategySim.MapPost("/simulate", async (SimulateStrategyRequest req, IStrategySimulator simulator, ITaskGraphBuilder graphBuilder, CancellationToken ct) =>
+{
+    var graph = await graphBuilder.GetGraphAsync(req.GraphId, ct);
+    if (graph is null)
+        return Results.NotFound(new { error = $"Task graph '{req.GraphId}' not found." });
+
+    var result = await simulator.SimulateAsync(graph, req.Strategy, ct);
+    return Results.Ok(result);
+});
+
+strategySim.MapPost("/compare", async (CompareTaskGraphStrategiesRequest req, IStrategySimulator simulator, ITaskGraphBuilder graphBuilder, CancellationToken ct) =>
+{
+    var graph = await graphBuilder.GetGraphAsync(req.GraphId, ct);
+    if (graph is null)
+        return Results.NotFound(new { error = $"Task graph '{req.GraphId}' not found." });
+
+    var result = await simulator.CompareStrategiesAsync(graph, req.Strategies, ct);
+    return Results.Ok(result);
+});
+
+strategySim.MapPost("/simulate-goal", async (SimulateGoalStrategiesRequest req, IStrategySimulator simulator, IGoalGenerator goalGenerator, CancellationToken ct) =>
+{
+    var goal = await goalGenerator.GetGoalAsync(req.GoalId, ct);
+    if (goal is null)
+        return Results.NotFound(new { error = $"Goal '{req.GoalId}' not found." });
+
+    var result = await simulator.SimulateGoalStrategiesAsync(goal, req.Strategies, ct);
+    return Results.Ok(result);
+});
+
+strategySim.MapPost("/guided-plan", async (SimulationGuidedPlanRequest req, IStrategicPlanner planner, IGoalGenerator goalGenerator, CancellationToken ct) =>
+{
+    var goal = await goalGenerator.GetGoalAsync(req.GoalId, ct);
+    if (goal is null)
+        return Results.NotFound(new { error = $"Goal '{req.GoalId}' not found." });
+
+    var plan = await planner.BuildSimulationGuidedPlanAsync(goal, req.Strategies, ct);
+    return Results.Ok(plan);
+});
+
 // ── Strategy Library ────────────────────────────────────────────────
 
 var strategyLib = v1.MapGroup("/strategy-library")
@@ -2594,3 +2641,19 @@ public sealed record AssistanceRequestInput(
     Dictionary<string, string>? Context,
     int? MaxResponders,
     int? TimeoutSeconds);
+
+public sealed record SimulateStrategyRequest(
+    Guid GraphId,
+    string Strategy);
+
+public sealed record CompareTaskGraphStrategiesRequest(
+    Guid GraphId,
+    IReadOnlyList<string> Strategies);
+
+public sealed record SimulateGoalStrategiesRequest(
+    Guid GoalId,
+    IReadOnlyList<string>? Strategies);
+
+public sealed record SimulationGuidedPlanRequest(
+    Guid GoalId,
+    IReadOnlyList<string>? Strategies);

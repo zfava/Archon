@@ -9,18 +9,25 @@ namespace ArchonAI.StrategicPlanner;
 /// <summary>
 /// Builds optimized workflow definitions from objective intent and constraints.
 /// Runs scenario simulations and economic evaluations before finalizing plans.
+/// Uses strategy simulation to choose the best TaskGraph-based plan for goals.
 /// </summary>
 public sealed class StrategicPlanningEngine : IStrategicPlanner
 {
     private readonly IScenarioEngine _scenarioEngine;
     private readonly IEconomicEvaluator _economicEvaluator;
+    private readonly IStrategySimulator _strategySimulator;
+    private readonly ITaskGraphBuilder _taskGraphBuilder;
 
     public StrategicPlanningEngine(
         IScenarioEngine scenarioEngine,
-        IEconomicEvaluator economicEvaluator)
+        IEconomicEvaluator economicEvaluator,
+        IStrategySimulator strategySimulator,
+        ITaskGraphBuilder taskGraphBuilder)
     {
         _scenarioEngine = scenarioEngine;
         _economicEvaluator = economicEvaluator;
+        _strategySimulator = strategySimulator;
+        _taskGraphBuilder = taskGraphBuilder;
     }
 
     public global::System.Threading.Tasks.Task<WorkflowDefinition> BuildWorkflowAsync(
@@ -117,6 +124,35 @@ public sealed class StrategicPlanningEngine : IStrategicPlanner
         };
 
         return await _scenarioEngine.ValidatePlanAsync(objective, workflow, rankedStrategies, cancellationToken);
+    }
+
+    public async global::System.Threading.Tasks.Task<SimulationGuidedPlan> BuildSimulationGuidedPlanAsync(
+        OperationalGoal goal,
+        IReadOnlyList<string>? candidateStrategies = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Simulate all candidate strategies against the goal's TaskGraph
+        TaskGraphStrategyComparison comparison = await _strategySimulator.SimulateGoalStrategiesAsync(
+            goal, candidateStrategies, cancellationToken);
+
+        var bestSim = comparison.RecommendedSimulation;
+
+        // Build the final TaskGraph using the winning strategy
+        TaskGraph selectedGraph = await _taskGraphBuilder.BuildGraphAsync(
+            goal, bestSim.Strategy, cancellationToken);
+
+        return new SimulationGuidedPlan(
+            Goal: goal,
+            SelectedTaskGraph: selectedGraph,
+            SelectedSimulation: bestSim,
+            ComparisonResult: comparison,
+            SelectedStrategy: bestSim.Strategy,
+            ExpectedSuccessProbability: bestSim.ExpectedOutcome.OverallSuccessProbability,
+            RiskScore: bestSim.RiskScore,
+            PlanDecisionReason: comparison.RecommendationReason,
+            PlannedAtUtc: DateTimeOffset.UtcNow);
     }
 
     private static string SelectStrategy(IReadOnlyDictionary<string, string> constraints, Objective objective)
