@@ -28,6 +28,7 @@ using ArchonAI.StrategyLibrary;
 using ArchonAI.Core.Models.StrategyLibrary;
 using ArchonAI.WorkflowSimulation;
 using ArchonAI.Core.Models.Telemetry;
+using ArchonAI.Core.Models.Cluster;
 using ArchonAI.Memory;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -1878,6 +1879,127 @@ strategyLib.MapPost("/compare", async (
     }
 });
 
+// ── Cluster Management ──────────────────────────────────────────────
+
+var cluster = v1.MapGroup("/cluster")
+    .RequireAuthorization("OperatorOrAdmin");
+
+cluster.MapGet("/status", async (IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    var status = await clusterCoord.GetClusterStatusAsync(ct);
+    return Results.Ok(status);
+});
+
+cluster.MapGet("/dashboard", async (IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    var dashboard = await clusterCoord.GetDashboardAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+cluster.MapGet("/nodes", async (ClusterNodeStatus? status, IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    var nodes = await clusterCoord.ListNodesAsync(status, ct);
+    return Results.Ok(nodes);
+});
+
+cluster.MapGet("/nodes/{nodeId:guid}", async (Guid nodeId, IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    var node = await clusterCoord.GetNodeAsync(nodeId, ct);
+    return node is null ? Results.NotFound() : Results.Ok(node);
+});
+
+cluster.MapPost("/nodes", async (RegisterClusterNodeRequest request, IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    try
+    {
+        var capacity = new NodeCapacity(
+            request.MaxConcurrentTasks, request.MaxAgents,
+            request.CpuCores, request.MemoryBytes, request.GpuSlots);
+
+        var node = await clusterCoord.RegisterNodeAsync(
+            request.HostName, request.Role, capacity,
+            request.Capabilities, request.Labels, ct);
+        return Results.Created($"/api/v1/cluster/nodes/{node.NodeId}", node);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
+cluster.MapPost("/nodes/{nodeId:guid}/heartbeat", async (
+    Guid nodeId, NodeHeartbeatRequest request, IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    try
+    {
+        var load = new NodeLoad(
+            request.ActiveTasks, request.QueuedTasks, request.ActiveAgents,
+            request.CpuUtilizationPercent, request.MemoryUtilizationPercent,
+            request.GpuSlotsUsed, DateTimeOffset.UtcNow);
+
+        var node = await clusterCoord.HeartbeatAsync(nodeId, load, ct);
+        return Results.Ok(node);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+cluster.MapPost("/nodes/{nodeId:guid}/drain", async (
+    Guid nodeId, IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    try
+    {
+        await clusterCoord.DrainNodeAsync(nodeId, ct);
+        return Results.Ok(new { nodeId, status = "draining" });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+cluster.MapDelete("/nodes/{nodeId:guid}", async (
+    Guid nodeId, IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    try
+    {
+        await clusterCoord.RemoveNodeAsync(nodeId, ct);
+        return Results.Ok(new { nodeId, removed = true });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+cluster.MapPost("/schedule", async (
+    ClusterScheduleRequest request, IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    var result = await clusterCoord.ScheduleOnClusterAsync(request, ct);
+    return Results.Ok(result);
+});
+
+cluster.MapPost("/schedule/batch", async (
+    IReadOnlyList<ClusterScheduleRequest> requests, IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    var results = await clusterCoord.ScheduleBatchAsync(requests, ct);
+    return Results.Ok(results);
+});
+
+cluster.MapGet("/distribution-plan", async (IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    var plan = await clusterCoord.GenerateDistributionPlanAsync(ct);
+    return Results.Ok(plan);
+});
+
+cluster.MapPost("/rebalance", async (IClusterCoordinator clusterCoord, CancellationToken ct) =>
+{
+    await clusterCoord.RebalanceAsync(ct);
+    return Results.Ok(new { rebalanced = true, atUtc = DateTimeOffset.UtcNow });
+}).RequireAuthorization("AdminOnly");
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")
@@ -1959,3 +2081,5 @@ public sealed record EvaluateDataAccessRequest(string SubjectId, string Resource
 public sealed record EvaluateWorkflowLimitsRequest(Guid WorkflowId, int StepCount, int ConcurrentAgents);
 public sealed record RecordAgentLoadRequest(Guid AgentId, string AgentName, int ActiveTasks, int QueuedTasks, double ExecutionTimeMs, double CpuPercent, double MemoryPercent);
 public sealed record RecordModelLatencyRequest(string Provider, string Model, double LatencyMs, bool Success);
+public sealed record RegisterClusterNodeRequest(string HostName, string Role, int MaxConcurrentTasks, int MaxAgents, double CpuCores, long MemoryBytes, int GpuSlots, IReadOnlyList<string> Capabilities, Dictionary<string, string>? Labels = null);
+public sealed record NodeHeartbeatRequest(int ActiveTasks, int QueuedTasks, int ActiveAgents, double CpuUtilizationPercent, double MemoryUtilizationPercent, int GpuSlotsUsed);

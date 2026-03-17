@@ -1,5 +1,6 @@
 using ArchonAI.Common.Observability;
 using ArchonAI.Infrastructure;
+using ArchonAI.Infrastructure.Cluster;
 using ArchonAI.Runtime;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -25,6 +26,15 @@ builder.Services.AddOpenTelemetry()
 
 builder.Services.AddArchonAIInfrastructure();
 builder.Services.AddArchonAIRuntime();
+
+// Cluster-aware scheduling: register this node and enable rebalancing
+builder.Services.Configure<ClusterNodeRegistrationOptions>(opts =>
+{
+    opts.Role = "scheduler";
+    opts.Capabilities = new List<string> { "scheduling", "task-distribution", "workflow-coordination" };
+});
+builder.Services.AddHostedService<ClusterNodeHeartbeatService>();
+builder.Services.AddHostedService<ClusterRebalanceService>();
 
 var host = builder.Build();
 host.Run();

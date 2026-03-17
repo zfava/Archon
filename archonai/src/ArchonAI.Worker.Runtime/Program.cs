@@ -7,6 +7,7 @@ using ArchonAI.Agents.Support;
 using ArchonAI.Common.Observability;
 using ArchonAI.Connectors;
 using ArchonAI.Infrastructure;
+using ArchonAI.Infrastructure.Cluster;
 using ArchonAI.Plugins;
 using ArchonAI.Runtime;
 using OpenTelemetry.Metrics;
@@ -41,6 +42,14 @@ builder.Services.AddArchonAIFinance(builder.Configuration);
 builder.Services.AddArchonAISales(builder.Configuration);
 builder.Services.AddArchonAIMarketing(builder.Configuration);
 builder.Services.AddArchonAISupport(builder.Configuration);
+
+// Cluster: register as runtime worker for automatic workload distribution
+builder.Services.Configure<ClusterNodeRegistrationOptions>(opts =>
+{
+    opts.Role = "runtime";
+    opts.Capabilities = new List<string> { "task-execution", "agent-hosting", "workflow-execution" };
+});
+builder.Services.AddHostedService<ClusterNodeHeartbeatService>();
 
 var host = builder.Build();
 host.Run();

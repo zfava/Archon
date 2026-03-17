@@ -29,6 +29,7 @@ using ArchonAI.Orchestrator;
 using ArchonAI.Identity;
 using ArchonAI.Context;
 using ArchonAI.Perception;
+using ArchonAI.Infrastructure.Cluster;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -68,6 +69,12 @@ public static class DependencyInjection
         services.AddArchonAIIdentity();
         services.AddArchonAIContext();
         services.AddArchonAIPerception();
+
+        services.AddOptions<ClusterOptions>()
+            .BindConfiguration(ClusterOptions.SectionName);
+        services.AddOptions<ClusterNodeRegistrationOptions>()
+            .BindConfiguration(ClusterNodeRegistrationOptions.SectionName);
+        services.AddSingleton<IClusterCoordinator, ClusterCoordinator>();
 
         services.AddSingleton<IPlanningFeedbackStore, InMemoryPlanningFeedbackStore>();
         services.AddSingleton<IConnector, DefaultConnector>();

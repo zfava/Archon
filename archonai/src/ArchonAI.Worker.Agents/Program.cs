@@ -7,6 +7,7 @@ using ArchonAI.Agents.Support;
 using ArchonAI.Common.Observability;
 using ArchonAI.Connectors;
 using ArchonAI.Infrastructure;
+using ArchonAI.Infrastructure.Cluster;
 using ArchonAI.Plugins;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -39,6 +40,14 @@ builder.Services.AddArchonAIFinance(builder.Configuration);
 builder.Services.AddArchonAISales(builder.Configuration);
 builder.Services.AddArchonAIMarketing(builder.Configuration);
 builder.Services.AddArchonAISupport(builder.Configuration);
+
+// Cluster: register as agent worker node
+builder.Services.Configure<ClusterNodeRegistrationOptions>(opts =>
+{
+    opts.Role = "agents";
+    opts.Capabilities = new List<string> { "agent-hosting", "finance", "marketing", "operations", "sales", "support" };
+});
+builder.Services.AddHostedService<ClusterNodeHeartbeatService>();
 
 var host = builder.Build();
 host.Run();
