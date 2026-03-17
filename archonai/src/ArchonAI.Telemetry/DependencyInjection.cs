@@ -22,6 +22,8 @@ public static class DependencyInjection
                 : serviceProvider.GetRequiredService<PostgresTaskTelemetryStore>();
         });
 
+        services.AddSingleton<ISystemInsightEngine, SystemInsightEngine>();
+
         return services;
     }
 }

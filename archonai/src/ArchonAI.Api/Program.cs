@@ -27,6 +27,7 @@ using ArchonAI.Core.Models.AgentRegistry;
 using ArchonAI.StrategyLibrary;
 using ArchonAI.Core.Models.StrategyLibrary;
 using ArchonAI.WorkflowSimulation;
+using ArchonAI.Core.Models.Telemetry;
 using ArchonAI.Memory;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -1379,6 +1380,65 @@ monitoring.MapGet("/system", async (IMonitoringDashboardService monService, Canc
     return Results.Ok(performance);
 });
 
+// System insight endpoints
+var insights = v1.MapGroup("/insights")
+    .RequireAuthorization("OperatorOrAdmin");
+
+insights.MapGet("/dashboard", async (ISystemInsightEngine insightEngine, CancellationToken ct) =>
+{
+    var dashboard = await insightEngine.GetDashboardAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+insights.MapGet("/health", async (ISystemInsightEngine insightEngine, CancellationToken ct) =>
+{
+    var health = await insightEngine.GetHealthSummaryAsync(ct);
+    return Results.Ok(health);
+});
+
+insights.MapGet("/bottlenecks", async (ISystemInsightEngine insightEngine, CancellationToken ct) =>
+{
+    var bottlenecks = await insightEngine.DetectBottlenecksAsync(ct);
+    return Results.Ok(bottlenecks);
+});
+
+insights.MapGet("/anomalies", async (ISystemInsightEngine insightEngine, CancellationToken ct) =>
+{
+    var anomalies = await insightEngine.DetectAnomaliesAsync(ct);
+    return Results.Ok(anomalies);
+});
+
+insights.MapGet("/agents/load", async (ISystemInsightEngine insightEngine, CancellationToken ct) =>
+{
+    var load = await insightEngine.GetAgentLoadAsync(ct);
+    return Results.Ok(load);
+});
+
+insights.MapGet("/models/latency", async (ISystemInsightEngine insightEngine, CancellationToken ct) =>
+{
+    var latency = await insightEngine.GetModelLatencyAsync(ct);
+    return Results.Ok(latency);
+});
+
+insights.MapGet("/trends", async (string? component, int? limit, ISystemInsightEngine insightEngine, CancellationToken ct) =>
+{
+    var trends = await insightEngine.GetTrendsAsync(component, limit ?? 60, ct);
+    return Results.Ok(trends);
+});
+
+insights.MapPost("/record/agent-load", (RecordAgentLoadRequest request, ISystemInsightEngine insightEngine) =>
+{
+    insightEngine.RecordAgentLoad(request.AgentId, request.AgentName, request.ActiveTasks,
+        request.QueuedTasks, request.ExecutionTimeMs, request.CpuPercent, request.MemoryPercent);
+    return Results.Ok(new { recorded = true });
+});
+
+insights.MapPost("/record/model-latency", (RecordModelLatencyRequest request, ISystemInsightEngine insightEngine) =>
+{
+    insightEngine.RecordModelLatency(request.Provider, request.Model, request.LatencyMs, request.Success);
+    return Results.Ok(new { recorded = true });
+});
+
 // Security metrics endpoints
 var security = admin.MapGroup("/security");
 
@@ -1897,3 +1957,5 @@ public sealed record RebuildIndexRequest(string Scope);
 public sealed record AddSecurityPolicyRequest(string Name, string Category, string RuleType, IReadOnlyList<string>? AllowedValues = null, IReadOnlyList<string>? DeniedValues = null, Dictionary<string, string>? Limits = null);
 public sealed record EvaluateDataAccessRequest(string SubjectId, string ResourceType, string Action);
 public sealed record EvaluateWorkflowLimitsRequest(Guid WorkflowId, int StepCount, int ConcurrentAgents);
+public sealed record RecordAgentLoadRequest(Guid AgentId, string AgentName, int ActiveTasks, int QueuedTasks, double ExecutionTimeMs, double CpuPercent, double MemoryPercent);
+public sealed record RecordModelLatencyRequest(string Provider, string Model, double LatencyMs, bool Success);
