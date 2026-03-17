@@ -10,8 +10,15 @@ public interface IAgentCapabilityRegistry
         IReadOnlyList<string> permissions,
         CancellationToken cancellationToken = default);
 
+    global::System.Threading.Tasks.Task RegisterSupportedTaskTypesAsync(
+        Guid agentId,
+        IReadOnlyList<string> taskTypes,
+        CancellationToken cancellationToken = default);
+
     global::System.Threading.Tasks.Task ReportExecutionAsync(
         Guid agentId,
+        string taskType,
+        bool success,
         double latencyMs,
         decimal cost,
         CancellationToken cancellationToken = default);
@@ -20,7 +27,23 @@ public interface IAgentCapabilityRegistry
         string capability,
         CancellationToken cancellationToken = default);
 
-    global::System.Threading.Tasks.Task<AgentCapabilityProfile?> GetAgentAsync(Guid agentId, CancellationToken cancellationToken = default);
+    global::System.Threading.Tasks.Task<IReadOnlyList<AgentCapabilityProfile>> QueryByTaskTypeAsync(
+        string taskType,
+        CancellationToken cancellationToken = default);
 
-    global::System.Threading.Tasks.Task<IReadOnlyList<AgentCapabilityProfile>> GetAllAsync(CancellationToken cancellationToken = default);
+    global::System.Threading.Tasks.Task<AgentSelectionResult?> SelectBestAgentAsync(
+        string requiredCapability,
+        string? taskType,
+        CancellationToken cancellationToken = default);
+
+    global::System.Threading.Tasks.Task<AgentCapabilityProfile?> GetAgentAsync(
+        Guid agentId,
+        CancellationToken cancellationToken = default);
+
+    global::System.Threading.Tasks.Task<IReadOnlyList<AgentCapabilityProfile>> GetAllAsync(
+        CancellationToken cancellationToken = default);
+
+    global::System.Threading.Tasks.Task<AgentPerformanceSnapshot?> GetPerformanceSnapshotAsync(
+        Guid agentId,
+        CancellationToken cancellationToken = default);
 }

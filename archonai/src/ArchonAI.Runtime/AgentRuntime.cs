@@ -112,6 +112,16 @@ public sealed class AgentRuntime : IRuntime
             permissions: permissions,
             cancellationToken);
 
+        var taskTypes = agent.Capabilities
+            .Select(c => c.Category)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (taskTypes.Length > 0)
+        {
+            await _capabilityRegistry.RegisterSupportedTaskTypesAsync(agent.Id, taskTypes, cancellationToken);
+        }
+
         await _identityStore.RegisterOrUpdateAsync(agent, permissions, cancellationToken);
 
         _logger.LogInformation("Registered agent {AgentName} ({AgentId})", agent.Name, agent.Id);
@@ -201,6 +211,14 @@ public sealed class AgentRuntime : IRuntime
                 outcome.Result.IsSuccess,
                 outcome.ExecutionTimeMs,
                 outcome.Cost);
+
+            await _capabilityRegistry.ReportExecutionAsync(
+                outcome.AgentId,
+                task.RequiredCapability,
+                outcome.Result.IsSuccess,
+                outcome.ExecutionTimeMs,
+                outcome.Cost,
+                ct);
 
             await RecordTaskTelemetryAsync(
                 objectiveId: task.ObjectiveId,
@@ -374,6 +392,20 @@ public sealed class AgentRuntime : IRuntime
 
     private IAgent? ResolveAgent(string capability)
     {
+        // Try the capability registry for performance-based selection
+        var selection = _capabilityRegistry.SelectBestAgentAsync(capability, taskType: null).GetAwaiter().GetResult();
+        if (selection is not null)
+        {
+            var impl = _agentImplementations.FirstOrDefault(a => a.Describe().Id == selection.AgentId);
+            if (impl is not null)
+            {
+                _logger.LogDebug("Registry selected agent {AgentName} for '{Capability}': {Reason}",
+                    selection.AgentName, capability, selection.SelectionReason);
+                return impl;
+            }
+        }
+
+        // Fallback: direct capability match on registered agents
         var enabledAgentIds = _agentRegistry
             .Where(entry => entry.Value.IsEnabled && entry.Value.Capabilities.Any(c => c.Name.Equals(capability, StringComparison.OrdinalIgnoreCase)))
             .Select(entry => entry.Key)

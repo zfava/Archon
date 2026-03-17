@@ -109,6 +109,33 @@ registry.MapGet("/capabilities/{capability}", async (string capability, IAgentCa
     return Results.Ok(matches);
 });
 
+registry.MapGet("/task-types/{taskType}", async (string taskType, IAgentCapabilityRegistry capabilityRegistry, CancellationToken ct) =>
+{
+    var matches = await capabilityRegistry.QueryByTaskTypeAsync(taskType, ct);
+    return Results.Ok(matches);
+});
+
+registry.MapGet("/select-best", async (string capability, string? taskType, IAgentCapabilityRegistry capabilityRegistry, CancellationToken ct) =>
+{
+    var selection = await capabilityRegistry.SelectBestAgentAsync(capability, taskType, ct);
+    return selection is null
+        ? Results.NotFound(new { error = $"No agent found for capability '{capability}'." })
+        : Results.Ok(selection);
+});
+
+registry.MapGet("/agents/{agentId:guid}/performance", async (Guid agentId, IAgentCapabilityRegistry capabilityRegistry, CancellationToken ct) =>
+{
+    var snapshot = await capabilityRegistry.GetPerformanceSnapshotAsync(agentId, ct);
+    return snapshot is null ? Results.NotFound() : Results.Ok(snapshot);
+});
+
+registry.MapPost("/agents/{agentId:guid}/task-types", async (Guid agentId, RegisterTaskTypesRequest req, IAgentCapabilityRegistry capabilityRegistry, CancellationToken ct) =>
+{
+    await capabilityRegistry.RegisterSupportedTaskTypesAsync(agentId, req.TaskTypes, ct);
+    var updated = await capabilityRegistry.GetAgentAsync(agentId, ct);
+    return updated is null ? Results.NotFound() : Results.Ok(updated);
+}).RequireAuthorization("AdminOnly");
+
 var traces = v1.MapGroup("/traces")
     .RequireAuthorization("OperatorOrAdmin");
 
@@ -2457,3 +2484,6 @@ public sealed record EconomicWeightsDto(
 public sealed record BuildTaskGraphRequest(
     Guid GoalId,
     string? Strategy);
+
+public sealed record RegisterTaskTypesRequest(
+    IReadOnlyList<string> TaskTypes);
