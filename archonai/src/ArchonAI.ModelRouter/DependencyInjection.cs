@@ -10,6 +10,7 @@ public static class DependencyInjection
         services.AddOptions<ModelRouterOptions>()
             .BindConfiguration("ModelRouter");
 
+        services.AddSingleton<IModelPerformanceTracker, ModelPerformanceTracker>();
         services.AddSingleton<IModelRouter, ModelRouter>();
         return services;
     }
