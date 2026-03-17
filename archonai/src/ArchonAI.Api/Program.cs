@@ -2480,6 +2480,39 @@ outcomeEval.MapGet("/strategy/{strategy}", async (string strategy, IOutcomeEvalu
 });
 
 // ══════════════════════════════════════════════════════════════
+//  Strategy Learning
+// ══════════════════════════════════════════════════════════════
+
+var strategyLearning = v1.MapGroup("/strategy-learning")
+    .RequireAuthorization("OperatorOrAdmin");
+
+strategyLearning.MapPost("/analyze", async (IStrategyLearningEngine learningEngine, CancellationToken ct) =>
+{
+    var report = await learningEngine.AnalyzeAndLearnAsync(ct);
+    return Results.Ok(report);
+});
+
+strategyLearning.MapGet("/strategy-profiles", async (IStrategyLearningEngine learningEngine, CancellationToken ct) =>
+{
+    var profiles = await learningEngine.GetStrategyProfilesAsync(ct);
+    return Results.Ok(profiles);
+});
+
+strategyLearning.MapGet("/agent-type-profiles", async (IStrategyLearningEngine learningEngine, CancellationToken ct) =>
+{
+    var profiles = await learningEngine.GetAgentTypeProfilesAsync(ct);
+    return Results.Ok(profiles);
+});
+
+strategyLearning.MapGet("/recommend/{department}/{priority}", async (
+    string department, string priority,
+    IStrategyLearningEngine learningEngine, CancellationToken ct) =>
+{
+    var strategy = await learningEngine.RecommendStrategyAsync(department, priority, ct);
+    return Results.Ok(new { department, priority, recommendedStrategy = strategy });
+});
+
+// ══════════════════════════════════════════════════════════════
 //  Task Graphs
 // ══════════════════════════════════════════════════════════════
 

@@ -11,6 +11,7 @@ public static class DependencyInjection
             .BindConfiguration("Learning");
 
         services.AddSingleton<ILearningEngine, LearningEngine>();
+        services.AddSingleton<IStrategyLearningEngine, StrategyLearningEngine>();
         return services;
     }
 }
