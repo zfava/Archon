@@ -11,6 +11,8 @@ public static class DependencyInjection
             .BindConfiguration("WorkflowRuntime");
 
         services.AddSingleton<IWorkflowExecutionEngine, WorkflowExecutionEngine>();
+        services.AddSingleton<IWorkflowExecutionStore, DurableWorkflowStore>();
+        services.AddSingleton<DurableWorkflowExecutionEngine>();
         return services;
     }
 }

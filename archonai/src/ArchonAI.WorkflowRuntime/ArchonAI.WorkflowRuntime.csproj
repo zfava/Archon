@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="ArchonAI.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
     <ProjectReference Include="..\ArchonAI.Workflow\ArchonAI.Workflow.csproj" />
   </ItemGroup>

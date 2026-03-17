@@ -22,6 +22,7 @@ using ArchonAI.Agents.Support;
 using ArchonAI.ControlPlane;
 using ArchonAI.Core.Models.ControlPlane;
 using ArchonAI.Runtime;
+using ArchonAI.WorkflowRuntime;
 using ArchonAI.WorkflowDesigner;
 using ArchonAI.AgentRegistry;
 using ArchonAI.Core.Models.AgentRegistry;
@@ -1409,6 +1410,70 @@ designer.MapDelete("/{graphId:guid}", async (Guid graphId,
 {
     var deleted = await designerService.DeleteWorkflowGraphAsync(graphId, ct);
     return deleted ? Results.Ok(new { graphId, deleted = true }) : Results.NotFound();
+});
+
+// ── Durable workflow execution ──────────────────────────────
+var executions = v1.MapGroup("/executions")
+    .RequireAuthorization("OperatorOrAdmin");
+
+executions.MapGet("", async (
+    string? tenantId,
+    WorkflowExecutionStatus? status,
+    int? limit,
+    IWorkflowExecutionStore store,
+    CancellationToken ct) =>
+{
+    var list = await store.ListAsync(tenantId, status, limit ?? 50, ct);
+    return Results.Ok(list);
+});
+
+executions.MapGet("/{workflowId:guid}", async (
+    Guid workflowId,
+    IWorkflowExecutionStore store,
+    CancellationToken ct) =>
+{
+    var record = await store.GetAsync(workflowId, ct);
+    return record is null ? Results.NotFound() : Results.Ok(record);
+});
+
+executions.MapPost("/{workflowId:guid}/cancel", async (
+    Guid workflowId,
+    DurableWorkflowExecutionEngine engine,
+    CancellationToken ct) =>
+{
+    try
+    {
+        var record = await engine.CancelWorkflowAsync(workflowId, "Cancelled via API", ct);
+        return Results.Ok(record);
+    }
+    catch (KeyNotFoundException) { return Results.NotFound(); }
+});
+
+executions.MapPost("/{workflowId:guid}/retry", async (
+    Guid workflowId,
+    DurableWorkflowExecutionEngine engine,
+    CancellationToken ct) =>
+{
+    try
+    {
+        var record = await engine.RetryWorkflowAsync(workflowId, (_, _) =>
+            global::System.Threading.Tasks.Task.FromResult(new ExecutionResult(
+                Guid.Empty, false, "No executor configured for API retry",
+                new Dictionary<string, string>(), Array.Empty<string>(),
+                new[] { "Retry via API requires executor binding" },
+                DateTimeOffset.UtcNow)), ct);
+        return Results.Ok(record);
+    }
+    catch (KeyNotFoundException) { return Results.NotFound(); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+executions.MapGet("/resumable", async (
+    IWorkflowExecutionStore store,
+    CancellationToken ct) =>
+{
+    var resumable = await store.GetResumableAsync(ct);
+    return Results.Ok(resumable);
 });
 
 // Control plane endpoints
