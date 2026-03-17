@@ -95,4 +95,79 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  // ── Control Plane ──────────────────────────────────────────
+
+  // Policies
+  listPolicies: (tenantId?: string, policyType?: string) => {
+    const params = new URLSearchParams();
+    if (tenantId) params.set('tenantId', tenantId);
+    if (policyType) params.set('policyType', policyType);
+    const qs = params.toString();
+    return request(`/control-plane/policies${qs ? `?${qs}` : ''}`);
+  },
+
+  createPolicy: (body: {
+    tenantId: string;
+    name: string;
+    description: string;
+    policyType: string;
+    targetResource: string;
+    rules: Record<string, string>;
+    priority: number;
+  }) =>
+    request('/control-plane/policies', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  updatePolicy: (policyId: string, body: {
+    isEnabled: boolean;
+    rules?: Record<string, string>;
+    priority?: number;
+  }) =>
+    request(`/control-plane/policies/${policyId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  deletePolicy: (policyId: string) =>
+    request(`/control-plane/policies/${policyId}`, { method: 'DELETE' }),
+
+  // Configuration (for persisting settings per tenant)
+  getConfig: (tenantId: string, scope: string, key: string) =>
+    request(`/control-plane/config/${tenantId}/${scope}/${key}`),
+
+  setConfig: (body: {
+    tenantId: string;
+    scope: string;
+    key: string;
+    value: string;
+    description?: string;
+  }) =>
+    request('/control-plane/config', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  listConfigs: (tenantId?: string, scope?: string) => {
+    const params = new URLSearchParams();
+    if (tenantId) params.set('tenantId', tenantId);
+    if (scope) params.set('scope', scope);
+    const qs = params.toString();
+    return request(`/control-plane/config${qs ? `?${qs}` : ''}`);
+  },
+
+  // Tenants
+  listTenants: () =>
+    request('/control-plane/tenants'),
+
+  // Security metrics
+  getSecurityMetrics: () =>
+    request('/admin/security/metrics'),
+
+  listSecurityPolicies: (category?: string) => {
+    const qs = category ? `?category=${encodeURIComponent(category)}` : '';
+    return request(`/admin/security/policies${qs}`);
+  },
 };

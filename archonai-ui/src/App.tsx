@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CommandConsole } from './features/command';
 import { StrategyView } from './features/strategy';
 import { SystemActivityView } from './features/activity';
+import { ControlPanel } from './features/control';
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
         <Route path="/" element={<CommandConsole />} />
         <Route path="/strategy/:goalId" element={<StrategyView />} />
         <Route path="/activity" element={<SystemActivityView />} />
+        <Route path="/control" element={<ControlPanel />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
