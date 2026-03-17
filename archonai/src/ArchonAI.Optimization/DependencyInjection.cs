@@ -12,6 +12,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IPerformanceAnalyzer, PerformanceAnalyzer>();
         services.AddSingleton<IOptimizationEngine, OptimizationEngine>();
+        services.AddSingleton<IContinuousImprovementEngine, ContinuousImprovementEngine>();
         return services;
     }
 }

@@ -995,6 +995,44 @@ memory.MapPost("/index/rebuild", async (RebuildIndexRequest request, IMemoryRetr
 });
 
 // ══════════════════════════════════════════════════════════════
+//  Continuous Improvement
+// ══════════════════════════════════════════════════════════════
+
+var continuousImprovement = v1.MapGroup("/continuous-improvement")
+    .RequireAuthorization("OperatorOrAdmin");
+
+continuousImprovement.MapPost("/cycle", async (IContinuousImprovementEngine engine, CancellationToken ct) =>
+{
+    var report = await engine.RunCycleAsync(ct);
+    return Results.Ok(report);
+});
+
+continuousImprovement.MapGet("/inefficiencies", async (IContinuousImprovementEngine engine, CancellationToken ct) =>
+{
+    var inefficiencies = await engine.DetectInefficienciesAsync(ct);
+    return Results.Ok(inefficiencies);
+});
+
+continuousImprovement.MapPost("/recommend", async (IContinuousImprovementEngine engine, CancellationToken ct) =>
+{
+    var inefficiencies = await engine.DetectInefficienciesAsync(ct);
+    var recommendations = await engine.RecommendImprovementsAsync(inefficiencies, ct);
+    return Results.Ok(new { inefficiencies = inefficiencies.Count, recommendations });
+});
+
+continuousImprovement.MapGet("/trends", async (IContinuousImprovementEngine engine, CancellationToken ct) =>
+{
+    var trends = await engine.GetTrendsAsync(ct);
+    return Results.Ok(trends);
+});
+
+continuousImprovement.MapGet("/history", (IContinuousImprovementEngine engine) =>
+{
+    var history = engine.GetCycleHistory();
+    return Results.Ok(history);
+});
+
+// ══════════════════════════════════════════════════════════════
 //  Organizational Memory
 // ══════════════════════════════════════════════════════════════
 
