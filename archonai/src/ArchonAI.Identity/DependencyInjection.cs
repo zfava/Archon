@@ -14,14 +14,15 @@ public static class DependencyInjection
         services.AddOptions<AuthenticationOptions>()
             .BindConfiguration(AuthenticationOptions.SectionName);
 
-        services.AddSingleton<IAgentIdentityStore, InMemoryAgentIdentityStore>();
+        services.AddSingleton<IAgentIdentityStore, DurableAgentIdentityStore>();
 
-        // User/org/membership stores
-        services.AddSingleton<IUserStore, InMemoryUserStore>();
-        services.AddSingleton<IOrganizationStore, InMemoryOrganizationStore>();
-        services.AddSingleton<IMembershipStore, InMemoryMembershipStore>();
-        services.AddSingleton<IRefreshTokenStore, InMemoryRefreshTokenStore>();
-        services.AddSingleton<IInviteTokenStore, InMemoryInviteTokenStore>();
+        // User/org/membership stores – single durable store implements all interfaces
+        services.AddSingleton<DurableIdentityStore>();
+        services.AddSingleton<IUserStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
+        services.AddSingleton<IOrganizationStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
+        services.AddSingleton<IMembershipStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
+        services.AddSingleton<IRefreshTokenStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
+        services.AddSingleton<IInviteTokenStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
 
         // Auth services
         services.AddSingleton<TokenService>();

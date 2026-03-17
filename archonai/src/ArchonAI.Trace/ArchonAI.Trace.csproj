@@ -4,7 +4,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-
+  <ItemGroup>
+    <InternalsVisibleTo Include="ArchonAI.Tests" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
   </ItemGroup>

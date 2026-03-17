@@ -17,7 +17,7 @@ public static class DependencyInjection
             services.Configure<AdminOptions>(_ => { });
         }
 
-        services.AddSingleton<IAdminService, AdminService>();
+        services.AddSingleton<IAdminService, DurableAdminService>();
 
         return services;
     }

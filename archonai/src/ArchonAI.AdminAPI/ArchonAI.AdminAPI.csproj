@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="ArchonAI.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ArchonAI.Common\ArchonAI.Common.csproj" />
     <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
   </ItemGroup>

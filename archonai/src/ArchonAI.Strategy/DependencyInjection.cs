@@ -10,7 +10,7 @@ public static class DependencyInjection
         services.AddOptions<StrategyOptions>()
             .BindConfiguration("Strategy");
 
-        services.AddSingleton<IStrategyStore, InMemoryStrategyStore>();
+        services.AddSingleton<IStrategyStore, DurableStrategyStore>();
         return services;
     }
 }

@@ -20,7 +20,7 @@ public static class DependencyInjection
             services.Configure<ControlPlaneOptions>(_ => { });
         }
 
-        services.AddSingleton<IControlPlaneRepository, InMemoryControlPlaneRepository>();
+        services.AddSingleton<IControlPlaneRepository, DurableControlPlaneRepository>();
         services.AddSingleton<IControlPlaneService, ControlPlaneService>();
         services.AddSingleton<IControlPlaneObservability, ControlPlaneObservabilityService>();
         services.AddSingleton<IOnboardingService, OnboardingService>();

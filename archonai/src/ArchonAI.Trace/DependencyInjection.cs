@@ -10,7 +10,7 @@ public static class DependencyInjection
         services.AddOptions<TraceOptions>()
             .BindConfiguration("Trace");
 
-        services.AddSingleton<ITraceStore, InMemoryTraceStore>();
+        services.AddSingleton<ITraceStore, DurableTraceStore>();
         return services;
     }
 }

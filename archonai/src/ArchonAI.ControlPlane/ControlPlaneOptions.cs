@@ -9,4 +9,5 @@ public sealed class ControlPlaneOptions
     public bool EnforceQuotas { get; set; } = true;
     public string[] RequiredRoles { get; set; } = ["Admin"];
     public int DashboardBroadcastIntervalSeconds { get; set; } = 10;
+    public string? PersistencePath { get; set; }
 }
