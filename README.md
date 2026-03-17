@@ -1,4 +1,4 @@
-# rippleopslanding
+# ArchonAI
 
 ## ArchonAI Platform Architecture
 
