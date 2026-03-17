@@ -155,6 +155,12 @@ public static class Telemetry
     public static readonly Counter<long> StrategyLibraryRankQueries = Meter.CreateCounter<long>("archonai.strategylibrary.rank.queries");
     public static readonly Counter<long> StrategyLibraryComparisons = Meter.CreateCounter<long>("archonai.strategylibrary.comparisons");
 
+    // Workflow simulation metrics
+    public static readonly Counter<long> WorkflowSimulationRuns = Meter.CreateCounter<long>("archonai.workflowsimulation.runs");
+    public static readonly Counter<long> WorkflowSimulationPredictions = Meter.CreateCounter<long>("archonai.workflowsimulation.predictions");
+    public static readonly Counter<long> WorkflowSimulationResourceEstimates = Meter.CreateCounter<long>("archonai.workflowsimulation.resource.estimates");
+    public static readonly Counter<long> WorkflowSimulationLatencyEstimates = Meter.CreateCounter<long>("archonai.workflowsimulation.latency.estimates");
+
     // Gateway metrics
     public static readonly Counter<long> GatewayRequestsTotal = Meter.CreateCounter<long>("archonai.gateway.requests.total");
     public static readonly Counter<long> GatewayRequestsFailed = Meter.CreateCounter<long>("archonai.gateway.requests.failed");

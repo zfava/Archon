@@ -25,6 +25,7 @@ using ArchonAI.AgentRegistry;
 using ArchonAI.Core.Models.AgentRegistry;
 using ArchonAI.StrategyLibrary;
 using ArchonAI.Core.Models.StrategyLibrary;
+using ArchonAI.WorkflowSimulation;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -46,6 +47,7 @@ builder.Services.AddArchonAIControlPlane(builder.Configuration);
 builder.Services.AddArchonAIWorkflowDesigner();
 builder.Services.AddArchonAIAgentRegistry();
 builder.Services.AddArchonAIStrategyLibrary();
+builder.Services.AddArchonAIWorkflowSimulation(builder.Configuration);
 
 var app = builder.Build();
 
@@ -1434,6 +1436,91 @@ agentRegistry.MapDelete("/agents/{agentId:guid}", async (
     }
 });
 
+// ── Workflow Simulation ─────────────────────────────────────────────
+
+var workflowSim = v1.MapGroup("/workflow-simulation")
+    .RequireAuthorization("OperatorOrAdmin");
+
+workflowSim.MapPost("/simulate", async (
+    SimulateWorkflowRequest request,
+    IWorkflowSimulationService wsService, CancellationToken ct) =>
+{
+    try
+    {
+        var result = await wsService.SimulateAsync(
+            request.WorkflowGraphId, request.StrategyId,
+            request.HistoricalOverrides, ct);
+        return Results.Ok(result);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+workflowSim.MapGet("/predict/{workflowGraphId:guid}", async (
+    Guid workflowGraphId,
+    IWorkflowSimulationService wsService, CancellationToken ct) =>
+{
+    try
+    {
+        var prediction = await wsService.PredictOutcomesAsync(workflowGraphId, ct);
+        return Results.Ok(prediction);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+workflowSim.MapGet("/resources/{workflowGraphId:guid}", async (
+    Guid workflowGraphId, Guid? strategyId,
+    IWorkflowSimulationService wsService, CancellationToken ct) =>
+{
+    try
+    {
+        var estimate = await wsService.EstimateResourcesAsync(workflowGraphId, strategyId, ct);
+        return Results.Ok(estimate);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+workflowSim.MapGet("/latency/{workflowGraphId:guid}", async (
+    Guid workflowGraphId,
+    IWorkflowSimulationService wsService, CancellationToken ct) =>
+{
+    try
+    {
+        var estimate = await wsService.EstimateLatencyAsync(workflowGraphId, ct);
+        return Results.Ok(estimate);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+workflowSim.MapPost("/history", async (
+    RecordHistoricalExecutionRequest request,
+    IWorkflowSimulationService wsService, CancellationToken ct) =>
+{
+    await wsService.RecordHistoricalExecutionAsync(
+        request.WorkflowGraphId, request.IsSuccess,
+        request.LatencyMs, request.Cost, ct);
+    return Results.Ok(new { request.WorkflowGraphId, recorded = true });
+});
+
+workflowSim.MapGet("/history/{workflowGraphId:guid}", async (
+    Guid workflowGraphId,
+    IWorkflowSimulationService wsService, CancellationToken ct) =>
+{
+    var data = await wsService.GetHistoricalDataAsync(workflowGraphId, ct);
+    return data is null ? Results.NotFound() : Results.Ok(data);
+});
+
 // ── Strategy Library ────────────────────────────────────────────────
 
 var strategyLib = v1.MapGroup("/strategy-library")
@@ -1618,3 +1705,5 @@ public sealed record CreateStrategyTemplateRequest(string Name, string Descripti
 public sealed record UpdateStrategyTemplateRequest(string? Description = null, string? WorkflowTemplate = null, Dictionary<string, string>? SuccessMetrics = null, ResourceUsageInput? ResourceUsage = null, List<string>? Tags = null);
 public sealed record RecordStrategyExecutionRequest(bool IsSuccess, double LatencyMs, double Cost, Dictionary<string, string>? Outcomes = null);
 public sealed record CompareStrategiesRequest(IReadOnlyList<Guid> StrategyIds);
+public sealed record SimulateWorkflowRequest(Guid WorkflowGraphId, Guid? StrategyId = null, Dictionary<string, string>? HistoricalOverrides = null);
+public sealed record RecordHistoricalExecutionRequest(Guid WorkflowGraphId, bool IsSuccess, double LatencyMs, double Cost);
