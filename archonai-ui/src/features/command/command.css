@@ -603,3 +603,25 @@
   gap: 8px;
   margin-top: 16px;
 }
+
+/* --- Strategy view link --- */
+.sg-view-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6366f1;
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  background: #18181b;
+  transition: all 0.15s;
+}
+
+.sg-view-link:hover {
+  background: #1a1a2e;
+  border-color: #6366f1;
+  color: #818cf8;
+}
