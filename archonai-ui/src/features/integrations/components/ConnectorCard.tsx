@@ -1,3 +1,4 @@
+import { usePermissions } from '../../../auth/usePermissions';
 import type { ConnectorInfo } from '../types';
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
@@ -14,6 +15,8 @@ interface Props {
 }
 
 export function ConnectorCard({ connector, onConnect, onDisconnect }: Props) {
+  const { hasPermission } = usePermissions();
+  const canWrite = hasPermission('connectors:write');
   const cfg = STATUS_CONFIG[connector.status] ?? STATUS_CONFIG.disconnected;
   const isConnected = connector.status === 'connected';
   const isLoading = connector.status === 'connecting';
@@ -72,28 +75,30 @@ export function ConnectorCard({ connector, onConnect, onDisconnect }: Props) {
       )}
 
       {/* Action button */}
-      <div className="im-card-actions">
-        {isConnected ? (
-          <button className="im-btn im-btn--disconnect" onClick={() => onDisconnect(connector.id)}>
-            Disconnect
-          </button>
-        ) : (
-          <button
-            className="im-btn im-btn--connect"
-            onClick={() => onConnect(connector.id)}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <div className="phase-spinner" />
-                Connecting...
-              </>
-            ) : (
-              'Connect'
-            )}
-          </button>
-        )}
-      </div>
+      {canWrite && (
+        <div className="im-card-actions">
+          {isConnected ? (
+            <button className="im-btn im-btn--disconnect" onClick={() => onDisconnect(connector.id)}>
+              Disconnect
+            </button>
+          ) : (
+            <button
+              className="im-btn im-btn--connect"
+              onClick={() => onConnect(connector.id)}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <div className="phase-spinner" />
+                  Connecting...
+                </>
+              ) : (
+                'Connect'
+              )}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

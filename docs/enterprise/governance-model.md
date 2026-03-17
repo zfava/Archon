@@ -19,9 +19,17 @@ System checks: Does this action type have an ApprovalPolicy?
               ▼
          Admin reviews (POST /governance/{id}/review)
               │
+              ├─ Tenant isolation check:
+              │    Reviewer's tenant_id must match gate's TenantId
+              │    → Mismatch returns 404 (prevents cross-tenant access)
+              │
+              ├─ Required approver role check:
+              │    Reviewer's JWT role must match policy.RequiredApproverRole
+              │    → Mismatch returns 403
+              │
               ├─ Separation of duties check:
               │    If policy.RequireSeparationOfDuties = true
-              │    AND reviewer == requester → REJECT
+              │    AND reviewer == requester → REJECT (400)
               │
               ├─ Approved → Action may proceed
               │              Audit entry recorded
@@ -75,6 +83,18 @@ Every approval decision (approve or deny) creates an `ApprovalAuditEntry`:
 | `OccurredAtUtc` | When the decision was made |
 
 The history endpoint supports filtering by tenant and action type.
+
+## Wired Actions
+
+The following endpoints are gated behind governance approval checks in production:
+
+| Endpoint | Action Type | Behavior |
+|----------|-------------|----------|
+| `POST /api/v1/admin/workflows/{id}/cancel` | `workflow.cancel` | Returns 202 Accepted with approval gate |
+| `POST /api/v1/integrations/{id}/disconnect` | `connector.disconnect` | Returns 202 Accepted with approval gate |
+| `POST /api/v1/human-overrides/modify-strategy` | `strategy.override` | Returns 202 Accepted with approval gate |
+
+When an approval policy exists for the action type, the endpoint creates an `ApprovalGate` and returns HTTP 202 with the gate details. The caller must wait for admin approval before the action proceeds.
 
 ## Integration with Application Logic
 

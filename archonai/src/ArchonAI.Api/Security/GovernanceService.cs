@@ -57,9 +57,12 @@ public sealed class GovernanceService : IGovernanceService
         return Task.FromResult(gate);
     }
 
-    public Task<ApprovalGate?> GetApprovalAsync(Guid gateId, CancellationToken ct = default)
+    public Task<ApprovalGate?> GetApprovalAsync(Guid gateId, string tenantId, CancellationToken ct = default)
     {
         _gates.TryGetValue(gateId, out var gate);
+        // Enforce tenant isolation: only return if gate belongs to caller's tenant
+        if (gate is not null && !string.Equals(gate.TenantId, tenantId, StringComparison.OrdinalIgnoreCase))
+            return Task.FromResult<ApprovalGate?>(null);
         return Task.FromResult(gate);
     }
 
@@ -74,18 +77,31 @@ public sealed class GovernanceService : IGovernanceService
     }
 
     public Task<ApprovalGate> ReviewApprovalAsync(
-        Guid gateId, string reviewedBy, bool approve, string? notes,
-        CancellationToken ct = default)
+        Guid gateId, string tenantId, string reviewedBy, string reviewerRole,
+        bool approve, string? notes, CancellationToken ct = default)
     {
         if (!_gates.TryGetValue(gateId, out var gate))
+            throw new KeyNotFoundException($"Approval gate {gateId} not found.");
+
+        // Enforce tenant isolation: reviewer must be in the same tenant as the gate
+        if (!string.Equals(gate.TenantId, tenantId, StringComparison.OrdinalIgnoreCase))
             throw new KeyNotFoundException($"Approval gate {gateId} not found.");
 
         if (gate.Status != ApprovalStatus.Pending)
             throw new InvalidOperationException($"Approval gate {gateId} is already {gate.Status}.");
 
-        // Separation of duties: reviewer cannot be the requester
         var policy = _policies.Values.FirstOrDefault(p =>
             p.ActionType == gate.ActionType && p.IsEnabled);
+
+        // Enforce RequiredApproverRole: reviewer must hold the required role
+        if (policy is not null
+            && !string.Equals(reviewerRole, policy.RequiredApproverRole, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException(
+                $"Reviewer role '{reviewerRole}' does not satisfy required approver role '{policy.RequiredApproverRole}'.");
+        }
+
+        // Separation of duties: reviewer cannot be the requester
         if (policy?.RequireSeparationOfDuties == true
             && string.Equals(gate.RequestedBy, reviewedBy, StringComparison.OrdinalIgnoreCase))
         {

@@ -8,10 +8,11 @@ public interface IGovernanceService
     Task<ApprovalGate> RequestApprovalAsync(
         string actionType, string resourceId, string tenantId,
         string requestedBy, string justification, CancellationToken ct = default);
-    Task<ApprovalGate?> GetApprovalAsync(Guid gateId, CancellationToken ct = default);
+    Task<ApprovalGate?> GetApprovalAsync(Guid gateId, string tenantId, CancellationToken ct = default);
     Task<IReadOnlyList<ApprovalGate>> ListPendingApprovalsAsync(string tenantId, CancellationToken ct = default);
     Task<ApprovalGate> ReviewApprovalAsync(
-        Guid gateId, string reviewedBy, bool approve, string? notes, CancellationToken ct = default);
+        Guid gateId, string tenantId, string reviewedBy, string reviewerRole,
+        bool approve, string? notes, CancellationToken ct = default);
 
     // Approval policies
     Task<IReadOnlyList<ApprovalPolicy>> ListApprovalPoliciesAsync(CancellationToken ct = default);

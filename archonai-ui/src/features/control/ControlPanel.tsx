@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useControlPanel } from './hooks/useControlPanel';
+import { usePermissions } from '../../auth/usePermissions';
 import { ExecutionModeSelector } from './components/ExecutionModeSelector';
 import { DepartmentRules } from './components/DepartmentRules';
 import { GovernanceStatus } from './components/GovernanceStatus';
@@ -24,6 +25,8 @@ export function ControlPanel() {
     save,
   } = useControlPanel();
 
+  const { hasPermission } = usePermissions();
+  const canWrite = hasPermission('admin:write');
   const activeMode = EXECUTION_MODES.find((m) => m.mode === settings.executionMode);
 
   if (loading) {
@@ -81,7 +84,8 @@ export function ControlPanel() {
           <button
             className={`cp-save-btn ${saved ? 'cp-save-btn--saved' : ''}`}
             onClick={save}
-            disabled={saving || saved}
+            disabled={saving || saved || !canWrite}
+            title={!canWrite ? 'Admin access required' : undefined}
           >
             {saving ? (
               <>

@@ -66,3 +66,15 @@ const { hasPermission } = usePermissions();
 ## Permission Introspection
 
 `GET /api/v1/auth/permissions` returns the current user's effective permissions (merged from JWT role and RBAC store). This allows the frontend to dynamically enable/disable features.
+
+## Frontend Permission Gating
+
+The `usePermissions()` hook is wired into feature components to enforce client-side permission checks:
+
+| Component | Permission Check | Behavior |
+|-----------|-----------------|----------|
+| `ControlPanel` | `admin:write` | Save button disabled for non-admins |
+| `OverrideActions` | `workflows:write`, `workflows:execute` | Cancel/modify-strategy disabled for viewers; pause/resume disabled without execute |
+| `ConnectorCard` | `connectors:write` | Connect/disconnect buttons hidden for viewers |
+
+These client-side checks complement server-side authorization policies. The server always enforces permissions regardless of frontend state.

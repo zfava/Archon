@@ -38,8 +38,9 @@ public class GovernanceServiceTests
         Assert.Equal(ApprovalStatus.Pending, gate.Status);
         Assert.Equal("user-a", gate.RequestedBy);
 
-        // Different user approves
-        var reviewed = await _gov.ReviewApprovalAsync(gate.Id, "user-b", true, "Approved");
+        // Different user approves (Admin role satisfies RequiredApproverRole)
+        var reviewed = await _gov.ReviewApprovalAsync(
+            gate.Id, "tenant-1", "user-b", "Admin", true, "Approved");
         Assert.Equal(ApprovalStatus.Approved, reviewed.Status);
         Assert.Equal("user-b", reviewed.ReviewedBy);
     }
@@ -49,7 +50,8 @@ public class GovernanceServiceTests
     {
         var gate = await _gov.RequestApprovalAsync(
             "policy.delete", "pol-1", "tenant-1", "user-a", "Cleanup");
-        var reviewed = await _gov.ReviewApprovalAsync(gate.Id, "user-b", false, "Not now");
+        var reviewed = await _gov.ReviewApprovalAsync(
+            gate.Id, "tenant-1", "user-b", "Admin", false, "Not now");
 
         Assert.Equal(ApprovalStatus.Denied, reviewed.Status);
     }
@@ -62,7 +64,7 @@ public class GovernanceServiceTests
             "workflow.cancel", "wf-1", "t1", "user-x", "Reason");
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _gov.ReviewApprovalAsync(gate.Id, "user-x", true, "Self-approve"));
+            _gov.ReviewApprovalAsync(gate.Id, "t1", "user-x", "Admin", true, "Self-approve"));
         Assert.Contains("Separation of duties", ex.Message);
     }
 
@@ -71,10 +73,10 @@ public class GovernanceServiceTests
     {
         var gate = await _gov.RequestApprovalAsync(
             "workflow.cancel", "wf-1", "t1", "user-a", "R");
-        await _gov.ReviewApprovalAsync(gate.Id, "user-b", true, null);
+        await _gov.ReviewApprovalAsync(gate.Id, "t1", "user-b", "Admin", true, null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _gov.ReviewApprovalAsync(gate.Id, "user-c", false, null));
+            _gov.ReviewApprovalAsync(gate.Id, "t1", "user-c", "Admin", false, null));
     }
 
     [Fact]
@@ -97,7 +99,7 @@ public class GovernanceServiceTests
     {
         var gate = await _gov.RequestApprovalAsync(
             "policy.delete", "p1", "t1", "user-a", "cleanup");
-        await _gov.ReviewApprovalAsync(gate.Id, "user-b", true, "ok");
+        await _gov.ReviewApprovalAsync(gate.Id, "t1", "user-b", "Admin", true, "ok");
 
         var history = await _gov.GetApprovalHistoryAsync("t1", "policy.delete", 10);
         Assert.Single(history);
@@ -116,5 +118,57 @@ public class GovernanceServiceTests
         Assert.True(await _gov.RequiresApprovalAsync("custom.action"));
         var policies = await _gov.ListApprovalPoliciesAsync();
         Assert.Contains(policies, p => p.ActionType == "custom.action");
+    }
+
+    // ── Phase 4 Remediation Tests ────────────────────────────────────
+
+    [Fact]
+    public async Task CrossTenant_GetApproval_ReturnsNull()
+    {
+        var gate = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "tenant-A", "user-a", "reason");
+
+        // Different tenant should not see the gate
+        var result = await _gov.GetApprovalAsync(gate.Id, "tenant-B");
+        Assert.Null(result);
+
+        // Same tenant can see it
+        var same = await _gov.GetApprovalAsync(gate.Id, "tenant-A");
+        Assert.NotNull(same);
+    }
+
+    [Fact]
+    public async Task CrossTenant_ReviewApproval_Throws()
+    {
+        var gate = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "tenant-A", "user-a", "reason");
+
+        // Reviewer from different tenant should be rejected
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            _gov.ReviewApprovalAsync(gate.Id, "tenant-B", "user-b", "Admin", true, "cross-tenant"));
+    }
+
+    [Fact]
+    public async Task InsufficientRole_ReviewApproval_Throws()
+    {
+        // workflow.cancel requires Admin approver
+        var gate = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t1", "user-a", "reason");
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _gov.ReviewApprovalAsync(gate.Id, "t1", "user-b", "Viewer", true, "not admin"));
+        Assert.Contains("Viewer", ex.Message);
+        Assert.Contains("Admin", ex.Message);
+    }
+
+    [Fact]
+    public async Task OperatorRole_CannotApprove_AdminOnlyAction()
+    {
+        var gate = await _gov.RequestApprovalAsync(
+            "connector.disconnect", "conn-1", "t1", "user-a", "need to disconnect");
+
+        var ex = await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _gov.ReviewApprovalAsync(gate.Id, "t1", "user-b", "Operator", true, "trying"));
+        Assert.Contains("Operator", ex.Message);
     }
 }

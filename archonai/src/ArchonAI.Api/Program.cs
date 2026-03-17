@@ -175,7 +175,7 @@ auth.MapGet("/me", async (
     var membership = await membershipStore.GetAsync(user.Id, org.Id, ct);
     string role = membership?.Role ?? user.Role;
 
-    return Results.Ok(new AuthResponse(null!, null!, default,
+    return Results.Ok(new MeResponse(
         new UserInfo(user.Id, user.Email, user.DisplayName, role),
         new OrgInfo(org.Id, org.Name, org.Slug)));
 }).RequireAuthorization();
@@ -817,8 +817,26 @@ admin.MapGet("/workflows/{workflowId:guid}", async (Guid workflowId, IAdminServi
     return workflow is null ? Results.NotFound() : Results.Ok(workflow);
 });
 
-admin.MapPost("/workflows/{workflowId:guid}/cancel", async (Guid workflowId, IAdminService adminService, CancellationToken ct) =>
+admin.MapPost("/workflows/{workflowId:guid}/cancel", async (
+    Guid workflowId,
+    HttpContext ctx,
+    IAdminService adminService,
+    IGovernanceService gov,
+    CancellationToken ct) =>
 {
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    var userId = ctx.User?.FindFirst("sub")?.Value
+        ?? ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    if (tenantId is null || userId is null) return Results.Unauthorized();
+
+    if (await gov.RequiresApprovalAsync("workflow.cancel", ct))
+    {
+        var gate = await gov.RequestApprovalAsync(
+            "workflow.cancel", workflowId.ToString(), tenantId, userId,
+            "Workflow cancellation requested", ct);
+        return Results.Accepted($"/api/v1/governance/{gate.Id}", gate);
+    }
+
     await adminService.CancelWorkflowAsync(workflowId, ct);
     return Results.Ok(new { workflowId, cancelled = true });
 });
@@ -2852,9 +2870,12 @@ integrations.MapPost("/{connectorId}/connect", async (
     return Results.Ok(new { status = "connected", note = "Basic connector — no authentication required." });
 });
 
-integrations.MapPost("/{connectorId}/disconnect", (
+integrations.MapPost("/{connectorId}/disconnect", async (
     string connectorId,
-    IEnumerable<IConnector> connectors) =>
+    HttpContext ctx,
+    IEnumerable<IConnector> connectors,
+    IGovernanceService gov,
+    CancellationToken ct) =>
 {
     var connector = connectors.FirstOrDefault(c =>
         c.SystemName.Equals(connectorId, StringComparison.OrdinalIgnoreCase) ||
@@ -2862,6 +2883,19 @@ integrations.MapPost("/{connectorId}/disconnect", (
 
     if (connector is null)
         return Results.NotFound(new { error = $"Connector '{connectorId}' not found." });
+
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    var userId = ctx.User?.FindFirst("sub")?.Value
+        ?? ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    if (tenantId is null || userId is null) return Results.Unauthorized();
+
+    if (await gov.RequiresApprovalAsync("connector.disconnect", ct))
+    {
+        var gate = await gov.RequestApprovalAsync(
+            "connector.disconnect", connectorId, tenantId, userId,
+            "Connector disconnect requested", ct);
+        return Results.Accepted($"/api/v1/governance/{gate.Id}", gate);
+    }
 
     return Results.Ok(new { status = "disconnected" });
 });
@@ -3026,9 +3060,24 @@ overrides.MapPost("/cancel", async (
 
 overrides.MapPost("/modify-strategy", async (
     ModifyStrategyRequest req,
+    HttpContext ctx,
     IHumanOverrideService overrideSvc,
+    IGovernanceService gov,
     CancellationToken ct) =>
 {
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    var userId = ctx.User?.FindFirst("sub")?.Value
+        ?? ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    if (tenantId is null || userId is null) return Results.Unauthorized();
+
+    if (await gov.RequiresApprovalAsync("strategy.override", ct))
+    {
+        var gate = await gov.RequestApprovalAsync(
+            "strategy.override", req.WorkflowId.ToString(), tenantId, userId,
+            "Strategy override requested", ct);
+        return Results.Accepted($"/api/v1/governance/{gate.Id}", gate);
+    }
+
     var result = await overrideSvc.ModifyStrategyAsync(req, ct);
     return result.Success ? Results.Ok(result) : Results.UnprocessableEntity(result);
 });
@@ -3104,10 +3153,14 @@ governance.MapGet("/pending", async (
 
 governance.MapGet("/{gateId:guid}", async (
     Guid gateId,
+    HttpContext ctx,
     IGovernanceService gov,
     CancellationToken ct) =>
 {
-    var gate = await gov.GetApprovalAsync(gateId, ct);
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantId is null) return Results.Unauthorized();
+
+    var gate = await gov.GetApprovalAsync(gateId, tenantId, ct);
     return gate is null ? Results.NotFound() : Results.Ok(gate);
 }).RequireAuthorization("GovernanceRead");
 
@@ -3118,13 +3171,22 @@ governance.MapPost("/{gateId:guid}/review", async (
     IGovernanceService gov,
     CancellationToken ct) =>
 {
-    var reviewerId = ctx.User?.FindFirst("sub")?.Value;
-    if (reviewerId is null) return Results.Unauthorized();
+    var reviewerId = ctx.User?.FindFirst("sub")?.Value
+        ?? ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    var reviewerRole = ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+        ?? ctx.User?.FindFirst("role")?.Value;
+    if (reviewerId is null || tenantId is null) return Results.Unauthorized();
 
     try
     {
-        var gate = await gov.ReviewApprovalAsync(gateId, reviewerId, req.Approve, req.Notes, ct);
+        var gate = await gov.ReviewApprovalAsync(
+            gateId, tenantId, reviewerId, reviewerRole ?? "Viewer", req.Approve, req.Notes, ct);
         return Results.Ok(gate);
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        return Results.Json(new { error = ex.Message }, statusCode: 403);
     }
     catch (InvalidOperationException ex)
     {
@@ -3390,6 +3452,10 @@ public sealed record AuthResponse(
     string AccessToken,
     string RefreshToken,
     DateTimeOffset ExpiresAtUtc,
+    UserInfo User,
+    OrgInfo Organization);
+
+public sealed record MeResponse(
     UserInfo User,
     OrgInfo Organization);
 

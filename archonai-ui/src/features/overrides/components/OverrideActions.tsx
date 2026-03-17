@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { usePermissions } from '../../../auth/usePermissions';
 
 interface Props {
   acting: boolean;
@@ -24,6 +25,9 @@ const ACTIONS: { type: ActionType; label: string; icon: string; className: strin
 ];
 
 export function OverrideActions({ acting, onPause, onResume, onCancel, onModifyStrategy }: Props) {
+  const { hasPermission } = usePermissions();
+  const canExecuteWorkflows = hasPermission('workflows:execute');
+  const canWriteWorkflows = hasPermission('workflows:write');
   const [activeAction, setActiveAction] = useState<ActionType | null>(null);
   const [workflowId, setWorkflowId] = useState('');
   const [reason, setReason] = useState('');
@@ -74,17 +78,22 @@ export function OverrideActions({ acting, onPause, onResume, onCancel, onModifyS
       </p>
 
       <div className="ho-action-grid">
-        {ACTIONS.map(({ type, label, icon, className }) => (
-          <button
-            key={type}
-            className={`ho-action-btn ${className} ${activeAction === type ? 'ho-action-btn--selected' : ''}`}
-            onClick={() => setActiveAction(activeAction === type ? null : type)}
-            disabled={acting}
-          >
-            <span className="ho-action-icon">{icon}</span>
-            <span className="ho-action-label">{label}</span>
-          </button>
-        ))}
+        {ACTIONS.map(({ type, label, icon, className }) => {
+          const needsWrite = type === 'cancel' || type === 'modify-strategy';
+          const allowed = needsWrite ? canWriteWorkflows : canExecuteWorkflows;
+          return (
+            <button
+              key={type}
+              className={`ho-action-btn ${className} ${activeAction === type ? 'ho-action-btn--selected' : ''}`}
+              onClick={() => setActiveAction(activeAction === type ? null : type)}
+              disabled={acting || !allowed}
+              title={!allowed ? 'Insufficient permissions' : undefined}
+            >
+              <span className="ho-action-icon">{icon}</span>
+              <span className="ho-action-label">{label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {activeAction && (
