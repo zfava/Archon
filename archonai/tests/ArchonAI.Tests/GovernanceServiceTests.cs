@@ -171,4 +171,54 @@ public class GovernanceServiceTests
             _gov.ReviewApprovalAsync(gate.Id, "t1", "user-b", "Operator", true, "trying"));
         Assert.Contains("Operator", ex.Message);
     }
+
+    // ── History Tenant Isolation Tests ────────────────────────────────
+
+    [Fact]
+    public async Task History_SameTenant_ReturnsOwnEntries()
+    {
+        var gate = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "tenant-X", "user-a", "reason");
+        await _gov.ReviewApprovalAsync(gate.Id, "tenant-X", "user-b", "Admin", true, "ok");
+
+        var history = await _gov.GetApprovalHistoryAsync("tenant-X", null, 50);
+        Assert.Single(history);
+        Assert.Equal("tenant-X", history[0].TenantId);
+    }
+
+    [Fact]
+    public async Task History_CrossTenant_ReturnsEmpty()
+    {
+        var gate = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "tenant-X", "user-a", "reason");
+        await _gov.ReviewApprovalAsync(gate.Id, "tenant-X", "user-b", "Admin", true, "ok");
+
+        // A different tenant should see zero entries
+        var history = await _gov.GetApprovalHistoryAsync("tenant-Y", null, 50);
+        Assert.Empty(history);
+    }
+
+    [Fact]
+    public async Task History_NullTenant_ReturnsAllEntries()
+    {
+        // Service-layer null tenant returns all — endpoint must NEVER pass null
+        var g1 = await _gov.RequestApprovalAsync(
+            "workflow.cancel", "wf-1", "t-A", "u1", "r");
+        await _gov.ReviewApprovalAsync(g1.Id, "t-A", "u2", "Admin", true, null);
+
+        var g2 = await _gov.RequestApprovalAsync(
+            "policy.delete", "p-1", "t-B", "u3", "r");
+        await _gov.ReviewApprovalAsync(g2.Id, "t-B", "u4", "Admin", true, null);
+
+        // Null tenantId at the service layer returns everything (unfiltered)
+        var all = await _gov.GetApprovalHistoryAsync(null, null, 50);
+        Assert.True(all.Count >= 2);
+
+        // But scoped queries only return their own
+        var tA = await _gov.GetApprovalHistoryAsync("t-A", null, 50);
+        Assert.All(tA, e => Assert.Equal("t-A", e.TenantId));
+
+        var tB = await _gov.GetApprovalHistoryAsync("t-B", null, 50);
+        Assert.All(tB, e => Assert.Equal("t-B", e.TenantId));
+    }
 }

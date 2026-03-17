@@ -82,7 +82,7 @@ Every approval decision (approve or deny) creates an `ApprovalAuditEntry`:
 | `Outcome` | Approved or Denied |
 | `OccurredAtUtc` | When the decision was made |
 
-The history endpoint supports filtering by tenant and action type.
+The history endpoint enforces tenant isolation: the caller's `tenant_id` JWT claim is used as the mandatory tenant filter. There is no caller-supplied tenant override — the authenticated context is the sole source of truth. This prevents cross-tenant audit data leakage.
 
 ## Wired Actions
 

@@ -3208,18 +3208,16 @@ governance.MapGet("/check/{actionType}", async (
 }).RequireAuthorization("GovernanceRead");
 
 governance.MapGet("/history", async (
-    string? tenantId,
     string? actionType,
     int? limit,
     HttpContext ctx,
     IGovernanceService gov,
     CancellationToken ct) =>
 {
-    // Non-admins can only see their own tenant's history
     var callerTenant = ctx.User?.FindFirst("tenant_id")?.Value;
-    var effectiveTenant = tenantId ?? callerTenant;
+    if (callerTenant is null) return Results.Unauthorized();
 
-    var history = await gov.GetApprovalHistoryAsync(effectiveTenant, actionType, limit ?? 50, ct);
+    var history = await gov.GetApprovalHistoryAsync(callerTenant, actionType, limit ?? 50, ct);
     return Results.Ok(history);
 }).RequireAuthorization("GovernanceRead");
 

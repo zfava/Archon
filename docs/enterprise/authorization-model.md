@@ -49,6 +49,8 @@ PermissionRequirementHandler
 
 `TenantMatchRequirementHandler` enforces that a user's `tenant_id` JWT claim matches any `tenantId` route parameter or query parameter in the request. This prevents cross-tenant data access at the authorization layer.
 
+Endpoints that return tenant-scoped data (e.g. `GET /governance/history`) derive the tenant filter exclusively from the authenticated JWT `tenant_id` claim. They do **not** accept caller-supplied tenant parameters, eliminating IDOR vectors where a user could query another tenant's data by manipulating query strings.
+
 ## Frontend Permission Awareness
 
 The `usePermissions()` hook provides:
