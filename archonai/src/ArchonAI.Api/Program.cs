@@ -2626,6 +2626,22 @@ modelRouting.MapPost("/select", (
 });
 
 // ══════════════════════════════════════════════════════════════
+//  Onboarding
+// ══════════════════════════════════════════════════════════════
+
+var onboarding = v1.MapGroup("/onboarding")
+    .RequireAuthorization("OperatorOrAdmin");
+
+onboarding.MapPost("/deploy", async (
+    ArchonAI.Core.Models.Onboarding.OnboardingDeployRequest req,
+    IOnboardingService onboardingSvc,
+    CancellationToken ct) =>
+{
+    var result = await onboardingSvc.DeployAsync(req, ct);
+    return Results.Ok(result);
+});
+
+// ══════════════════════════════════════════════════════════════
 //  Strategy Learning
 // ══════════════════════════════════════════════════════════════
 

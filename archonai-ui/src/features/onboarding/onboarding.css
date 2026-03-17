@@ -1,0 +1,610 @@
+/* ═══════════════════════════════════════════════════════
+   Onboarding Wizard — Setup flow for instant deployment
+   ═══════════════════════════════════════════════════════ */
+
+/* --- Container --- */
+.ob-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100dvh;
+  background: #0a0a0b;
+  color: #e4e4e7;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+}
+
+/* --- Header --- */
+.ob-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid #1c1c1f;
+  flex-shrink: 0;
+}
+
+.ob-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ob-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ob-page-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #a1a1aa;
+  margin: 0;
+}
+
+.ob-connected-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: #052e16;
+  color: #4ade80;
+}
+
+/* --- Step indicators --- */
+.ob-steps-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 20px;
+  border-bottom: 1px solid #1c1c1f;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.ob-step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  color: #52525b;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s;
+  position: relative;
+  z-index: 1;
+}
+
+.ob-step-indicator:hover:not(:disabled) {
+  color: #a1a1aa;
+}
+
+.ob-step-indicator--active {
+  color: #e4e4e7;
+}
+
+.ob-step-indicator--done {
+  color: #4ade80;
+}
+
+.ob-step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #1c1c1f;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.ob-step-indicator--active .ob-step-num {
+  background: #6366f1;
+  color: #fff;
+}
+
+.ob-step-indicator--done .ob-step-num {
+  background: #052e16;
+  color: #4ade80;
+}
+
+.ob-step-label {
+  white-space: nowrap;
+}
+
+.ob-step-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: #6366f1;
+  transition: width 0.3s ease-out;
+}
+
+/* --- Content area --- */
+.ob-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: #27272a transparent;
+}
+
+.ob-content::-webkit-scrollbar { width: 6px; }
+.ob-content::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+
+/* --- Step shared --- */
+.ob-step-content {
+  max-width: 800px;
+  margin: 0 auto;
+  animation: fadeSlideIn 0.25s ease-out;
+}
+
+.ob-step-intro {
+  margin-bottom: 24px;
+}
+
+.ob-step-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #f4f4f5;
+  margin: 0 0 6px;
+}
+
+.ob-step-desc {
+  font-size: 14px;
+  color: #71717a;
+  margin: 0;
+  line-height: 1.5;
+  max-width: 560px;
+}
+
+.ob-group-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #52525b;
+  margin-bottom: 10px;
+}
+
+/* --- Connect Systems --- */
+.ob-system-group {
+  margin-bottom: 20px;
+}
+
+.ob-system-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.ob-system-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 8px;
+  border: 2px solid #27272a;
+  background: #18181b;
+  color: #a1a1aa;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.ob-system-card:hover {
+  border-color: #3f3f46;
+  background: #1f1f23;
+}
+
+.ob-system-card--active {
+  border-color: #4ade80;
+  background: #071a0e;
+}
+
+.ob-system-card--active .ob-system-name {
+  color: #e4e4e7;
+}
+
+.ob-system-status {
+  margin-bottom: 4px;
+}
+
+.ob-system-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #27272a;
+}
+
+.ob-system-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.ob-system-desc {
+  font-size: 12px;
+  color: #52525b;
+}
+
+/* --- Business Type --- */
+.ob-biz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.ob-biz-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 2px solid #27272a;
+  background: #18181b;
+  color: #a1a1aa;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.ob-biz-card:hover {
+  border-color: #3f3f46;
+  background: #1f1f23;
+}
+
+.ob-biz-card--active {
+  border-color: #6366f1;
+  background: #1a1a2e;
+}
+
+.ob-biz-card--active .ob-biz-name {
+  color: #e4e4e7;
+}
+
+.ob-biz-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.ob-biz-desc {
+  font-size: 12px;
+  color: #52525b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.ob-biz-card--active .ob-biz-desc {
+  color: #71717a;
+}
+
+.ob-biz-agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.ob-agent-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #1c1c1f;
+  color: #818cf8;
+}
+
+.ob-biz-card--active .ob-agent-chip {
+  background: #27274a;
+}
+
+/* --- Automation Level --- */
+.ob-auto-section {
+  margin-bottom: 24px;
+}
+
+.ob-level-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.ob-level-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 2px solid #27272a;
+  background: #18181b;
+  color: #a1a1aa;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.ob-level-card:hover {
+  border-color: #3f3f46;
+  background: #1f1f23;
+}
+
+.ob-level-card--active {
+  border-color: #6366f1;
+  background: #1a1a2e;
+}
+
+.ob-level-card--active .ob-level-name {
+  color: #e4e4e7;
+}
+
+.ob-level-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ob-level-desc {
+  font-size: 12px;
+  color: #52525b;
+  line-height: 1.4;
+}
+
+.ob-level-card--active .ob-level-desc {
+  color: #71717a;
+}
+
+/* --- Department overrides --- */
+.ob-dept-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ob-dept-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+}
+
+.ob-dept-row--disabled {
+  opacity: 0.45;
+}
+
+.ob-dept-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.ob-dept-toggle input {
+  accent-color: #6366f1;
+  width: 16px;
+  height: 16px;
+}
+
+.ob-dept-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #e4e4e7;
+}
+
+.ob-dept-select {
+  padding: 6px 10px;
+  background: #111113;
+  border: 1px solid #27272a;
+  border-radius: 5px;
+  color: #e4e4e7;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.ob-dept-select:focus {
+  border-color: #6366f1;
+}
+
+/* --- Review & Deploy --- */
+.ob-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ob-review-card {
+  background: #111113;
+  border: 1px solid #1c1c1f;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ob-review-count {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f4f4f5;
+}
+
+.ob-review-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.ob-review-time {
+  font-size: 28px;
+  font-weight: 700;
+  color: #4ade80;
+}
+
+.ob-review-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ob-review-item {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #1c1c1f;
+  color: #a1a1aa;
+}
+
+/* --- Deploy actions --- */
+.ob-deploy-actions {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.ob-deploy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: #6366f1;
+  color: #fff;
+  transition: all 0.15s;
+}
+
+.ob-deploy-btn:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.ob-deploy-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* --- Deploy success --- */
+.ob-deploy-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.ob-deploy-check {
+  margin-bottom: 4px;
+}
+
+.ob-deploy-summary {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.ob-summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ob-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ob-strategy-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: #2e2a1a;
+  color: #facc15;
+}
+
+.ob-integration-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: #052e16;
+  color: #4ade80;
+}
+
+/* --- Error banner --- */
+.ob-error-banner {
+  padding: 10px 16px;
+  background: #1a0a0a;
+  border: 1px solid #7f1d1d;
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* --- Footer --- */
+.ob-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid #1c1c1f;
+  flex-shrink: 0;
+}
+
+.ob-step-counter {
+  font-size: 12px;
+  color: #52525b;
+  font-weight: 500;
+}
+
+/* --- Responsive --- */
+@media (max-width: 700px) {
+  .ob-level-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ob-review-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ob-system-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ob-biz-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ob-step-label {
+    display: none;
+  }
+}

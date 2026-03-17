@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddSingleton<IControlPlaneRepository, InMemoryControlPlaneRepository>();
         services.AddSingleton<IControlPlaneService, ControlPlaneService>();
         services.AddSingleton<IControlPlaneObservability, ControlPlaneObservabilityService>();
+        services.AddSingleton<IOnboardingService, OnboardingService>();
 
         services.AddSignalR();
         services.AddHostedService<DashboardBroadcastService>();

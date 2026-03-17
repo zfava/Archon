@@ -245,4 +245,16 @@ export const api = {
 
   getSystemHealth: () =>
     request('/control-plane/observability/system-health'),
+
+  // ── Onboarding ─────────────────────────────────────────
+  deployOnboarding: (body: {
+    connectedSystems: string[];
+    businessType: string;
+    automationLevel: string;
+    departments: { name: string; level: string }[];
+  }) =>
+    request('/onboarding/deploy', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
