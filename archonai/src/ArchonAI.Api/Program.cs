@@ -42,6 +42,7 @@ using ArchonAI.Core.Models.Models.Routing;
 using ArchonAI.Core.Models.Reasoning;
 using ArchonAI.ModelRouter;
 using ArchonAI.Core.Models.Simulation;
+using ArchonAI.Core.Models.HumanOverride;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -2820,6 +2821,65 @@ taskGraphs.MapGet("/{graphId:guid}/layers", async (Guid graphId, ITaskGraphBuild
             parallelNodes = layer.Select(n => new { n.NodeId, n.Name, n.AgentType, n.ExpectedOutput })
         })
     });
+});
+
+// ── Human Override / Intervention ──────────────────────────────────────
+var overrides = v1.MapGroup("/overrides")
+    .RequireAuthorization("OperatorOrAdmin");
+
+overrides.MapPost("/pause", async (
+    PauseWorkflowRequest req,
+    IHumanOverrideService overrideSvc,
+    CancellationToken ct) =>
+{
+    var result = await overrideSvc.PauseWorkflowAsync(req, ct);
+    return result.Success ? Results.Ok(result) : Results.UnprocessableEntity(result);
+});
+
+overrides.MapPost("/resume", async (
+    ResumeWorkflowRequest req,
+    IHumanOverrideService overrideSvc,
+    CancellationToken ct) =>
+{
+    var result = await overrideSvc.ResumeWorkflowAsync(req, ct);
+    return result.Success ? Results.Ok(result) : Results.UnprocessableEntity(result);
+});
+
+overrides.MapPost("/cancel", async (
+    CancelActionRequest req,
+    IHumanOverrideService overrideSvc,
+    CancellationToken ct) =>
+{
+    var result = await overrideSvc.CancelActionAsync(req, ct);
+    return result.Success ? Results.Ok(result) : Results.UnprocessableEntity(result);
+});
+
+overrides.MapPost("/modify-strategy", async (
+    ModifyStrategyRequest req,
+    IHumanOverrideService overrideSvc,
+    CancellationToken ct) =>
+{
+    var result = await overrideSvc.ModifyStrategyAsync(req, ct);
+    return result.Success ? Results.Ok(result) : Results.UnprocessableEntity(result);
+});
+
+overrides.MapPost("/rollback", async (
+    RollbackRequest req,
+    IHumanOverrideService overrideSvc,
+    CancellationToken ct) =>
+{
+    var result = await overrideSvc.RollbackAsync(req, ct);
+    return result.Success ? Results.Ok(result) : Results.UnprocessableEntity(result);
+});
+
+overrides.MapGet("/log", async (
+    Guid? workflowId,
+    int? limit,
+    IHumanOverrideService overrideSvc,
+    CancellationToken ct) =>
+{
+    var log = await overrideSvc.GetOverrideLogAsync(workflowId, limit ?? 100, ct);
+    return Results.Ok(log);
 });
 
 app.Run();

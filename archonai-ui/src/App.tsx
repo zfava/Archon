@@ -8,6 +8,7 @@ import { ImpactDashboard } from './features/impact';
 import { AttributionView } from './features/attribution';
 import { OnboardingWizard } from './features/onboarding';
 import { IntegrationMarketplace } from './features/integrations';
+import { HumanOverridesView } from './features/overrides';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/control" element={<ControlPanel />} />
         <Route path="/audit" element={<AuditLogView />} />
         <Route path="/impact" element={<ImpactDashboard />} />
+        <Route path="/overrides" element={<HumanOverridesView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

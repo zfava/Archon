@@ -9,5 +9,7 @@ public enum WorkflowState
     Evaluating = 4,
     Completed = 5,
     Failed = 6,
-    Escalated = 7
+    Escalated = 7,
+    Paused = 8,
+    Cancelled = 9
 }

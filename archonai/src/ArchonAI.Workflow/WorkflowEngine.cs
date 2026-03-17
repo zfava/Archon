@@ -16,7 +16,15 @@ public sealed class WorkflowEngine : IWorkflowEngine
             [(WorkflowState.Executing, WorkflowTrigger.StartEvaluating)] = WorkflowState.Evaluating,
             [(WorkflowState.Evaluating, WorkflowTrigger.Complete)] = WorkflowState.Completed,
             [(WorkflowState.Evaluating, WorkflowTrigger.Fail)] = WorkflowState.Failed,
-            [(WorkflowState.Failed, WorkflowTrigger.Escalate)] = WorkflowState.Escalated
+            [(WorkflowState.Failed, WorkflowTrigger.Escalate)] = WorkflowState.Escalated,
+            // Human intervention transitions
+            [(WorkflowState.Executing, WorkflowTrigger.Pause)] = WorkflowState.Paused,
+            [(WorkflowState.Scheduled, WorkflowTrigger.Pause)] = WorkflowState.Paused,
+            [(WorkflowState.Paused, WorkflowTrigger.Resume)] = WorkflowState.Executing,
+            [(WorkflowState.Executing, WorkflowTrigger.Cancel)] = WorkflowState.Cancelled,
+            [(WorkflowState.Scheduled, WorkflowTrigger.Cancel)] = WorkflowState.Cancelled,
+            [(WorkflowState.Paused, WorkflowTrigger.Cancel)] = WorkflowState.Cancelled,
+            [(WorkflowState.Planning, WorkflowTrigger.Cancel)] = WorkflowState.Cancelled
         };
 
     private readonly ConcurrentDictionary<Guid, WorkflowState> _states = new();

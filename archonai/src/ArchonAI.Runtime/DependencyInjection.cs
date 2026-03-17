@@ -7,6 +7,7 @@ using ArchonAI.Runtime.Coordination;
 using ArchonAI.Runtime.Execution;
 using ArchonAI.Runtime.Health;
 using ArchonAI.Runtime.HostedServices;
+using ArchonAI.Runtime.HumanOverride;
 using ArchonAI.Workflow;
 using ArchonAI.WorkflowRuntime;
 using ArchonAI.TaskRuntime;
@@ -47,6 +48,7 @@ public static class DependencyInjection
         services.AddSingleton<IRuntimeHealthManager, RuntimeHealthManager>();
         services.AddSingleton<IAgentCoordinationService, AgentCoordinationService>();
         services.AddSingleton<IAgentCollaborationManager, AgentCollaborationManager>();
+        services.AddSingleton<IHumanOverrideService, HumanOverrideService>();
         services.AddHostedService<AgentRegistrationHostedService>();
         services.AddHostedService<RuntimeHealthMonitorService>();
         return services;

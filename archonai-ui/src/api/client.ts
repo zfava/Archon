@@ -271,6 +271,46 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  // ── Human Overrides ──────────────────────────────────
+  pauseWorkflow: (body: { workflowId: string; reason: string; performedBy: string }) =>
+    request('/overrides/pause', { method: 'POST', body: JSON.stringify(body) }),
+
+  resumeWorkflow: (body: { workflowId: string; reason: string; performedBy: string }) =>
+    request('/overrides/resume', { method: 'POST', body: JSON.stringify(body) }),
+
+  cancelOverrideAction: (body: {
+    workflowId: string;
+    taskId: string | null;
+    reason: string;
+    performedBy: string;
+  }) =>
+    request('/overrides/cancel', { method: 'POST', body: JSON.stringify(body) }),
+
+  modifyStrategy: (body: {
+    workflowId: string;
+    previousStrategy: string;
+    newStrategy: string;
+    reason: string;
+    performedBy: string;
+  }) =>
+    request('/overrides/modify-strategy', { method: 'POST', body: JSON.stringify(body) }),
+
+  rollbackOverride: (body: {
+    workflowId: string;
+    overrideId: string;
+    reason: string;
+    performedBy: string;
+  }) =>
+    request('/overrides/rollback', { method: 'POST', body: JSON.stringify(body) }),
+
+  getOverrideLog: (workflowId?: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (workflowId) params.set('workflowId', workflowId);
+    if (limit !== undefined) params.set('limit', String(limit));
+    const qs = params.toString();
+    return request(`/overrides/log${qs ? `?${qs}` : ''}`);
+  },
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];

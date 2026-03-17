@@ -8,5 +8,8 @@ public enum WorkflowTrigger
     StartEvaluating = 3,
     Complete = 4,
     Fail = 5,
-    Escalate = 6
+    Escalate = 6,
+    Pause = 7,
+    Resume = 8,
+    Cancel = 9
 }
