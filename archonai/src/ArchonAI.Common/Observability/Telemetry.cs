@@ -18,6 +18,14 @@ public static class Telemetry
     public static readonly Counter<long> EventsDeadLettered = Meter.CreateCounter<long>("archonai.events.dlq");
     public static readonly Counter<long> MemoryQueries = Meter.CreateCounter<long>("archonai.memory.queries");
 
+    // Memory compression and retrieval metrics
+    public static readonly Counter<long> MemoryCompressionRuns = Meter.CreateCounter<long>("archonai.memory.compression.runs");
+    public static readonly Counter<long> MemoryDuplicatesRemoved = Meter.CreateCounter<long>("archonai.memory.duplicates.removed");
+    public static readonly Counter<long> MemoryClustersFormed = Meter.CreateCounter<long>("archonai.memory.clusters.formed");
+    public static readonly Counter<long> MemorySummariesCreated = Meter.CreateCounter<long>("archonai.memory.summaries.created");
+    public static readonly Counter<long> MemoryRetrievalQueries = Meter.CreateCounter<long>("archonai.memory.retrieval.queries");
+    public static readonly Counter<long> MemoryGraphEnrichedQueries = Meter.CreateCounter<long>("archonai.memory.graph.enriched.queries");
+
     // Salesforce connector metrics
     public static readonly Counter<long> SalesforceAuthAttempts = Meter.CreateCounter<long>("archonai.salesforce.auth.attempts");
     public static readonly Counter<long> SalesforceQueryOps = Meter.CreateCounter<long>("archonai.salesforce.query.ops");

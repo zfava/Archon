@@ -25,6 +25,7 @@
     <ProjectReference Include="..\ArchonAI.AgentRegistry\ArchonAI.AgentRegistry.csproj" />
     <ProjectReference Include="..\ArchonAI.StrategyLibrary\ArchonAI.StrategyLibrary.csproj" />
     <ProjectReference Include="..\ArchonAI.WorkflowSimulation\ArchonAI.WorkflowSimulation.csproj" />
+    <ProjectReference Include="..\ArchonAI.Memory\ArchonAI.Memory.csproj" />
   </ItemGroup>
 
   <ItemGroup>

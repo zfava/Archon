@@ -26,6 +26,7 @@ using ArchonAI.Core.Models.AgentRegistry;
 using ArchonAI.StrategyLibrary;
 using ArchonAI.Core.Models.StrategyLibrary;
 using ArchonAI.WorkflowSimulation;
+using ArchonAI.Memory;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -48,6 +49,7 @@ builder.Services.AddArchonAIWorkflowDesigner();
 builder.Services.AddArchonAIAgentRegistry();
 builder.Services.AddArchonAIStrategyLibrary();
 builder.Services.AddArchonAIWorkflowSimulation(builder.Configuration);
+builder.Services.AddArchonAIMemory(builder.Configuration);
 
 var app = builder.Build();
 
@@ -826,6 +828,49 @@ coordination.MapPost("/delegate", async (DelegateTaskInput input, IAgentCoordina
         DelegatedAtUtc: DateTimeOffset.UtcNow);
     var result = await coordService.DelegateTaskAsync(delegation, ct);
     return Results.Ok(result);
+});
+
+// Memory management endpoints
+var memory = v1.MapGroup("/memory")
+    .RequireAuthorization("OperatorOrAdmin");
+
+memory.MapGet("/status", (IMemoryRetrievalOptimizer retriever) =>
+    Results.Ok(retriever.GetStatus()));
+
+memory.MapPost("/compress", async (CompressMemoryRequest request, IMemoryCompressionEngine compressor, CancellationToken ct) =>
+{
+    var result = await compressor.CompressAsync(request.Scope, ct);
+    return Results.Ok(result);
+});
+
+memory.MapPost("/deduplicate", async (DeduplicateMemoryRequest request, IMemoryCompressionEngine compressor, CancellationToken ct) =>
+{
+    int removed = await compressor.DeduplicateAsync(request.Scope, ct);
+    return Results.Ok(new { scope = request.Scope, duplicatesRemoved = removed });
+});
+
+memory.MapPost("/cluster", async (ClusterMemoryRequest request, IMemoryCompressionEngine compressor, CancellationToken ct) =>
+{
+    var clusters = await compressor.ClusterAsync(request.Scope, ct);
+    return Results.Ok(clusters);
+});
+
+memory.MapPost("/summarize", async (SummarizeMemoryRequest request, IMemoryCompressionEngine compressor, CancellationToken ct) =>
+{
+    var summary = await compressor.SummarizeAsync(request.Scope, request.SourceRecordIds, ct);
+    return Results.Ok(summary);
+});
+
+memory.MapPost("/search", async (SearchMemoryRequest request, IMemoryRetrievalOptimizer retriever, CancellationToken ct) =>
+{
+    var result = await retriever.SearchAsync(request.Scope, request.QueryEmbedding, request.TopK ?? 10, ct);
+    return Results.Ok(result);
+});
+
+memory.MapPost("/index/rebuild", async (RebuildIndexRequest request, IMemoryRetrievalOptimizer retriever, CancellationToken ct) =>
+{
+    await retriever.RebuildIndexAsync(request.Scope, ct);
+    return Results.Ok(new { scope = request.Scope, rebuilt = true });
 });
 
 // Observability endpoints
@@ -1793,3 +1838,9 @@ public sealed record RecordHistoricalExecutionRequest(Guid WorkflowGraphId, bool
 public sealed record RequestTaskSupportInput(Guid RequestingAgentId, string RequestingAgentName, Guid TaskId, string RequiredCapability, string Reason, Dictionary<string, string>? Context = null, int? TimeoutSeconds = null);
 public sealed record ShareKnowledgeInput(Guid SourceAgentId, string SourceAgentName, Guid? TargetAgentId, string Topic, string Content, Dictionary<string, string>? Metadata = null);
 public sealed record DelegateTaskInput(Guid DelegatingAgentId, string DelegatingAgentName, Guid TargetAgentId, string TargetAgentName, Guid OriginalTaskId, string RequiredCapability, Dictionary<string, string>? TaskInputs = null, int? TimeoutSeconds = null);
+public sealed record CompressMemoryRequest(string Scope);
+public sealed record DeduplicateMemoryRequest(string Scope);
+public sealed record ClusterMemoryRequest(string Scope);
+public sealed record SummarizeMemoryRequest(string Scope, IReadOnlyList<Guid> SourceRecordIds);
+public sealed record SearchMemoryRequest(string Scope, IReadOnlyList<float> QueryEmbedding, int? TopK = null);
+public sealed record RebuildIndexRequest(string Scope);
