@@ -80,6 +80,7 @@ public static class DependencyInjection
         services.AddSingleton<IConnector, DefaultConnector>();
         services.AddScoped<IStrategicPlanner, StrategicPlanningEngine>();
         services.AddSingleton<IGoalGenerator, GoalGenerator>();
+        services.AddSingleton<ITaskGraphBuilder, TaskGraphBuilder>();
         services.AddScoped<IPlanner, PlannerService>();
         services.AddScoped<IReasoner, ReasoningEngine>();
         services.AddScoped<IEconomicEvaluator, EconomicEvaluator>();

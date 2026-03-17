@@ -2300,6 +2300,65 @@ economics.MapPost("/evaluate-single", async (SingleStrategyEvaluationRequest req
     return Results.Ok(result);
 });
 
+// ══════════════════════════════════════════════════════════════
+//  Task Graphs
+// ══════════════════════════════════════════════════════════════
+
+var taskGraphs = v1.MapGroup("/task-graphs")
+    .RequireAuthorization("OperatorOrAdmin");
+
+taskGraphs.MapPost("/build", async (BuildTaskGraphRequest req, ITaskGraphBuilder builder, IGoalGenerator goalGenerator, CancellationToken ct) =>
+{
+    var goal = await goalGenerator.GetGoalAsync(req.GoalId, ct);
+    if (goal is null)
+        return Results.NotFound(new { error = $"Goal '{req.GoalId}' not found." });
+
+    var graph = await builder.BuildGraphAsync(goal, req.Strategy ?? "balanced", ct);
+    return Results.Ok(graph);
+});
+
+taskGraphs.MapPost("/{graphId:guid}/dispatch", async (Guid graphId, ITaskGraphBuilder builder, CancellationToken ct) =>
+{
+    var graph = await builder.GetGraphAsync(graphId, ct);
+    if (graph is null)
+        return Results.NotFound(new { error = $"Task graph '{graphId}' not found." });
+
+    var result = await builder.DispatchGraphAsync(graph, ct);
+    return Results.Ok(result);
+}).RequireAuthorization("AdminOnly");
+
+taskGraphs.MapGet("/{graphId:guid}", async (Guid graphId, ITaskGraphBuilder builder, CancellationToken ct) =>
+{
+    var graph = await builder.GetGraphAsync(graphId, ct);
+    return graph is null ? Results.NotFound() : Results.Ok(graph);
+});
+
+taskGraphs.MapGet("/by-goal/{goalId:guid}", async (Guid goalId, ITaskGraphBuilder builder, CancellationToken ct) =>
+{
+    var graphs = await builder.GetGraphsByGoalAsync(goalId, ct);
+    return Results.Ok(graphs);
+});
+
+taskGraphs.MapGet("/{graphId:guid}/layers", async (Guid graphId, ITaskGraphBuilder builder, CancellationToken ct) =>
+{
+    var graph = await builder.GetGraphAsync(graphId, ct);
+    if (graph is null)
+        return Results.NotFound();
+
+    var layers = graph.GetExecutionLayers();
+    return Results.Ok(new
+    {
+        graphId,
+        totalLayers = layers.Count,
+        totalNodes = graph.Nodes.Count,
+        layers = layers.Select((layer, index) => new
+        {
+            layerIndex = index,
+            parallelNodes = layer.Select(n => new { n.NodeId, n.Name, n.AgentType, n.ExpectedOutput })
+        })
+    });
+});
+
 app.Run();
 
 
@@ -2394,3 +2453,7 @@ public sealed record EconomicWeightsDto(
     double ImpactWeight,
     double SuccessProbabilityWeight,
     double ExecutionTimeWeight);
+
+public sealed record BuildTaskGraphRequest(
+    Guid GoalId,
+    string? Strategy);
