@@ -190,4 +190,39 @@ export const api = {
     const qs = category ? `?category=${encodeURIComponent(category)}` : '';
     return request(`/admin/security/policies${qs}`);
   },
+
+  // ── Audit Log ────────────────────────────────────────────
+
+  getAuditStatus: () =>
+    request('/audit/status'),
+
+  queryAuditEntries: (params: {
+    category?: string;
+    subjectId?: string;
+    resourceType?: string;
+    fromUtc?: string;
+    toUtc?: string;
+    offset?: number;
+    limit?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params.category) qs.set('category', params.category);
+    if (params.subjectId) qs.set('subjectId', params.subjectId);
+    if (params.resourceType) qs.set('resourceType', params.resourceType);
+    if (params.fromUtc) qs.set('fromUtc', params.fromUtc);
+    if (params.toUtc) qs.set('toUtc', params.toUtc);
+    if (params.offset !== undefined) qs.set('offset', String(params.offset));
+    if (params.limit !== undefined) qs.set('limit', String(params.limit));
+    const q = qs.toString();
+    return request(`/audit/entries${q ? `?${q}` : ''}`);
+  },
+
+  getAuditEntry: (entryId: string) =>
+    request(`/audit/entries/${entryId}`),
+
+  verifyAuditIntegrity: (fromEntryId?: string) =>
+    request('/audit/verify', {
+      method: 'POST',
+      body: JSON.stringify(fromEntryId ? { fromEntryId } : {}),
+    }),
 };
