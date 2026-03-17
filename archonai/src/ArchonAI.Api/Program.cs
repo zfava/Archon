@@ -29,6 +29,7 @@ using ArchonAI.Core.Models.StrategyLibrary;
 using ArchonAI.WorkflowSimulation;
 using ArchonAI.Core.Models.Telemetry;
 using ArchonAI.Core.Models.Cluster;
+using ArchonAI.ControlPlane.Hubs;
 using ArchonAI.Memory;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -60,6 +61,9 @@ app.UseSerilogRequestLogging();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// WebSocket hub for real-time dashboard updates
+app.MapHub<ControlPlaneDashboardHub>("/hubs/control-plane-dashboard");
 
 var v1 = app.MapGroup("/api/v1")
     .RequireAuthorization()
@@ -1350,6 +1354,84 @@ cpConfig.MapDelete("/{tenantId}/{scope}/{key}", async (string tenantId, string s
     }
 });
 
+// ControlPlane observability dashboard endpoints
+var cpDashboard = v1.MapGroup("/control-plane/observability")
+    .RequireAuthorization("OperatorOrAdmin");
+
+cpDashboard.MapGet("/unified", async (IControlPlaneObservability cpObs, CancellationToken ct) =>
+{
+    var dashboard = await cpObs.GetUnifiedDashboardAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+cpDashboard.MapGet("/agent-activity", async (IControlPlaneObservability cpObs, CancellationToken ct) =>
+{
+    var dashboard = await cpObs.GetAgentActivityAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+cpDashboard.MapGet("/system-health", async (IControlPlaneObservability cpObs, CancellationToken ct) =>
+{
+    var dashboard = await cpObs.GetSystemHealthAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+cpDashboard.MapGet("/model-usage", async (IControlPlaneObservability cpObs, CancellationToken ct) =>
+{
+    var dashboard = await cpObs.GetModelUsageAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+cpDashboard.MapGet("/task-performance", async (IControlPlaneObservability cpObs, CancellationToken ct) =>
+{
+    var dashboard = await cpObs.GetTaskPerformanceAsync(ct);
+    return Results.Ok(dashboard);
+});
+
+// System control endpoints
+var sysControl = v1.MapGroup("/control-plane/system")
+    .RequireAuthorization("AdminOnly");
+
+sysControl.MapGet("/paused", async (IControlPlaneObservability cpObs, CancellationToken ct) =>
+{
+    bool paused = await cpObs.IsSystemPausedAsync(ct);
+    return Results.Ok(new { isPaused = paused });
+});
+
+sysControl.MapPost("/pause", async (SystemPauseRequest request, IControlPlaneObservability cpObs, CancellationToken ct) =>
+{
+    await cpObs.PauseSystemAsync(request.Reason, ct);
+    return Results.Ok(new { paused = true, reason = request.Reason, atUtc = DateTimeOffset.UtcNow });
+});
+
+sysControl.MapPost("/resume", async (IControlPlaneObservability cpObs, CancellationToken ct) =>
+{
+    await cpObs.ResumeSystemAsync(ct);
+    return Results.Ok(new { resumed = true, atUtc = DateTimeOffset.UtcNow });
+});
+
+// Alert management endpoints
+var alerts = v1.MapGroup("/control-plane/alerts")
+    .RequireAuthorization("OperatorOrAdmin");
+
+alerts.MapGet("/", async (IControlPlaneObservability cpObs, CancellationToken ct) =>
+{
+    var activeAlerts = await cpObs.GetActiveAlertsAsync(ct);
+    return Results.Ok(activeAlerts);
+});
+
+alerts.MapPost("/{alertId:guid}/acknowledge", async (Guid alertId, IControlPlaneObservability cpObs, CancellationToken ct) =>
+{
+    await cpObs.AcknowledgeAlertAsync(alertId, ct);
+    return Results.Ok(new { alertId, acknowledged = true });
+});
+
+alerts.MapPost("/raise", (RaiseAlertRequest request, IControlPlaneObservability cpObs) =>
+{
+    cpObs.RaiseAlert(request.Severity, request.Component, request.Message);
+    return Results.Ok(new { raised = true, atUtc = DateTimeOffset.UtcNow });
+}).RequireAuthorization("AdminOnly");
+
 // Monitoring dashboard endpoints
 var monitoring = v1.MapGroup("/monitoring")
     .RequireAuthorization("OperatorOrAdmin");
@@ -2083,3 +2165,5 @@ public sealed record RecordAgentLoadRequest(Guid AgentId, string AgentName, int 
 public sealed record RecordModelLatencyRequest(string Provider, string Model, double LatencyMs, bool Success);
 public sealed record RegisterClusterNodeRequest(string HostName, string Role, int MaxConcurrentTasks, int MaxAgents, double CpuCores, long MemoryBytes, int GpuSlots, IReadOnlyList<string> Capabilities, Dictionary<string, string>? Labels = null);
 public sealed record NodeHeartbeatRequest(int ActiveTasks, int QueuedTasks, int ActiveAgents, double CpuUtilizationPercent, double MemoryUtilizationPercent, int GpuSlotsUsed);
+public sealed record SystemPauseRequest(string Reason);
+public sealed record RaiseAlertRequest(string Severity, string Component, string Message);

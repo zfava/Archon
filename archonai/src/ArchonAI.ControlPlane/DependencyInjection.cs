@@ -1,3 +1,4 @@
+using ArchonAI.ControlPlane.Hubs;
 using ArchonAI.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,10 @@ public static class DependencyInjection
 
         services.AddSingleton<IControlPlaneRepository, InMemoryControlPlaneRepository>();
         services.AddSingleton<IControlPlaneService, ControlPlaneService>();
+        services.AddSingleton<IControlPlaneObservability, ControlPlaneObservabilityService>();
+
+        services.AddSignalR();
+        services.AddHostedService<DashboardBroadcastService>();
 
         return services;
     }
