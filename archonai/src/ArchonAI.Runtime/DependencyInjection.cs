@@ -1,5 +1,7 @@
 using ArchonAI.Core.Interfaces;
+using ArchonAI.Core.Models.Coordination;
 using ArchonAI.Core.Models.RuntimeHealth;
+using ArchonAI.Runtime.Coordination;
 using ArchonAI.Runtime.Execution;
 using ArchonAI.Runtime.Health;
 using ArchonAI.Runtime.HostedServices;
@@ -23,10 +25,13 @@ public static class DependencyInjection
         {
             services.Configure<RuntimeHealthOptions>(
                 configuration.GetSection(RuntimeHealthOptions.SectionName));
+            services.Configure<CoordinationOptions>(
+                configuration.GetSection(CoordinationOptions.SectionName));
         }
         else
         {
             services.Configure<RuntimeHealthOptions>(_ => { });
+            services.Configure<CoordinationOptions>(_ => { });
         }
 
         services.AddSingleton<IWorkflowEngine, WorkflowEngine>();
@@ -35,6 +40,7 @@ public static class DependencyInjection
         services.AddSingleton<ITaskExecutionManager, TaskExecutionManager>();
         services.AddScoped<IRuntime, AgentRuntime>();
         services.AddSingleton<IRuntimeHealthManager, RuntimeHealthManager>();
+        services.AddSingleton<IAgentCoordinationService, AgentCoordinationService>();
         services.AddHostedService<AgentRegistrationHostedService>();
         services.AddHostedService<RuntimeHealthMonitorService>();
         return services;

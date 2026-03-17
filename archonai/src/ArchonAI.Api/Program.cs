@@ -773,6 +773,61 @@ runtimeHealth.MapPost("/check", async (IRuntimeHealthManager healthManager, Canc
     return Results.Ok(snapshot);
 });
 
+// Agent coordination endpoints
+var coordination = v1.MapGroup("/coordination")
+    .RequireAuthorization("OperatorOrAdmin");
+
+coordination.MapGet("/status", (IAgentCoordinationService coordService) =>
+    Results.Ok(coordService.GetStatus()));
+
+coordination.MapPost("/support", async (RequestTaskSupportInput input, IAgentCoordinationService coordService, CancellationToken ct) =>
+{
+    var request = new ArchonAI.Core.Models.Coordination.TaskSupportRequest(
+        Id: Guid.NewGuid(),
+        RequestingAgentId: input.RequestingAgentId,
+        RequestingAgentName: input.RequestingAgentName,
+        TaskId: input.TaskId,
+        RequiredCapability: input.RequiredCapability,
+        Reason: input.Reason,
+        Context: input.Context ?? new Dictionary<string, string>(),
+        Timeout: TimeSpan.FromSeconds(input.TimeoutSeconds ?? 60),
+        RequestedAtUtc: DateTimeOffset.UtcNow);
+    var response = await coordService.RequestTaskSupportAsync(request, ct);
+    return Results.Ok(response);
+});
+
+coordination.MapPost("/knowledge", async (ShareKnowledgeInput input, IAgentCoordinationService coordService, CancellationToken ct) =>
+{
+    var payload = new ArchonAI.Core.Models.Coordination.KnowledgeSharePayload(
+        Id: Guid.NewGuid(),
+        SourceAgentId: input.SourceAgentId,
+        SourceAgentName: input.SourceAgentName,
+        TargetAgentId: input.TargetAgentId,
+        Topic: input.Topic,
+        Content: input.Content,
+        Metadata: input.Metadata ?? new Dictionary<string, string>(),
+        SharedAtUtc: DateTimeOffset.UtcNow);
+    await coordService.ShareKnowledgeAsync(payload, ct);
+    return Results.Ok(new { payloadId = payload.Id, shared = true });
+});
+
+coordination.MapPost("/delegate", async (DelegateTaskInput input, IAgentCoordinationService coordService, CancellationToken ct) =>
+{
+    var delegation = new ArchonAI.Core.Models.Coordination.TaskDelegation(
+        Id: Guid.NewGuid(),
+        DelegatingAgentId: input.DelegatingAgentId,
+        DelegatingAgentName: input.DelegatingAgentName,
+        TargetAgentId: input.TargetAgentId,
+        TargetAgentName: input.TargetAgentName,
+        OriginalTaskId: input.OriginalTaskId,
+        RequiredCapability: input.RequiredCapability,
+        TaskInputs: input.TaskInputs ?? new Dictionary<string, string>(),
+        Timeout: TimeSpan.FromSeconds(input.TimeoutSeconds ?? 60),
+        DelegatedAtUtc: DateTimeOffset.UtcNow);
+    var result = await coordService.DelegateTaskAsync(delegation, ct);
+    return Results.Ok(result);
+});
+
 // Observability endpoints
 var observability = v1.MapGroup("/observability")
     .RequireAuthorization("OperatorOrAdmin");
@@ -1735,3 +1790,6 @@ public sealed record RecordStrategyExecutionRequest(bool IsSuccess, double Laten
 public sealed record CompareStrategiesRequest(IReadOnlyList<Guid> StrategyIds);
 public sealed record SimulateWorkflowRequest(Guid WorkflowGraphId, Guid? StrategyId = null, Dictionary<string, string>? HistoricalOverrides = null);
 public sealed record RecordHistoricalExecutionRequest(Guid WorkflowGraphId, bool IsSuccess, double LatencyMs, double Cost);
+public sealed record RequestTaskSupportInput(Guid RequestingAgentId, string RequestingAgentName, Guid TaskId, string RequiredCapability, string Reason, Dictionary<string, string>? Context = null, int? TimeoutSeconds = null);
+public sealed record ShareKnowledgeInput(Guid SourceAgentId, string SourceAgentName, Guid? TargetAgentId, string Topic, string Content, Dictionary<string, string>? Metadata = null);
+public sealed record DelegateTaskInput(Guid DelegatingAgentId, string DelegatingAgentName, Guid TargetAgentId, string TargetAgentName, Guid OriginalTaskId, string RequiredCapability, Dictionary<string, string>? TaskInputs = null, int? TimeoutSeconds = null);

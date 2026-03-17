@@ -172,6 +172,16 @@ public static class Telemetry
     public static readonly Counter<long> RuntimeWorkflowRollbacks = Meter.CreateCounter<long>("archonai.runtime.workflow.rollbacks");
     public static readonly Histogram<double> RuntimeQueueBacklog = Meter.CreateHistogram<double>("archonai.runtime.queue.backlog");
 
+    // Agent coordination metrics
+    public static readonly Counter<long> CoordinationSupportRequestsSent = Meter.CreateCounter<long>("archonai.coordination.support.requests.sent");
+    public static readonly Counter<long> CoordinationSupportRequestsReceived = Meter.CreateCounter<long>("archonai.coordination.support.requests.received");
+    public static readonly Counter<long> CoordinationSupportRequestsCompleted = Meter.CreateCounter<long>("archonai.coordination.support.requests.completed");
+    public static readonly Counter<long> CoordinationSupportRequestsTimedOut = Meter.CreateCounter<long>("archonai.coordination.support.requests.timedout");
+    public static readonly Counter<long> CoordinationKnowledgeShares = Meter.CreateCounter<long>("archonai.coordination.knowledge.shares");
+    public static readonly Counter<long> CoordinationDelegations = Meter.CreateCounter<long>("archonai.coordination.delegations");
+    public static readonly Counter<long> CoordinationDelegationsCompleted = Meter.CreateCounter<long>("archonai.coordination.delegations.completed");
+    public static readonly Counter<long> CoordinationDelegationsTimedOut = Meter.CreateCounter<long>("archonai.coordination.delegations.timedout");
+
     // Gateway metrics
     public static readonly Counter<long> GatewayRequestsTotal = Meter.CreateCounter<long>("archonai.gateway.requests.total");
     public static readonly Counter<long> GatewayRequestsFailed = Meter.CreateCounter<long>("archonai.gateway.requests.failed");
