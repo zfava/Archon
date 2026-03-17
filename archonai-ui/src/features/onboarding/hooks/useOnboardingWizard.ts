@@ -104,7 +104,7 @@ export function useOnboardingWizard() {
         })),
         strategies: template.strategies,
       });
-      setDeployResult(result);
+      setDeployResult(result as DeploymentResult);
       setState(s => ({ ...s, deploying: false, deployed: true, step: 'review' }));
     } catch (err) {
       setState(s => ({
@@ -186,7 +186,7 @@ export function useOnboardingWizard() {
           .filter(d => d.enabled)
           .map(d => ({ name: d.name, level: d.level })),
       });
-      setDeployResult(result);
+      setDeployResult(result as DeploymentResult);
       setState(s => ({ ...s, deploying: false, deployed: true }));
     } catch (err) {
       setState(s => ({

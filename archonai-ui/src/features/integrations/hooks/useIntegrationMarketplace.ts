@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { api } from '../../../api/client';
 import type {
   ConnectorInfo,
-  ConnectorCategory,
   MarketplaceState,
   ConnectionStatus,
   ConnectorStatusDetail,
