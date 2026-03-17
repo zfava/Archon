@@ -38,6 +38,27 @@
   stroke: #6366f1;
 }
 
+.cmd-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cmd-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #52525b;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.cmd-nav-link:hover {
+  color: #a1a1aa;
+}
+
 /* --- Scroll area --- */
 .cmd-scroll {
   flex: 1;
