@@ -35,6 +35,8 @@ using ArchonAI.Perception;
 using ArchonAI.Core.Models.Perception;
 using ArchonAI.OrganizationState;
 using ArchonAI.Core.Models.OrganizationState;
+using ArchonAI.Core.Models;
+using ArchonAI.Core.Models.Reasoning;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -2252,6 +2254,52 @@ goals.MapPost("/{goalId:guid}/cancel", async (Guid goalId, CancelGoalRequest req
     return Results.Ok(new { goalId, status = "cancelled" });
 }).RequireAuthorization("AdminOnly");
 
+// ══════════════════════════════════════════════════════════════
+//  Economic Evaluator
+// ══════════════════════════════════════════════════════════════
+
+var economics = v1.MapGroup("/economics")
+    .RequireAuthorization("OperatorOrAdmin");
+
+economics.MapPost("/evaluate", async (EconomicEvaluationRequest req, IEconomicEvaluator evaluator, IStrategicPlanner planner, CancellationToken ct) =>
+{
+    var objective = new Objective(
+        Id: Guid.NewGuid(),
+        Title: req.ObjectiveTitle,
+        Description: req.ObjectiveDescription,
+        Constraints: req.Constraints ?? new Dictionary<string, string>(),
+        CreatedAtUtc: DateTimeOffset.UtcNow,
+        DueAtUtc: req.Deadline);
+
+    var workflow = await planner.BuildWorkflowAsync(objective, ct);
+
+    var strategies = req.CandidateStrategies is { Count: > 0 }
+        ? req.CandidateStrategies
+        : (IReadOnlyList<string>)new[] { "balanced", "safe-mode", "throughput-optimized", "cost-optimized" };
+
+    var weights = req.Weights is not null
+        ? new EconomicWeights(req.Weights.CostWeight, req.Weights.ImpactWeight, req.Weights.SuccessProbabilityWeight, req.Weights.ExecutionTimeWeight)
+        : null;
+
+    var result = await evaluator.EvaluateStrategiesAsync(objective, workflow, strategies, weights, ct);
+    return Results.Ok(result);
+});
+
+economics.MapPost("/evaluate-single", async (SingleStrategyEvaluationRequest req, IEconomicEvaluator evaluator, IStrategicPlanner planner, CancellationToken ct) =>
+{
+    var objective = new Objective(
+        Id: Guid.NewGuid(),
+        Title: req.ObjectiveTitle,
+        Description: req.ObjectiveDescription,
+        Constraints: req.Constraints ?? new Dictionary<string, string>(),
+        CreatedAtUtc: DateTimeOffset.UtcNow,
+        DueAtUtc: req.Deadline);
+
+    var workflow = await planner.BuildWorkflowAsync(objective, ct);
+    var result = await evaluator.EvaluateSingleStrategyAsync(objective, workflow, req.Strategy, ct);
+    return Results.Ok(result);
+});
+
 app.Run();
 
 
@@ -2325,3 +2373,24 @@ public sealed record RaiseAlertRequest(string Severity, string Component, string
 public sealed record IngestSignalRequest(string SignalType, string SourceSystem, string EntityId, DateTimeOffset? Timestamp, Dictionary<string, string> Payload);
 public sealed record IngestSignalBatchRequest(IReadOnlyList<IngestSignalRequest> Signals);
 public sealed record CancelGoalRequest(string Reason);
+
+public sealed record EconomicEvaluationRequest(
+    string ObjectiveTitle,
+    string ObjectiveDescription,
+    IReadOnlyList<string>? CandidateStrategies,
+    Dictionary<string, string>? Constraints,
+    DateTimeOffset? Deadline,
+    EconomicWeightsDto? Weights);
+
+public sealed record SingleStrategyEvaluationRequest(
+    string ObjectiveTitle,
+    string ObjectiveDescription,
+    string Strategy,
+    Dictionary<string, string>? Constraints,
+    DateTimeOffset? Deadline);
+
+public sealed record EconomicWeightsDto(
+    double CostWeight,
+    double ImpactWeight,
+    double SuccessProbabilityWeight,
+    double ExecutionTimeWeight);

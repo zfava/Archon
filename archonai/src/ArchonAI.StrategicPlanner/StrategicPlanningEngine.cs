@@ -1,21 +1,26 @@
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Planning;
+using ArchonAI.Core.Models.Reasoning;
 using ArchonAI.Core.Models.Simulation;
 
 namespace ArchonAI.StrategicPlanner;
 
 /// <summary>
 /// Builds optimized workflow definitions from objective intent and constraints.
-/// Runs scenario simulations before finalizing plans.
+/// Runs scenario simulations and economic evaluations before finalizing plans.
 /// </summary>
 public sealed class StrategicPlanningEngine : IStrategicPlanner
 {
     private readonly IScenarioEngine _scenarioEngine;
+    private readonly IEconomicEvaluator _economicEvaluator;
 
-    public StrategicPlanningEngine(IScenarioEngine scenarioEngine)
+    public StrategicPlanningEngine(
+        IScenarioEngine scenarioEngine,
+        IEconomicEvaluator economicEvaluator)
     {
         _scenarioEngine = scenarioEngine;
+        _economicEvaluator = economicEvaluator;
     }
 
     public global::System.Threading.Tasks.Task<WorkflowDefinition> BuildWorkflowAsync(
@@ -93,7 +98,25 @@ public sealed class StrategicPlanningEngine : IStrategicPlanner
             ? candidateStrategies
             : (IReadOnlyList<string>)new[] { workflow.Strategy, "safe-mode", "balanced", "throughput-optimized", "cost-optimized" };
 
-        return await _scenarioEngine.ValidatePlanAsync(objective, workflow, strategies, cancellationToken);
+        // Economic evaluation ranks candidates by cost, impact, success probability, and time.
+        // Reorder candidates so the economically best strategy is evaluated first by the scenario engine.
+        EconomicEvaluationResult economicResult = await _economicEvaluator.EvaluateStrategiesAsync(
+            objective, workflow, strategies, cancellationToken: cancellationToken);
+
+        var rankedStrategies = economicResult.Evaluations
+            .OrderByDescending(e => e.EconomicScore)
+            .Select(e => e.Strategy)
+            .ToList();
+
+        // Update workflow strategy to the economically optimal choice before scenario validation
+        workflow = workflow with
+        {
+            Strategy = economicResult.BestStrategy.Strategy,
+            Summary = $"{workflow.Summary} Economic evaluation selected '{economicResult.BestStrategy.Strategy}' " +
+                      $"(score {economicResult.BestStrategy.EconomicScore:F3})."
+        };
+
+        return await _scenarioEngine.ValidatePlanAsync(objective, workflow, rankedStrategies, cancellationToken);
     }
 
     private static string SelectStrategy(IReadOnlyDictionary<string, string> constraints, Objective objective)
