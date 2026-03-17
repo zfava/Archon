@@ -37,7 +37,9 @@ using ArchonAI.OrganizationState;
 using ArchonAI.Core.Models.OrganizationState;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Evaluation;
+using ArchonAI.Core.Models.Models.Routing;
 using ArchonAI.Core.Models.Reasoning;
+using ArchonAI.ModelRouter;
 using ArchonAI.Core.Models.Simulation;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -2477,6 +2479,65 @@ outcomeEval.MapGet("/strategy/{strategy}", async (string strategy, IOutcomeEvalu
 {
     var evaluations = await evaluator.GetEvaluationsForStrategyAsync(strategy, ct);
     return Results.Ok(evaluations);
+});
+
+// ══════════════════════════════════════════════════════════════
+//  Model Routing
+// ══════════════════════════════════════════════════════════════
+
+var modelRouting = v1.MapGroup("/model-routing")
+    .RequireAuthorization("OperatorOrAdmin");
+
+modelRouting.MapPost("/adjust-weights", async (AdaptiveRoutingWeightEngine engine, CancellationToken ct) =>
+{
+    var report = await engine.AdjustWeightsAsync(ct);
+    return Results.Ok(report);
+});
+
+modelRouting.MapGet("/weights", (IModelPerformanceTracker tracker) =>
+{
+    var weights = tracker.GetRoutingWeights();
+    return Results.Ok(weights);
+});
+
+modelRouting.MapGet("/weights/{taskType}", (string taskType, IModelPerformanceTracker tracker) =>
+{
+    var weights = tracker.GetTaskTypeWeights(taskType);
+    return Results.Ok(weights);
+});
+
+modelRouting.MapGet("/scores", (IModelPerformanceTracker tracker) =>
+{
+    var scores = tracker.GetAllScores();
+    return Results.Ok(scores);
+});
+
+modelRouting.MapGet("/scores/{provider}/{model}", (string provider, string model, IModelPerformanceTracker tracker) =>
+{
+    var score = tracker.GetScore(provider, model);
+    return score is not null ? Results.Ok(score) : Results.NotFound();
+});
+
+modelRouting.MapPost("/select", (
+    string strategy,
+    string? taskType,
+    IModelPerformanceTracker tracker) =>
+{
+    var selected = tracker.SelectByWeight(strategy, taskType);
+    if (selected is null)
+        return Results.NotFound(new { message = "No eligible models found" });
+
+    var weight = tracker.GetRoutingWeight(selected.Provider, selected.Model);
+    return Results.Ok(new
+    {
+        selected.Provider,
+        selected.Model,
+        selected.CompositeScore,
+        selected.SuccessRate,
+        selected.AverageLatencyMs,
+        selected.AverageCostPerRequest,
+        RoutingWeight = weight?.Weight
+    });
 });
 
 // ══════════════════════════════════════════════════════════════

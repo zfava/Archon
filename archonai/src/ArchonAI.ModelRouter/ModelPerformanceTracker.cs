@@ -9,8 +9,14 @@ namespace ArchonAI.ModelRouter;
 public sealed class ModelPerformanceTracker : IModelPerformanceTracker
 {
     private readonly ConcurrentDictionary<string, ModelMetrics> _metrics = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, RoutingWeightEntry> _routingWeights = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, TaskTypeWeightEntry> _taskTypeWeights = new(StringComparer.OrdinalIgnoreCase);
     private readonly ITraceStore _traceStore;
     private readonly ModelRouterOptions _options;
+
+    [ThreadStatic]
+    private static Random? t_random;
+    private static Random Rng => t_random ??= new Random();
 
     public ModelPerformanceTracker(ITraceStore traceStore, IOptions<ModelRouterOptions> options)
     {
@@ -31,6 +37,23 @@ public sealed class ModelPerformanceTracker : IModelPerformanceTracker
             });
 
         _ = TraceOutcomeAsync(provider, model, success, latencyMs, cost, accuracy);
+    }
+
+    public void RecordOutcome(string provider, string model, string taskType, bool success, double latencyMs, double cost, double? accuracy)
+    {
+        // Record in main metrics
+        RecordOutcome(provider, model, success, latencyMs, cost, accuracy);
+
+        // Also record task-type-specific metrics for weight computation
+        string taskKey = $"{taskType}::{provider}::{model}";
+        _metrics.AddOrUpdate(
+            taskKey,
+            _ => new ModelMetrics(provider, model, success, latencyMs, cost, accuracy),
+            (_, existing) =>
+            {
+                existing.Record(success, latencyMs, cost, accuracy);
+                return existing;
+            });
     }
 
     public ModelPerformanceScore? GetScore(string provider, string model)
@@ -61,6 +84,123 @@ public sealed class ModelPerformanceTracker : IModelPerformanceTracker
         };
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  Routing weight management
+    // ══════════════════════════════════════════════════════════════
+
+    public IReadOnlyList<ModelRoutingWeight> GetRoutingWeights()
+    {
+        return _routingWeights.Values.Select(e => e.ToRecord()).ToList();
+    }
+
+    public ModelRoutingWeight? GetRoutingWeight(string provider, string model)
+    {
+        string key = BuildKey(provider, model);
+        return _routingWeights.TryGetValue(key, out var entry) ? entry.ToRecord() : null;
+    }
+
+    public IReadOnlyList<TaskTypeModelWeight> GetTaskTypeWeights(string taskType)
+    {
+        return _taskTypeWeights.Values
+            .Where(e => e.TaskType.Equals(taskType, StringComparison.OrdinalIgnoreCase))
+            .Select(e => e.ToRecord())
+            .ToList();
+    }
+
+    public void SetRoutingWeight(string provider, string model, double weight, string reason)
+    {
+        string key = BuildKey(provider, model);
+        _routingWeights.AddOrUpdate(
+            key,
+            _ => new RoutingWeightEntry(provider, model, weight, 0.5, reason),
+            (_, existing) => new RoutingWeightEntry(provider, model, weight, existing.Weight, reason));
+    }
+
+    public void SetTaskTypeWeight(string taskType, string provider, string model, double weight)
+    {
+        string key = $"{taskType}::{provider}::{model}";
+        var score = GetScore(provider, model);
+
+        _taskTypeWeights.AddOrUpdate(
+            key,
+            _ => new TaskTypeWeightEntry(taskType, provider, model, weight,
+                score?.SuccessRate ?? 0, score?.AverageLatencyMs ?? 0, score?.SampleCount ?? 0),
+            (_, _) => new TaskTypeWeightEntry(taskType, provider, model, weight,
+                score?.SuccessRate ?? 0, score?.AverageLatencyMs ?? 0, score?.SampleCount ?? 0));
+    }
+
+    public ModelPerformanceScore? SelectByWeight(string strategy, string? taskType = null)
+    {
+        var allScores = GetAllScores();
+        var eligible = allScores
+            .Where(s => s.SampleCount >= _options.MinSamplesForAdaptive)
+            .ToList();
+        if (eligible.Count == 0) return null;
+
+        // If task-type weights exist, use them
+        if (taskType is not null)
+        {
+            var taskWeights = GetTaskTypeWeights(taskType);
+            if (taskWeights.Count > 0)
+            {
+                var weightedCandidates = eligible
+                    .Select(s =>
+                    {
+                        var tw = taskWeights.FirstOrDefault(w =>
+                            w.Provider == s.Provider && w.Model == s.Model);
+                        return (Score: s, Weight: tw?.Weight ?? 0.1);
+                    })
+                    .ToList();
+
+                return WeightedSelect(weightedCandidates);
+            }
+        }
+
+        // Use global routing weights
+        var globalWeights = GetRoutingWeights();
+        if (globalWeights.Count > 0)
+        {
+            var weightedCandidates = eligible
+                .Select(s =>
+                {
+                    var gw = globalWeights.FirstOrDefault(w =>
+                        w.Provider == s.Provider && w.Model == s.Model);
+                    return (Score: s, Weight: gw?.Weight ?? 0.5);
+                })
+                .ToList();
+
+            return WeightedSelect(weightedCandidates);
+        }
+
+        // Fallback to original strategy-based selection
+        return GetBestModelForStrategy(strategy);
+    }
+
+    private static ModelPerformanceScore? WeightedSelect(
+        IReadOnlyList<(ModelPerformanceScore Score, double Weight)> candidates)
+    {
+        if (candidates.Count == 0) return null;
+
+        double totalWeight = candidates.Sum(c => c.Weight);
+        if (totalWeight <= 0) return candidates[0].Score;
+
+        double roll = Rng.NextDouble() * totalWeight;
+        double cumulative = 0;
+
+        foreach (var (score, weight) in candidates)
+        {
+            cumulative += weight;
+            if (roll <= cumulative)
+                return score;
+        }
+
+        return candidates[^1].Score;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  Tracing
+    // ══════════════════════════════════════════════════════════════
+
     private async System.Threading.Tasks.Task TraceOutcomeAsync(string provider, string model, bool success, double latencyMs, double cost, double? accuracy)
     {
         try
@@ -88,6 +228,19 @@ public sealed class ModelPerformanceTracker : IModelPerformanceTracker
     }
 
     private static string BuildKey(string provider, string model) => $"{provider}::{model}";
+
+    private sealed record RoutingWeightEntry(
+        string Provider, string Model, double Weight, double PreviousWeight, string Reason)
+    {
+        public ModelRoutingWeight ToRecord() => new(Provider, Model, Weight, PreviousWeight, Reason, DateTimeOffset.UtcNow);
+    }
+
+    private sealed record TaskTypeWeightEntry(
+        string TaskType, string Provider, string Model, double Weight,
+        double SuccessRate, double AverageLatencyMs, int SampleCount)
+    {
+        public TaskTypeModelWeight ToRecord() => new(TaskType, Provider, Model, Weight, SuccessRate, AverageLatencyMs, SampleCount, DateTimeOffset.UtcNow);
+    }
 
     private sealed class ModelMetrics
     {

@@ -12,6 +12,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IModelPerformanceTracker, ModelPerformanceTracker>();
         services.AddSingleton<IModelRouter, ModelRouter>();
+        services.AddSingleton<AdaptiveRoutingWeightEngine>();
         return services;
     }
 }

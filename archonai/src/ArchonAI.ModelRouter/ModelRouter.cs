@@ -28,17 +28,46 @@ public sealed class ModelRouter : IModelRouter
             return BuildDecision(explicitProvider, explicitModel, "explicit-model-requested", strategy);
         }
 
-        // 2. Task-type based routing
-        if (request.Parameters.TryGetValue("taskType", out string? taskType)
-            && !string.IsNullOrWhiteSpace(taskType)
+        // 2. Task-type based routing — weighted selection when weights exist
+        request.Parameters.TryGetValue("taskType", out string? taskType);
+        if (!string.IsNullOrWhiteSpace(taskType) && _options.EnableAdaptiveRouting)
+        {
+            var weightedResult = _performanceTracker.SelectByWeight(strategy, taskType);
+            if (weightedResult is not null)
+            {
+                var routingWeight = _performanceTracker.GetRoutingWeight(weightedResult.Provider, weightedResult.Model);
+                string weightInfo = routingWeight is not null ? $":w={routingWeight.Weight:F2}" : "";
+                return BuildDecision(
+                    weightedResult.Provider,
+                    weightedResult.Model,
+                    $"weighted-task-type:{taskType}{weightInfo}:score-{weightedResult.CompositeScore:F3}",
+                    strategy);
+            }
+        }
+
+        // 2b. Fallback to static task-type map
+        if (!string.IsNullOrWhiteSpace(taskType)
             && _options.TaskTypeModelMap.TryGetValue(taskType, out string? mappedModel))
         {
             return BuildDecision(ResolveProviderFromModel(mappedModel), mappedModel, $"task-type-route:{taskType}", strategy);
         }
 
-        // 3. Adaptive routing — use telemetry-derived scores when sufficient data exists
+        // 3. Adaptive routing — weighted selection across all models
         if (_options.EnableAdaptiveRouting)
         {
+            var weightedGlobal = _performanceTracker.SelectByWeight(strategy);
+            if (weightedGlobal is not null)
+            {
+                var routingWeight = _performanceTracker.GetRoutingWeight(weightedGlobal.Provider, weightedGlobal.Model);
+                string weightInfo = routingWeight is not null ? $":w={routingWeight.Weight:F2}" : "";
+                return BuildDecision(
+                    weightedGlobal.Provider,
+                    weightedGlobal.Model,
+                    $"weighted-adaptive:{strategy}{weightInfo}:score-{weightedGlobal.CompositeScore:F3}",
+                    strategy);
+            }
+
+            // Fallback to deterministic best-model selection
             var adaptiveDecision = TryAdaptiveRoute(strategy);
             if (adaptiveDecision is not null)
             {
