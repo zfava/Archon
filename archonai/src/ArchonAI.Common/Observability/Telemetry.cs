@@ -149,6 +149,12 @@ public static class Telemetry
     public static readonly Counter<long> AgentRegistryStatusChanges = Meter.CreateCounter<long>("archonai.agentregistry.status.changes");
     public static readonly Counter<long> AgentRegistryMetricsRecorded = Meter.CreateCounter<long>("archonai.agentregistry.metrics.recorded");
 
+    // Strategy library metrics
+    public static readonly Counter<long> StrategyLibraryCreated = Meter.CreateCounter<long>("archonai.strategylibrary.created");
+    public static readonly Counter<long> StrategyLibraryExecutionsRecorded = Meter.CreateCounter<long>("archonai.strategylibrary.executions.recorded");
+    public static readonly Counter<long> StrategyLibraryRankQueries = Meter.CreateCounter<long>("archonai.strategylibrary.rank.queries");
+    public static readonly Counter<long> StrategyLibraryComparisons = Meter.CreateCounter<long>("archonai.strategylibrary.comparisons");
+
     // Gateway metrics
     public static readonly Counter<long> GatewayRequestsTotal = Meter.CreateCounter<long>("archonai.gateway.requests.total");
     public static readonly Counter<long> GatewayRequestsFailed = Meter.CreateCounter<long>("archonai.gateway.requests.failed");

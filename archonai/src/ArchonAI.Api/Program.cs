@@ -23,6 +23,8 @@ using ArchonAI.Runtime;
 using ArchonAI.WorkflowDesigner;
 using ArchonAI.AgentRegistry;
 using ArchonAI.Core.Models.AgentRegistry;
+using ArchonAI.StrategyLibrary;
+using ArchonAI.Core.Models.StrategyLibrary;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -43,6 +45,7 @@ builder.Services.AddArchonAIAdmin(builder.Configuration);
 builder.Services.AddArchonAIControlPlane(builder.Configuration);
 builder.Services.AddArchonAIWorkflowDesigner();
 builder.Services.AddArchonAIAgentRegistry();
+builder.Services.AddArchonAIStrategyLibrary();
 
 var app = builder.Build();
 
@@ -1431,6 +1434,125 @@ agentRegistry.MapDelete("/agents/{agentId:guid}", async (
     }
 });
 
+// ── Strategy Library ────────────────────────────────────────────────
+
+var strategyLib = v1.MapGroup("/strategy-library")
+    .RequireAuthorization("OperatorOrAdmin");
+
+strategyLib.MapGet("/strategies", async (
+    string? objectiveType, string? tag, int? offset, int? limit,
+    IStrategyLibraryService slService, CancellationToken ct) =>
+{
+    var strategies = await slService.ListStrategiesAsync(objectiveType, tag, offset ?? 0, limit ?? 50, ct);
+    return Results.Ok(strategies);
+});
+
+strategyLib.MapGet("/strategies/{strategyId:guid}", async (
+    Guid strategyId, IStrategyLibraryService slService, CancellationToken ct) =>
+{
+    var strategy = await slService.GetStrategyAsync(strategyId, ct);
+    return strategy is null ? Results.NotFound() : Results.Ok(strategy);
+});
+
+strategyLib.MapPost("/strategies", async (
+    CreateStrategyTemplateRequest request,
+    IStrategyLibraryService slService, CancellationToken ct) =>
+{
+    var resourceUsage = new StrategyResourceUsage(
+        request.ResourceUsage.EstimatedCpuSeconds,
+        request.ResourceUsage.EstimatedMemoryMb,
+        request.ResourceUsage.EstimatedAgentCount,
+        request.ResourceUsage.EstimatedCostPerExecution,
+        request.ResourceUsage.CostCurrency);
+
+    var strategy = await slService.CreateStrategyAsync(
+        request.Name, request.Description, request.ObjectiveType,
+        request.WorkflowTemplate, request.SuccessMetrics,
+        resourceUsage, request.Tags, request.Metadata, ct);
+    return Results.Created($"/api/v1/strategy-library/strategies/{strategy.Id}", strategy);
+});
+
+strategyLib.MapPut("/strategies/{strategyId:guid}", async (
+    Guid strategyId, UpdateStrategyTemplateRequest request,
+    IStrategyLibraryService slService, CancellationToken ct) =>
+{
+    try
+    {
+        StrategyResourceUsage? resourceUsage = request.ResourceUsage is not null
+            ? new StrategyResourceUsage(
+                request.ResourceUsage.EstimatedCpuSeconds,
+                request.ResourceUsage.EstimatedMemoryMb,
+                request.ResourceUsage.EstimatedAgentCount,
+                request.ResourceUsage.EstimatedCostPerExecution,
+                request.ResourceUsage.CostCurrency)
+            : null;
+
+        var strategy = await slService.UpdateStrategyAsync(
+            strategyId, request.Description, request.WorkflowTemplate,
+            request.SuccessMetrics, resourceUsage, request.Tags, ct);
+        return Results.Ok(strategy);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+strategyLib.MapDelete("/strategies/{strategyId:guid}", async (
+    Guid strategyId, IStrategyLibraryService slService, CancellationToken ct) =>
+{
+    try
+    {
+        await slService.DeleteStrategyAsync(strategyId, ct);
+        return Results.Ok(new { strategyId, deleted = true });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+strategyLib.MapPost("/strategies/{strategyId:guid}/executions", async (
+    Guid strategyId, RecordStrategyExecutionRequest request,
+    IStrategyLibraryService slService, CancellationToken ct) =>
+{
+    try
+    {
+        var record = await slService.RecordExecutionAsync(
+            strategyId, request.IsSuccess, request.LatencyMs,
+            request.Cost, request.Outcomes, ct);
+        return Results.Created(
+            $"/api/v1/strategy-library/strategies/{strategyId}/executions", record);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 404);
+    }
+});
+
+strategyLib.MapGet("/ranked", async (
+    string objectiveType, int? limit,
+    IStrategyLibraryService slService, CancellationToken ct) =>
+{
+    var ranked = await slService.GetRankedStrategiesAsync(objectiveType, limit ?? 10, ct);
+    return Results.Ok(ranked);
+});
+
+strategyLib.MapPost("/compare", async (
+    CompareStrategiesRequest request,
+    IStrategyLibraryService slService, CancellationToken ct) =>
+{
+    try
+    {
+        var result = await slService.CompareStrategiesAsync(request.StrategyIds, ct);
+        return Results.Ok(result);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 400);
+    }
+});
+
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
     .RequireRateLimiting("api")
@@ -1491,3 +1613,8 @@ public sealed record RegisterAgentRequest(string Name, string Description, strin
 public sealed record UpdateAgentCapabilitiesRequest(IReadOnlyList<AgentCapabilityInput> Capabilities);
 public sealed record DisableAgentRequest(string Reason);
 public sealed record RecordAgentMetricsRequest(long TotalExecutions, long SuccessfulExecutions, long FailedExecutions, double AverageLatencyMs, double P95LatencyMs, double UptimePercent);
+public sealed record ResourceUsageInput(double EstimatedCpuSeconds, double EstimatedMemoryMb, int EstimatedAgentCount, double EstimatedCostPerExecution, string CostCurrency);
+public sealed record CreateStrategyTemplateRequest(string Name, string Description, string ObjectiveType, string WorkflowTemplate, Dictionary<string, string> SuccessMetrics, ResourceUsageInput ResourceUsage, List<string>? Tags = null, Dictionary<string, string>? Metadata = null);
+public sealed record UpdateStrategyTemplateRequest(string? Description = null, string? WorkflowTemplate = null, Dictionary<string, string>? SuccessMetrics = null, ResourceUsageInput? ResourceUsage = null, List<string>? Tags = null);
+public sealed record RecordStrategyExecutionRequest(bool IsSuccess, double LatencyMs, double Cost, Dictionary<string, string>? Outcomes = null);
+public sealed record CompareStrategiesRequest(IReadOnlyList<Guid> StrategyIds);
