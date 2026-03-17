@@ -44,6 +44,8 @@ using ArchonAI.ModelRouter;
 using ArchonAI.Core.Models.Simulation;
 using ArchonAI.Core.Models.HumanOverride;
 using ArchonAI.Core.Models.Explanation;
+using ArchonAI.Core.Models.Identity;
+using ArchonAI.Identity;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -76,9 +78,141 @@ app.UseSerilogRequestLogging();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<TenantResolutionMiddleware>();
 
 // WebSocket hub for real-time dashboard updates
 app.MapHub<ControlPlaneDashboardHub>("/hubs/control-plane-dashboard");
+
+// ── Auth endpoints (unauthenticated) ─────────────────────────
+var auth = app.MapGroup("/api/auth")
+    .AllowAnonymous()
+    .RequireRateLimiting("api")
+    .WithTags("auth");
+
+auth.MapPost("/register", async (
+    AuthenticationService authService,
+    RegisterRequest req,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password)
+        || string.IsNullOrWhiteSpace(req.OrganizationName) || string.IsNullOrWhiteSpace(req.DisplayName))
+        return Results.BadRequest(new { error = "All fields are required." });
+
+    if (req.Password.Length < 8)
+        return Results.BadRequest(new { error = "Password must be at least 8 characters." });
+
+    var result = await authService.RegisterAsync(req.OrganizationName, req.Email, req.Password, req.DisplayName, ct);
+    if (result is null)
+        return Results.Conflict(new { error = "Email already registered." });
+
+    var (org, user, tokens) = result.Value;
+    return Results.Ok(new AuthResponse(tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresAtUtc,
+        new UserInfo(user.Id, user.Email, user.DisplayName, user.Role),
+        new OrgInfo(org.Id, org.Name, org.Slug)));
+});
+
+auth.MapPost("/login", async (
+    AuthenticationService authService,
+    LoginRequest req,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password))
+        return Results.BadRequest(new { error = "Email and password are required." });
+
+    var result = await authService.LoginAsync(req.Email, req.Password, ct);
+    if (result is null)
+        return Results.Unauthorized();
+
+    var (tokens, user, org) = result.Value;
+    return Results.Ok(new AuthResponse(tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresAtUtc,
+        new UserInfo(user.Id, user.Email, user.DisplayName, user.Role),
+        new OrgInfo(org.Id, org.Name, org.Slug)));
+});
+
+auth.MapPost("/refresh", async (
+    AuthenticationService authService,
+    RefreshRequest req,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.RefreshToken))
+        return Results.BadRequest(new { error = "Refresh token is required." });
+
+    var tokens = await authService.RefreshAsync(req.RefreshToken, ct);
+    if (tokens is null)
+        return Results.Unauthorized();
+
+    return Results.Ok(new { accessToken = tokens.AccessToken, refreshToken = tokens.RefreshToken, expiresAtUtc = tokens.ExpiresAtUtc });
+});
+
+auth.MapPost("/logout", async (
+    AuthenticationService authService,
+    HttpContext ctx,
+    CancellationToken ct) =>
+{
+    var sub = ctx.User?.FindFirst("sub")?.Value;
+    if (sub is not null && Guid.TryParse(sub, out var userId))
+        await authService.LogoutAsync(userId, ct);
+    return Results.Ok(new { message = "Logged out." });
+}).RequireAuthorization();
+
+auth.MapGet("/me", async (
+    HttpContext ctx,
+    IUserStore userStore,
+    IOrganizationStore orgStore,
+    IMembershipStore membershipStore,
+    CancellationToken ct) =>
+{
+    var sub = ctx.User?.FindFirst("sub")?.Value;
+    if (sub is null || !Guid.TryParse(sub, out var userId))
+        return Results.Unauthorized();
+
+    var user = await userStore.GetByIdAsync(userId, ct);
+    if (user is null) return Results.Unauthorized();
+
+    var org = await orgStore.GetByIdAsync(user.OrganizationId, ct);
+    if (org is null) return Results.Unauthorized();
+
+    var membership = await membershipStore.GetAsync(user.Id, org.Id, ct);
+    string role = membership?.Role ?? user.Role;
+
+    return Results.Ok(new AuthResponse(null!, null!, default,
+        new UserInfo(user.Id, user.Email, user.DisplayName, role),
+        new OrgInfo(org.Id, org.Name, org.Slug)));
+}).RequireAuthorization();
+
+auth.MapPost("/invite", async (
+    AuthenticationService authService,
+    HttpContext ctx,
+    InviteRequest req,
+    CancellationToken ct) =>
+{
+    var orgIdClaim = ctx.User?.FindFirst("org_id")?.Value;
+    var subClaim = ctx.User?.FindFirst("sub")?.Value;
+    if (orgIdClaim is null || !Guid.TryParse(orgIdClaim, out var orgId)
+        || subClaim is null || !Guid.TryParse(subClaim, out var userId))
+        return Results.Unauthorized();
+
+    var result = await authService.InviteUserAsync(orgId, req.Email, req.Role ?? "Operator", userId, ct);
+    if (result is null)
+        return Results.NotFound(new { error = "Organization not found." });
+
+    return Results.Ok(new { inviteToken = result.Value.RawToken, expiresAtUtc = result.Value.Invite.ExpiresAtUtc });
+}).RequireAuthorization("AdminOnly");
+
+auth.MapPost("/accept-invite", async (
+    AuthenticationService authService,
+    AcceptInviteRequest req,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.InviteToken) || string.IsNullOrWhiteSpace(req.Password))
+        return Results.BadRequest(new { error = "Invite token and password are required." });
+
+    var result = await authService.AcceptInviteAsync(req.InviteToken, req.Password, req.DisplayName ?? "User", ct);
+    if (result is null)
+        return Results.BadRequest(new { error = "Invalid or expired invite." });
+
+    return Results.Ok(new { accessToken = result.Value.Tokens.AccessToken, refreshToken = result.Value.Tokens.RefreshToken });
+});
 
 var v1 = app.MapGroup("/api/v1")
     .RequireAuthorization()
@@ -2918,6 +3052,146 @@ overrides.MapGet("/log", async (
     return Results.Ok(log);
 });
 
+// ── Governance / Approval Gates ───────────────────────────
+var governance = v1.MapGroup("/governance")
+    .WithTags("governance");
+
+governance.MapGet("/policies", async (
+    IGovernanceService gov,
+    CancellationToken ct) =>
+{
+    var policies = await gov.ListApprovalPoliciesAsync(ct);
+    return Results.Ok(policies);
+}).RequireAuthorization("GovernanceRead");
+
+governance.MapPost("/policies", async (
+    CreateApprovalPolicyRequest req,
+    IGovernanceService gov,
+    CancellationToken ct) =>
+{
+    var policy = await gov.CreateApprovalPolicyAsync(
+        req.ActionType, req.Description, req.RequiredApproverRole,
+        req.RequireSeparationOfDuties, ct);
+    return Results.Created($"/api/v1/governance/policies/{policy.Id}", policy);
+}).RequireAuthorization("GovernanceWrite");
+
+governance.MapPost("/request", async (
+    RequestApprovalRequest req,
+    HttpContext ctx,
+    IGovernanceService gov,
+    CancellationToken ct) =>
+{
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    var userId = ctx.User?.FindFirst("sub")?.Value;
+    if (tenantId is null || userId is null) return Results.Unauthorized();
+
+    var gate = await gov.RequestApprovalAsync(
+        req.ActionType, req.ResourceId, tenantId, userId, req.Justification, ct);
+    return Results.Ok(gate);
+}).RequireAuthorization("OperatorOrAdmin");
+
+governance.MapGet("/pending", async (
+    HttpContext ctx,
+    IGovernanceService gov,
+    CancellationToken ct) =>
+{
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantId is null) return Results.Unauthorized();
+
+    var pending = await gov.ListPendingApprovalsAsync(tenantId, ct);
+    return Results.Ok(pending);
+}).RequireAuthorization("GovernanceRead");
+
+governance.MapGet("/{gateId:guid}", async (
+    Guid gateId,
+    IGovernanceService gov,
+    CancellationToken ct) =>
+{
+    var gate = await gov.GetApprovalAsync(gateId, ct);
+    return gate is null ? Results.NotFound() : Results.Ok(gate);
+}).RequireAuthorization("GovernanceRead");
+
+governance.MapPost("/{gateId:guid}/review", async (
+    Guid gateId,
+    ReviewApprovalRequest req,
+    HttpContext ctx,
+    IGovernanceService gov,
+    CancellationToken ct) =>
+{
+    var reviewerId = ctx.User?.FindFirst("sub")?.Value;
+    if (reviewerId is null) return Results.Unauthorized();
+
+    try
+    {
+        var gate = await gov.ReviewApprovalAsync(gateId, reviewerId, req.Approve, req.Notes, ct);
+        return Results.Ok(gate);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound();
+    }
+}).RequireAuthorization("GovernanceApprove");
+
+governance.MapGet("/check/{actionType}", async (
+    string actionType,
+    IGovernanceService gov,
+    CancellationToken ct) =>
+{
+    var required = await gov.RequiresApprovalAsync(actionType, ct);
+    return Results.Ok(new { actionType, requiresApproval = required });
+}).RequireAuthorization("GovernanceRead");
+
+governance.MapGet("/history", async (
+    string? tenantId,
+    string? actionType,
+    int? limit,
+    HttpContext ctx,
+    IGovernanceService gov,
+    CancellationToken ct) =>
+{
+    // Non-admins can only see their own tenant's history
+    var callerTenant = ctx.User?.FindFirst("tenant_id")?.Value;
+    var effectiveTenant = tenantId ?? callerTenant;
+
+    var history = await gov.GetApprovalHistoryAsync(effectiveTenant, actionType, limit ?? 50, ct);
+    return Results.Ok(history);
+}).RequireAuthorization("GovernanceRead");
+
+// ── Permissions introspection ─────────────────────────────
+v1.MapGet("/auth/permissions", async (
+    HttpContext ctx,
+    IRbacService rbac,
+    CancellationToken ct) =>
+{
+    var userId = ctx.User?.FindFirst("sub")?.Value;
+    if (userId is null) return Results.Unauthorized();
+
+    var roleClaim = ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+        ?? ctx.User?.FindFirst("role")?.Value;
+
+    var storePerms = await rbac.GetEffectivePermissionsAsync(userId, ct);
+
+    // Merge JWT role permissions
+    var all = new HashSet<string>(storePerms);
+    if (roleClaim is not null)
+    {
+        var rolePerms = roleClaim switch
+        {
+            "Admin" => new[] { "agents:read", "agents:write", "agents:execute", "workflows:read", "workflows:write", "workflows:execute", "connectors:read", "connectors:write", "connectors:execute", "admin:read", "admin:write", "policy:read", "policy:write", "monitoring:read", "rbac:read", "rbac:write", "governance:read", "governance:write", "governance:approve" },
+            "Operator" => new[] { "agents:read", "agents:execute", "workflows:read", "workflows:execute", "connectors:read", "connectors:execute", "monitoring:read", "policy:read", "rbac:read", "governance:read" },
+            "Viewer" => new[] { "agents:read", "workflows:read", "connectors:read", "monitoring:read", "policy:read", "rbac:read", "governance:read" },
+            _ => Array.Empty<string>()
+        };
+        foreach (var p in rolePerms) all.Add(p);
+    }
+
+    return Results.Ok(new { userId, role = roleClaim, permissions = all.Order().ToList() });
+}).RequireAuthorization();
+
 app.Run();
 
 
@@ -3089,3 +3363,49 @@ public sealed record ExplainDecisionRequest(
     IReadOnlyList<string> CandidateStrategies,
     string RequiredCapability,
     string? TaskType);
+
+// ── Auth DTOs ──────────────────────────────────────────────
+
+public sealed record RegisterRequest(
+    string OrganizationName,
+    string Email,
+    string Password,
+    string DisplayName);
+
+public sealed record LoginRequest(string Email, string Password);
+
+public sealed record RefreshRequest(string RefreshToken);
+
+public sealed record InviteRequest(string Email, string? Role);
+
+public sealed record AcceptInviteRequest(
+    string InviteToken,
+    string Password,
+    string? DisplayName);
+
+public sealed record UserInfo(Guid Id, string Email, string DisplayName, string Role);
+public sealed record OrgInfo(Guid Id, string Name, string Slug);
+
+public sealed record AuthResponse(
+    string AccessToken,
+    string RefreshToken,
+    DateTimeOffset ExpiresAtUtc,
+    UserInfo User,
+    OrgInfo Organization);
+
+// ── Governance DTOs ────────────────────────────────────────
+
+public sealed record CreateApprovalPolicyRequest(
+    string ActionType,
+    string Description,
+    string RequiredApproverRole,
+    bool RequireSeparationOfDuties);
+
+public sealed record RequestApprovalRequest(
+    string ActionType,
+    string ResourceId,
+    string Justification);
+
+public sealed record ReviewApprovalRequest(
+    bool Approve,
+    string? Notes);

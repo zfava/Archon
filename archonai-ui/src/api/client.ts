@@ -1,10 +1,35 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
+let _getAccessToken: (() => Promise<string | null>) | null = null;
+let _onUnauthorized: (() => void) | null = null;
+
+/** Wire auth into the API client. Called once from AuthProvider. */
+export function configureApiAuth(
+  getAccessToken: () => Promise<string | null>,
+  onUnauthorized: () => void,
+) {
+  _getAccessToken = getAccessToken;
+  _onUnauthorized = onUnauthorized;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+  if (_getAccessToken) {
+    const token = await _getAccessToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers: { ...headers, ...(options?.headers as Record<string, string> | undefined) },
   });
+
+  if (res.status === 401) {
+    _onUnauthorized?.();
+    throw new Error('Unauthorized');
+  }
+
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`API ${res.status}: ${body || res.statusText}`);

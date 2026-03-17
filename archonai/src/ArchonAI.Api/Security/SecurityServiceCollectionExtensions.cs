@@ -46,7 +46,9 @@ public static class SecurityServiceCollectionExtensions
             });
 
         services.AddSingleton<IRbacService, RbacService>();
+        services.AddSingleton<IGovernanceService, GovernanceService>();
         services.AddSingleton<IAuthorizationHandler, PermissionRequirementHandler>();
+        services.AddSingleton<IAuthorizationHandler, TenantMatchRequirementHandler>();
 
         services.AddAuthorizationBuilder()
             .SetFallbackPolicy(new AuthorizationPolicyBuilder()
@@ -54,11 +56,16 @@ public static class SecurityServiceCollectionExtensions
                 .Build())
             .AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"))
             .AddPolicy("OperatorOrAdmin", policy => policy.RequireRole("Operator", "Admin"))
+            .AddPolicy("ViewerOrAbove", policy => policy.RequireRole("Viewer", "Operator", "Admin"))
             .AddPolicy("AgentRead", policy => policy.Requirements.Add(new PermissionRequirement("agents:read")))
             .AddPolicy("AgentWrite", policy => policy.Requirements.Add(new PermissionRequirement("agents:write")))
             .AddPolicy("ConnectorAccess", policy => policy.Requirements.Add(new PermissionRequirement("connectors:execute")))
             .AddPolicy("PolicyManagement", policy => policy.Requirements.Add(new PermissionRequirement("policy:write")))
-            .AddPolicy("RbacManagement", policy => policy.Requirements.Add(new PermissionRequirement("rbac:write")));
+            .AddPolicy("RbacManagement", policy => policy.Requirements.Add(new PermissionRequirement("rbac:write")))
+            .AddPolicy("GovernanceRead", policy => policy.Requirements.Add(new PermissionRequirement("governance:read")))
+            .AddPolicy("GovernanceWrite", policy => policy.Requirements.Add(new PermissionRequirement("governance:write")))
+            .AddPolicy("GovernanceApprove", policy => policy.Requirements.Add(new PermissionRequirement("governance:approve")))
+            .AddPolicy("TenantScoped", policy => policy.Requirements.Add(new TenantMatchRequirement()));
 
         services.AddRateLimiter(options =>
         {
