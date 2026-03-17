@@ -5,6 +5,7 @@ import { SystemActivityView } from './features/activity';
 import { ControlPanel } from './features/control';
 import { AuditLogView } from './features/audit';
 import { ImpactDashboard } from './features/impact';
+import { AttributionView } from './features/attribution';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
       <Routes>
         <Route path="/" element={<CommandConsole />} />
         <Route path="/strategy/:goalId" element={<StrategyView />} />
+        <Route path="/attribution/:goalId" element={<AttributionView />} />
         <Route path="/activity" element={<SystemActivityView />} />
         <Route path="/control" element={<ControlPanel />} />
         <Route path="/audit" element={<AuditLogView />} />

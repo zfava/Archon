@@ -73,6 +73,9 @@ export const api = {
   getGraph: (graphId: string) =>
     request(`/task-graphs/${graphId}`),
 
+  getGraphsByGoal: (goalId: string) =>
+    request(`/task-graphs/by-goal/${goalId}`),
+
   getGraphLayers: (graphId: string) =>
     request(`/task-graphs/${graphId}/layers`),
 

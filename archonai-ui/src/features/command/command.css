@@ -625,6 +625,12 @@
   margin-top: 16px;
 }
 
+.response-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* --- Strategy view link --- */
 .sg-view-link {
   display: inline-flex;

@@ -242,14 +242,23 @@ export function CommandResponse({ result }: Props) {
         </div>
       )}
 
-      {/* Strategy visualization link */}
+      {/* Strategy visualization + attribution links */}
       {plan && (
-        <div className="response-section">
+        <div className="response-section response-links">
           <Link
             to={`/strategy/${goal.goalId}`}
             className="sg-view-link"
           >
             View Strategy Graph
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </Link>
+          <Link
+            to={`/attribution/${goal.goalId}`}
+            className="sg-view-link"
+          >
+            Explain Outcome
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
