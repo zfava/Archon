@@ -130,21 +130,13 @@ public sealed class DurableWorkflowExecutionEngine
             if (!stepResult)
             {
                 hasFailure = true;
-                if (step.AttemptCount >= record.MaxRetries)
-                {
-                    record.Status = WorkflowExecutionStatus.DeadLettered;
-                    record.FailureReason = $"Step '{step.Name}' failed after {step.AttemptCount} attempts: {step.ErrorMessage}";
-                    AddEvent(record, step.Id, "workflow.dead_lettered", null, record.FailureReason);
-                    await _store.UpdateAsync(record, ct);
-                    _logger.LogError("Workflow {WorkflowId} dead-lettered at step {StepName}", workflowId, step.Name);
-                    return record;
-                }
 
-                // Mark workflow as failed (retryable)
-                record.Status = WorkflowExecutionStatus.Failed;
-                record.FailureReason = $"Step '{step.Name}' failed: {step.ErrorMessage}";
-                AddEvent(record, step.Id, "workflow.failed", null, record.FailureReason);
+                // Step exhausted all retries within ExecuteStepWithRetryAsync — dead-letter
+                record.Status = WorkflowExecutionStatus.DeadLettered;
+                record.FailureReason = $"Step '{step.Name}' failed after {step.AttemptCount} attempts: {step.ErrorMessage}";
+                AddEvent(record, step.Id, "workflow.dead_lettered", null, record.FailureReason);
                 await _store.UpdateAsync(record, ct);
+                _logger.LogError("Workflow {WorkflowId} dead-lettered at step {StepName}", workflowId, step.Name);
                 return record;
             }
         }
@@ -247,13 +239,16 @@ public sealed class DurableWorkflowExecutionEngine
 
         record.RetryCount++;
         record.FailureReason = null;
+        record.Status = WorkflowExecutionStatus.Queued; // Reset to non-terminal so ExecuteAsync proceeds
+        record.CompletedAtUtc = null;
         AddEvent(record, null, "workflow.retry", null, $"Retry attempt {record.RetryCount}");
 
-        // Reset failed steps to pending for re-execution
+        // Reset failed steps to pending for re-execution with fresh attempt budget
         foreach (var step in record.Steps.Where(s => s.Status == StepExecutionStatus.Failed))
         {
             step.Status = StepExecutionStatus.Pending;
             step.ErrorMessage = null;
+            step.AttemptCount = 0;
         }
 
         await _store.UpdateAsync(record, ct);
@@ -266,12 +261,16 @@ public sealed class DurableWorkflowExecutionEngine
         Func<CoreTask, CancellationToken, Task<ExecutionResult>> executor,
         CancellationToken ct)
     {
-        step.Status = StepExecutionStatus.Running;
-        step.StartedAtUtc ??= DateTimeOffset.UtcNow;
-        step.AttemptCount++;
-        AddEvent(workflow, step.Id, "step.started", null,
-            $"Attempt {step.AttemptCount} for step '{step.Name}'");
-        await _store.UpdateAsync(workflow, ct);
+        // Idempotency guard: skip steps that already succeeded
+        if (step.Status == StepExecutionStatus.Succeeded)
+        {
+            AddEvent(workflow, step.Id, "step.skipped_idempotent", null,
+                $"Step '{step.Name}' already succeeded (idempotency key: {step.IdempotencyKey})");
+            await _store.UpdateAsync(workflow, ct);
+            _logger.LogDebug("Skipping already-succeeded step {StepName} ({IdempotencyKey})",
+                step.Name, step.IdempotencyKey);
+            return true;
+        }
 
         // Build a CoreTask from the step record for the executor
         var coreTask = new CoreTask(
@@ -286,54 +285,79 @@ public sealed class DurableWorkflowExecutionEngine
             StartedAtUtc: step.StartedAtUtc,
             CompletedAtUtc: null);
 
-        try
+        // Step-level retry loop with exponential backoff
+        int maxStepAttempts = workflow.MaxRetries;
+
+        while (step.AttemptCount < maxStepAttempts)
         {
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(TimeSpan.FromSeconds(_options.StepTimeoutSeconds));
+            step.Status = StepExecutionStatus.Running;
+            step.StartedAtUtc ??= DateTimeOffset.UtcNow;
+            step.AttemptCount++;
+            AddEvent(workflow, step.Id, "step.started", null,
+                $"Attempt {step.AttemptCount}/{maxStepAttempts} for step '{step.Name}'");
+            await _store.UpdateAsync(workflow, ct);
 
-            var result = await executor(coreTask, cts.Token);
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(TimeSpan.FromSeconds(_options.StepTimeoutSeconds));
 
-            if (result.IsSuccess)
-            {
-                step.Status = StepExecutionStatus.Succeeded;
-                step.CompletedAtUtc = DateTimeOffset.UtcNow;
-                step.Outputs = new Dictionary<string, string>(result.Outputs);
-                AddEvent(workflow, step.Id, "step.succeeded", null, result.Summary);
-                await _store.UpdateAsync(workflow, ct);
-                return true;
-            }
-            else
-            {
-                step.Status = StepExecutionStatus.Failed;
+                var result = await executor(coreTask, cts.Token);
+
+                if (result.IsSuccess)
+                {
+                    step.Status = StepExecutionStatus.Succeeded;
+                    step.CompletedAtUtc = DateTimeOffset.UtcNow;
+                    step.Outputs = new Dictionary<string, string>(result.Outputs);
+                    AddEvent(workflow, step.Id, "step.succeeded", null, result.Summary);
+                    await _store.UpdateAsync(workflow, ct);
+                    return true;
+                }
+
+                // Non-success result: record failure and continue retry loop
                 step.ErrorMessage = string.Join("; ", result.Errors);
-                AddEvent(workflow, step.Id, "step.failed", null, step.ErrorMessage);
+                AddEvent(workflow, step.Id, "step.failed", null,
+                    $"Attempt {step.AttemptCount} failed: {step.ErrorMessage}");
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                step.Status = StepExecutionStatus.Cancelled;
+                AddEvent(workflow, step.Id, "step.cancelled", null, "Caller cancellation");
                 await _store.UpdateAsync(workflow, ct);
-                return false;
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                step.ErrorMessage = $"Step timed out after {_options.StepTimeoutSeconds}s";
+                AddEvent(workflow, step.Id, "step.timeout", null, step.ErrorMessage);
+            }
+            catch (Exception ex)
+            {
+                step.ErrorMessage = ex.Message;
+                AddEvent(workflow, step.Id, "step.error", null, ex.Message);
+            }
+
+            // If more attempts remain, apply exponential backoff before next retry
+            if (step.AttemptCount < maxStepAttempts)
+            {
+                var delay = TimeSpan.FromMilliseconds(
+                    _options.BaseRetryDelayMs * Math.Pow(2, step.AttemptCount - 1));
+                AddEvent(workflow, step.Id, "step.retry_backoff", null,
+                    $"Waiting {delay.TotalMilliseconds:F0}ms before attempt {step.AttemptCount + 1}");
+                await _store.UpdateAsync(workflow, ct);
+
+                _logger.LogWarning(
+                    "Step {StepName} attempt {Attempt}/{Max} failed, retrying in {DelayMs}ms",
+                    step.Name, step.AttemptCount, maxStepAttempts, delay.TotalMilliseconds);
+
+                await global::System.Threading.Tasks.Task.Delay(delay, ct);
             }
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            step.Status = StepExecutionStatus.Cancelled;
-            AddEvent(workflow, step.Id, "step.cancelled", null, "Caller cancellation");
-            await _store.UpdateAsync(workflow, ct);
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            step.Status = StepExecutionStatus.Failed;
-            step.ErrorMessage = $"Step timed out after {_options.StepTimeoutSeconds}s";
-            AddEvent(workflow, step.Id, "step.timeout", null, step.ErrorMessage);
-            await _store.UpdateAsync(workflow, ct);
-            return false;
-        }
-        catch (Exception ex)
-        {
-            step.Status = StepExecutionStatus.Failed;
-            step.ErrorMessage = ex.Message;
-            AddEvent(workflow, step.Id, "step.error", null, ex.Message);
-            await _store.UpdateAsync(workflow, ct);
-            return false;
-        }
+
+        // All attempts exhausted
+        step.Status = StepExecutionStatus.Failed;
+        await _store.UpdateAsync(workflow, ct);
+        return false;
     }
 
     private static void AddEvent(

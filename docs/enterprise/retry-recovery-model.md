@@ -1,34 +1,49 @@
 # Retry and Recovery Model
 
-## Step-Level Retry
+## Step-Level Retry with Exponential Backoff
 
-Each workflow step executes within the `DurableWorkflowExecutionEngine` with:
+Each workflow step executes within the `DurableWorkflowExecutionEngine` with
+automatic retry using exponential backoff:
+
+- **Max attempts**: Controlled by `MaxRetries` (default 3)
+- **Backoff formula**: `BaseRetryDelayMs * 2^(attempt-1)` between attempts
 - **Timeout**: Configurable per-step (default 300s via `StepTimeoutSeconds`)
 - **Attempt tracking**: `AttemptCount` incremented on each execution
 - **Error capture**: `ErrorMessage` recorded on failure
 
-Steps that fail due to timeout receive `step.timeout` event with the duration.
+The retry loop handles:
+- **Failed results** (`IsSuccess = false`): retried with backoff
+- **Exceptions**: caught, recorded as `step.error` event, retried with backoff
+- **Timeouts**: recorded as `step.timeout` event, retried with backoff
+- **Caller cancellation** (`CancellationToken`): immediately propagated, no retry
+
+Audit events are recorded at each phase:
+- `step.started` — attempt begins (includes attempt number)
+- `step.retry_backoff` — waiting before next attempt (includes delay)
+- `step.failed` / `step.error` / `step.timeout` — attempt failed
 
 ## Workflow-Level Retry
 
-Retry operates at the workflow level, not individual step level:
+After step-level retries are exhausted, workflows can be retried at the
+workflow level:
 
-1. Workflow fails → status becomes `Failed`
+1. All step-level retries exhausted → workflow `DeadLettered`
 2. Operator calls `POST /executions/{id}/retry`
-3. Engine resets failed steps to `Pending`
-4. Increments `RetryCount`
-5. Re-executes from the first pending step
+3. Engine resets workflow status to `Queued`
+4. Resets failed steps to `Pending` with fresh `AttemptCount = 0`
+5. Increments `RetryCount`
+6. Re-executes from the first pending step
 
 Previously succeeded steps are NOT re-executed (idempotent skip).
 
 ## Dead-Letter
 
-When a step's `AttemptCount` reaches `MaxRetries` (default 3), the workflow
-transitions to `DeadLettered` — a terminal state indicating the workflow
-requires manual investigation.
+When a step exhausts all `MaxRetries` attempts within a single execution, the
+workflow transitions to `DeadLettered` — a terminal state indicating the
+workflow requires manual investigation.
 
 Dead-lettered workflows can still be retried via the API, but this is an
-explicit operator action, not automatic.
+explicit operator action, not automatic. Retry resets the attempt budget.
 
 ## Configuration
 

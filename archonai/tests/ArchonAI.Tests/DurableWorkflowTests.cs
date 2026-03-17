@@ -108,18 +108,19 @@ public class DurableWorkflowTests : IDisposable
     }
 
     [Fact]
-    public async Task Workflow_FailedStep_MarksWorkflowFailed()
+    public async Task Workflow_FailedStep_DeadLettersAfterRetries()
     {
         var tasks = MakeTasks(2);
         var record = await _engine.CreateWorkflowAsync("fail-wf", "1.0", "t1", "user-a", tasks);
 
         var result = await _engine.ExecuteAsync(record.Id, FailExecutor);
 
-        Assert.Equal(WorkflowExecutionStatus.Failed, result.Status);
+        // Step-level retry exhausted all 3 attempts → dead-lettered
+        Assert.Equal(WorkflowExecutionStatus.DeadLettered, result.Status);
         Assert.NotNull(result.FailureReason);
         Assert.Contains("Test failure", result.FailureReason);
-        // First step failed, second never ran
         Assert.Equal(StepExecutionStatus.Failed, result.Steps[0].Status);
+        Assert.Equal(3, result.Steps[0].AttemptCount); // All retries used
         Assert.Equal(StepExecutionStatus.Pending, result.Steps[1].Status);
     }
 
@@ -159,6 +160,7 @@ public class DurableWorkflowTests : IDisposable
 
         var stored = await _store.GetAsync(record.Id);
         Assert.Contains("Test failure", stored!.Steps[0].ErrorMessage);
+        Assert.Equal(3, stored.Steps[0].AttemptCount); // All retries exhausted
     }
 
     // ── Dead-Letter Tests ────────────────────────────────────────────
@@ -220,7 +222,7 @@ public class DurableWorkflowTests : IDisposable
     {
         var tasks = MakeTasks(2);
         var record = await _engine.CreateWorkflowAsync("wf", "1.0", "t1", "u", tasks);
-        await _engine.ExecuteAsync(record.Id, FailExecutor); // Fails first step
+        await _engine.ExecuteAsync(record.Id, FailExecutor); // Exhausts retries → dead-lettered
 
         // Now retry with success
         var result = await _engine.RetryWorkflowAsync(record.Id, SuccessExecutor);
@@ -394,6 +396,219 @@ public class DurableWorkflowTests : IDisposable
         Assert.Equal("2.5.1", record.Version);
         var stored = await _store.GetAsync(record.Id);
         Assert.Equal("2.5.1", stored!.Version);
+    }
+
+    // ── Step-Level Retry With Backoff Tests ─────────────────────────
+
+    [Fact]
+    public async Task StepRetry_SucceedsAfterTransientFailures()
+    {
+        int callCount = 0;
+        Task<ExecutionResult> TransientThenSuccess(CoreTask task, CancellationToken ct)
+        {
+            callCount++;
+            bool success = callCount >= 2; // Fail first attempt, succeed on second
+            return Task.FromResult(new ExecutionResult(
+                task.Id, success, success ? "OK" : "Transient error",
+                success ? new Dictionary<string, string> { ["result"] = "recovered" } : new Dictionary<string, string>(),
+                Array.Empty<string>(),
+                success ? Array.Empty<string>() : new[] { "Transient failure" },
+                DateTimeOffset.UtcNow));
+        }
+
+        var tasks = MakeTasks(1);
+        var record = await _engine.CreateWorkflowAsync("retry-wf", "1.0", "t1", "u", tasks);
+
+        var result = await _engine.ExecuteAsync(record.Id, TransientThenSuccess);
+
+        Assert.Equal(WorkflowExecutionStatus.Succeeded, result.Status);
+        Assert.Equal(2, result.Steps[0].AttemptCount); // Took 2 attempts
+        Assert.Equal("recovered", result.Steps[0].Outputs["result"]);
+
+        // Verify backoff events were recorded
+        var eventTypes = result.Events.Select(e => e.EventType).ToList();
+        Assert.Contains("step.retry_backoff", eventTypes);
+    }
+
+    [Fact]
+    public async Task StepRetry_ExhaustsAllAttempts_DeadLetters()
+    {
+        var tasks = MakeTasks(1);
+        var record = await _engine.CreateWorkflowAsync("exhaust-wf", "1.0", "t1", "u", tasks);
+
+        var result = await _engine.ExecuteAsync(record.Id, FailExecutor);
+
+        Assert.Equal(WorkflowExecutionStatus.DeadLettered, result.Status);
+        Assert.Equal(3, result.Steps[0].AttemptCount); // MaxRetries = 3
+
+        // Verify each attempt was recorded
+        var startEvents = result.Events.Where(e => e.EventType == "step.started").ToList();
+        Assert.Equal(3, startEvents.Count);
+    }
+
+    [Fact]
+    public async Task StepRetry_ExceptionRetriedWithBackoff()
+    {
+        int callCount = 0;
+        Task<ExecutionResult> ThrowThenSucceed(CoreTask task, CancellationToken ct)
+        {
+            callCount++;
+            if (callCount < 3)
+                throw new InvalidOperationException("Transient exception");
+
+            return Task.FromResult(new ExecutionResult(
+                task.Id, true, "OK",
+                new Dictionary<string, string>(),
+                Array.Empty<string>(), Array.Empty<string>(),
+                DateTimeOffset.UtcNow));
+        }
+
+        var tasks = MakeTasks(1);
+        var record = await _engine.CreateWorkflowAsync("exc-retry-wf", "1.0", "t1", "u", tasks);
+
+        var result = await _engine.ExecuteAsync(record.Id, ThrowThenSucceed);
+
+        Assert.Equal(WorkflowExecutionStatus.Succeeded, result.Status);
+        Assert.Equal(3, result.Steps[0].AttemptCount);
+
+        // Verify error events were recorded for the failed attempts
+        var errorEvents = result.Events.Where(e => e.EventType == "step.error").ToList();
+        Assert.Equal(2, errorEvents.Count);
+    }
+
+    // ── Idempotency Guard Tests ──────────────────────────────────────
+
+    [Fact]
+    public async Task IdempotencyGuard_SkipsAlreadySucceededSteps()
+    {
+        var tasks = MakeTasks(3);
+        var record = await _engine.CreateWorkflowAsync("idem-wf", "1.0", "t1", "u", tasks);
+
+        var callsByTask = new Dictionary<Guid, int>();
+        Task<ExecutionResult> SucceedFirstTwoFailThird(CoreTask task, CancellationToken ct)
+        {
+            if (!callsByTask.ContainsKey(task.Id))
+                callsByTask[task.Id] = 0;
+            callsByTask[task.Id]++;
+
+            // Steps 1 and 2 succeed, step 3 always fails
+            if (task.Order <= 2)
+                return SuccessExecutor(task, ct);
+            return FailExecutor(task, ct);
+        }
+
+        var result = await _engine.ExecuteAsync(record.Id, SucceedFirstTwoFailThird);
+
+        // Steps 1-2 succeeded, step 3 dead-lettered
+        Assert.Equal(WorkflowExecutionStatus.DeadLettered, result.Status);
+        Assert.Equal(StepExecutionStatus.Succeeded, result.Steps[0].Status);
+        Assert.Equal(StepExecutionStatus.Succeeded, result.Steps[1].Status);
+        Assert.Equal(StepExecutionStatus.Failed, result.Steps[2].Status);
+
+        // Now retry — steps 1 and 2 should be skipped via idempotency guard
+        callsByTask.Clear();
+        var retried = await _engine.RetryWorkflowAsync(record.Id, SuccessExecutor);
+
+        Assert.Equal(WorkflowExecutionStatus.Succeeded, retried.Status);
+
+        // Step 3 was re-executed, steps 1-2 were skipped
+        var skipEvents = retried.Events.Where(e => e.EventType == "step.skipped_idempotent").ToList();
+        Assert.Empty(skipEvents); // Steps 1-2 keep their succeeded status, only step 3 was reset to pending
+        // The key behavior: RetryWorkflowAsync only resets Failed steps, not Succeeded ones
+        Assert.Equal(StepExecutionStatus.Succeeded, retried.Steps[0].Status);
+        Assert.Equal(StepExecutionStatus.Succeeded, retried.Steps[1].Status);
+        Assert.Equal(StepExecutionStatus.Succeeded, retried.Steps[2].Status);
+    }
+
+    [Fact]
+    public async Task IdempotencyGuard_DirectlySkipsSucceededStep()
+    {
+        // Manually set a step as succeeded and verify ExecuteAsync skips it
+        var tasks = MakeTasks(2);
+        var record = await _engine.CreateWorkflowAsync("idem-direct", "1.0", "t1", "u", tasks);
+
+        // Manually mark step 1 as succeeded
+        record.Steps[0].Status = StepExecutionStatus.Succeeded;
+        record.Steps[0].CompletedAtUtc = DateTimeOffset.UtcNow;
+        record.Steps[0].Outputs = new Dictionary<string, string> { ["pre"] = "existing" };
+        await _store.UpdateAsync(record);
+
+        // Execute — step 1 should be skipped, step 2 should run
+        int executorCalls = 0;
+        Task<ExecutionResult> CountingExecutor(CoreTask task, CancellationToken ct)
+        {
+            executorCalls++;
+            return SuccessExecutor(task, ct);
+        }
+
+        var result = await _engine.ExecuteAsync(record.Id, CountingExecutor);
+
+        Assert.Equal(WorkflowExecutionStatus.Succeeded, result.Status);
+        // Only step 2 should have been called by the executor (step 1 skipped)
+        Assert.Equal(1, executorCalls);
+        // Step 1 should retain its pre-existing outputs
+        Assert.Equal("existing", result.Steps[0].Outputs["pre"]);
+    }
+
+    // ── Restart Recovery Survival Tests ───────────────────────────────
+
+    [Fact]
+    public async Task RestartRecovery_PartiallyCompleteWorkflow_ResumesFromLastPending()
+    {
+        var filePath = Path.Combine(_tempDir, "partial-resume.json");
+        var opts = Options.Create(new WorkflowRuntimeOptions
+        {
+            PersistencePath = filePath,
+            MaxRetries = 3,
+            BaseRetryDelayMs = 10,
+            StepTimeoutSeconds = 5,
+        });
+
+        // First "process lifetime": create workflow, execute step 1, then "crash"
+        var store1 = new DurableWorkflowStore(opts, NullLogger<DurableWorkflowStore>.Instance);
+        var engine1 = new DurableWorkflowExecutionEngine(
+            new StubWorkflowExecutionEngine(), store1, opts,
+            NullLogger<DurableWorkflowExecutionEngine>.Instance);
+
+        var tasks = MakeTasks(3);
+        var record = await engine1.CreateWorkflowAsync("partial-wf", "1.0", "t1", "u", tasks);
+
+        // Manually simulate partial completion: step 1 succeeded, step 2 running (interrupted)
+        record.Steps[0].Status = StepExecutionStatus.Succeeded;
+        record.Steps[0].CompletedAtUtc = DateTimeOffset.UtcNow;
+        record.Steps[0].AttemptCount = 1;
+        record.Steps[1].Status = StepExecutionStatus.Failed; // Was running, crashed → mark as failed
+        record.Steps[1].AttemptCount = 1;
+        record.Status = WorkflowExecutionStatus.Running;
+        record.StartedAtUtc = DateTimeOffset.UtcNow;
+        await store1.UpdateAsync(record);
+
+        await Task.Delay(200); // Ensure fire-and-forget flush completes before dispose
+        store1.Dispose();
+
+        // Second "process lifetime": new store, resume
+        var store2 = new DurableWorkflowStore(opts, NullLogger<DurableWorkflowStore>.Instance);
+        var engine2 = new DurableWorkflowExecutionEngine(
+            new StubWorkflowExecutionEngine(), store2, opts,
+            NullLogger<DurableWorkflowExecutionEngine>.Instance);
+
+        int executorCalls = 0;
+        Task<ExecutionResult> CountingSuccess(CoreTask task, CancellationToken ct)
+        {
+            executorCalls++;
+            return SuccessExecutor(task, ct);
+        }
+
+        var resumed = await engine2.ResumeAfterRestartAsync(CountingSuccess);
+
+        Assert.Single(resumed);
+        Assert.Equal(WorkflowExecutionStatus.Succeeded, resumed[0].Status);
+        // Step 1 was already succeeded → skipped by idempotency guard or filter
+        // Steps 2 and 3 should have been executed
+        Assert.Equal(2, executorCalls);
+        Assert.Contains(resumed[0].Events, e => e.EventType == "workflow.resumed_after_restart");
+
+        store2.Dispose();
     }
 
     // ── Minimal stub for IWorkflowExecutionEngine ────────────────────

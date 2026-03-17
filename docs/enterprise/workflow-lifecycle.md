@@ -43,12 +43,12 @@
 1. **Create** → `WorkflowExecutionStatus.Queued`, all steps `Pending`
 2. **Execute** → status moves to `Running`, steps execute in order
 3. Each step:
-   - Transitions to `Running`
-   - Executes with timeout
-   - Records `Succeeded` with outputs, or `Failed` with error
-4. On step failure:
-   - If attempt count < max retries → workflow `Failed` (retryable)
-   - If attempt count >= max retries → workflow `DeadLettered`
+   - Idempotency guard: if step already `Succeeded`, skip with `step.skipped_idempotent` event
+   - Otherwise, enter step-level retry loop (up to `MaxRetries` attempts)
+   - Each attempt: transitions to `Running`, executes with timeout
+   - On success: records `Succeeded` with outputs
+   - On failure: exponential backoff, then retry
+4. If all step-level retries exhausted → workflow `DeadLettered`
 5. On all steps success → workflow `Succeeded`
 
 ## Cancellation
@@ -92,3 +92,5 @@ Every state transition produces a `WorkflowEvent`:
 | `step.timeout` | Step exceeds timeout |
 | `step.error` | Step throws exception |
 | `step.cancelled` | Step cancelled |
+| `step.retry_backoff` | Waiting before next retry attempt |
+| `step.skipped_idempotent` | Step skipped (already succeeded) |
