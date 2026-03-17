@@ -18,13 +18,13 @@ This directory contains the product-truth audit and enterprise remediation bluep
 
 ### Highest-Risk Truth Gaps
 
-1. **No real user authentication** - JWT infrastructure exists but no login/token-issuance flow; no SSO/OIDC integration
-2. **Default in-memory state** - All runtime state lost on restart unless PostgreSQL/NATS explicitly configured
-3. **No database migrations** - Schema bootstrapped via ad-hoc `CREATE TABLE IF NOT EXISTS`; no versioned migration framework
-4. **Audit log is in-memory** - The immutable audit chain (SHA256 checksums) lives in ConcurrentDictionary; not persisted
-5. **No secrets management** - JWT signing keys in config/env vars; no Vault/KMS integration
-6. **No end-to-end tests** - 25 test files exist but all are unit tests with mocked dependencies
-7. **No LLM API keys or real model calls validated** - ModelRouter references providers but no integration tests prove real LLM calls work
+1. **ALL LLM model providers are mocked** - OpenAI, Anthropic, Azure, and Local providers all echo the prompt back without making any HTTP call. Zero AI-generated output anywhere in the system.
+2. **No real user authentication** - JWT infrastructure exists but no login/token-issuance flow; no SSO/OIDC integration
+3. **Default in-memory state** - All runtime state lost on restart unless PostgreSQL/NATS explicitly configured
+4. **No database migrations** - Schema bootstrapped via ad-hoc `CREATE TABLE IF NOT EXISTS`; no versioned migration framework
+5. **Audit log is in-memory** - The immutable audit chain (SHA256 checksums) lives in ConcurrentDictionary; not persisted
+6. **No secrets management** - JWT signing keys in config/env vars; no Vault/KMS integration
+7. **No end-to-end tests** - 25 test files exist but all are unit tests with mocked dependencies
 8. **Multi-tenancy is decorator-only** - Tenant isolation is key-prefix scoping over in-memory stores; no database-level isolation
 
 ### What IS Real

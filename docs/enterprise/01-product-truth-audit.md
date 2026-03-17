@@ -95,16 +95,25 @@
 
 ## 5. AI Execution
 
-### ArchonAI.ModelRouter — production-real
+### ArchonAI.ModelRouter — production-real (routing logic only)
 - Adaptive weight-based routing across LLM providers (OpenAI, Anthropic, Azure, local)
 - Performance tracking: success rate, latency, cost, accuracy
 - Composite scoring: `successRate * 0.35 + accuracy * 0.30 + latencyScore * 0.20 + costScore * 0.15`
 - Fallback chain support
-- **Caveat:** No integration tests proving real LLM API calls work end-to-end
+- **Critical caveat:** The routing logic is real, but the model providers it routes to are ALL mocked (see ArchonAI.Models below)
 
-### ArchonAI.Agents (Base) — production-real
-- ToolEnabledAgent base class with real model generation and tool execution
-- Integrates with model routing and tool framework
+### ArchonAI.Models — mocked/placeholder
+- 4 model provider implementations: OpenAiModelProvider, AnthropicModelProvider, AzureOpenAiModelProvider, LocalModelProvider
+- **ALL providers are echo-back stubs.** They return `$"[{provider}:{model}] {prompt}"` without making any HTTP calls
+- `HttpClient` is registered in DI but never used by any provider
+- `appsettings.json` defines API keys and endpoints but they are never read by the providers
+- **This means: no LLM call in the entire system produces a real AI response**
+- Configuration exists (`ModelProviders.OpenAI.ApiKey`, etc.) but is cosmetic
+
+### ArchonAI.Agents (Base) — partially-real
+- ToolEnabledAgent base class with real execution loop and tool framework
+- Calls `_modelProvider.GenerateAsync()` — but model providers are mocked (echo-back only)
+- Tool execution framework is real; AI-generated decisions are not
 
 ### ArchonAI.Agents.Sales — production-real
 - SalesEngine: pipeline analysis, opportunity prioritization, outreach recommendations
@@ -130,6 +139,12 @@
 ---
 
 ## 6. Workflow / Runtime
+
+### ArchonAI.Reasoner — partially-real
+- EconomicEvaluator: real weighted scoring with cost/impact/success/time factors
+- OutcomeEvaluator: real expected-vs-actual comparison with deviation analysis (590 lines)
+- ExplanationEngine: real decision explanation generation with factor breakdowns
+- **ReasoningEngine is rule-based only:** degrades to "safe-mode" if any failure, otherwise "standard" — no actual AI reasoning, no causal analysis, no hypothesis testing
 
 ### ArchonAI.Orchestrator — production-real
 - DistributedTaskOrchestrator: priority queues, governance validation, retry with exponential backoff

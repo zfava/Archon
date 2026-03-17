@@ -40,12 +40,13 @@
 - Evidence: `archonai/src/ArchonAI.Policy/PolicyEngine.cs`, `archonai/src/ArchonAI.Governance/GovernanceKernel.cs`
 
 ### Claim: "Adaptive model routing"
-**Verdict: TRUE**
+**Verdict: TRUE (routing logic) / FALSE (actual LLM calls)**
 - ModelRouter with strategy-based selection (cost, latency, quality optimization)
 - AdaptiveRoutingWeightEngine with performance-weighted model selection
 - ModelPerformanceTracker with composite scoring across 4 dimensions
 - Fallback chain support across providers
-- Evidence: `archonai/src/ArchonAI.ModelRouter/` (5 files)
+- **Critical caveat:** The routing logic is production-real, but ALL 4 model providers (OpenAI, Anthropic, Azure, Local) are echo-back stubs that return `$"[provider:model] {prompt}"` without making HTTP calls
+- Evidence: `archonai/src/ArchonAI.ModelRouter/` (5 files), `archonai/src/ArchonAI.Models/` (4 providers, all mocked)
 
 ### Claim: "Knowledge graph and organizational memory"
 **Verdict: TRUE**
@@ -87,6 +88,16 @@
 ---
 
 ## What ArchonAI CANNOT Truthfully Claim Today
+
+### Claim: "AI-powered decisions and responses"
+**Verdict: FALSE**
+- All 4 LLM model providers (`OpenAiModelProvider`, `AnthropicModelProvider`, `AzureOpenAiModelProvider`, `LocalModelProvider`) are echo-back stubs
+- They return `$"[provider:model] {prompt}"` — the prompt is echoed, not processed by any LLM
+- `HttpClient` is registered in DI but **never used** by any model provider
+- `appsettings.json` defines API keys and endpoints but they are **never read** by the providers
+- The entire intelligence loop, agent execution, and reasoning pipeline runs, but produces no actual AI-generated output
+- ReasoningEngine is rule-based only (if failures → "safe-mode", else → "standard")
+- **Gap:** This is the single largest truth gap in the codebase. The platform orchestrates real workflows but produces no AI intelligence.
 
 ### Claim: "Enterprise-grade authentication and SSO"
 **Verdict: FALSE**

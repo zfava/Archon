@@ -39,13 +39,14 @@ Phase 3: Scale & Polish (4-6 weeks)
 - Role/assignment changes survive pod restart
 - `dotnet ef migrations list` shows version history
 
-### Sprint 0.2 — Auth & Secrets (5 days)
+### Sprint 0.2 — LLM Providers, Auth & Secrets (5 days)
 
 | Task | Owner | Deliverable |
 |------|-------|-------------|
+| Implement real LLM model providers | Backend | Wire `OpenAiModelProvider`, `AnthropicModelProvider`, `AzureOpenAiModelProvider` to make actual HTTP calls using the already-registered `HttpClient` |
 | Implement JWT token issuance | Backend | `/auth/token` endpoint with username/password |
 | Add refresh token flow | Backend | `/auth/refresh` endpoint with rotation |
-| Integrate Vault for secrets | DevOps | Vault sidecar injector or External Secrets Operator |
+| Integrate Vault for secrets (incl. LLM API keys) | DevOps | Vault sidecar injector or External Secrets Operator |
 | Remove plain-text secrets from Helm | DevOps | Secrets reference Vault paths |
 | Add basic login page | Frontend | Login form → `/auth/token` → store in httpOnly cookie |
 
@@ -56,8 +57,9 @@ Phase 3: Scale & Polish (4-6 weeks)
 - Frontend login flow works end-to-end
 
 ### Exit Criteria for Phase 0
-- [ ] All 6 P0 items resolved
+- [ ] All 7 P0 items resolved
 - [ ] System boots with durable persistence by default
+- [ ] At least one LLM provider returns real AI-generated responses
 - [ ] At least one user can log in and execute a command
 - [ ] No plain-text secrets in config or source control
 
@@ -222,12 +224,13 @@ Phase 3: Scale & Polish (4-6 weeks)
 
 ```
 Phase 0 (Truth Lock)
-├── P0-006: Default persistence ──┐
+├── P0-007: Default persistence ──┐
 ├── P0-005: DB migrations ────────┤
 ├── P0-002: Audit persistence ────┤── Sprint 0.1 (PostgreSQL required first)
 ├── P0-003: RBAC persistence ─────┘
-├── P0-001: User auth ────────────┐
-└── P0-004: Secrets management ───┘── Sprint 0.2 (auth + secrets together)
+├── P0-006: Real LLM providers ──┐
+├── P0-001: User auth ────────────┤── Sprint 0.2 (LLM + auth + secrets)
+└── P0-004: Secrets management ───┘
 
 Phase 1 (Production Foundation)
 ├── P1-001: Core tests ───────────── Sprint 1.1 (independent)

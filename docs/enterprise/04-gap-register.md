@@ -50,7 +50,15 @@
 - **Files:** New: `archonai/src/ArchonAI.Infrastructure/Migrations/`
 - **Effort:** Small (3-4 days)
 
-### P0-006: Default configuration is all-in-memory
+### P0-006: All LLM model providers are mocked
+- **Subsystem:** AI Execution / Models
+- **Current:** All 4 model providers (OpenAI, Anthropic, Azure, Local) echo back the prompt as `$"[provider:model] {prompt}"`. No HTTP calls to any LLM API.
+- **Impact:** The platform produces zero AI-generated output. The entire intelligence loop runs but every "AI response" is just the prompt echoed back. This is the single largest truth gap.
+- **Files:** `archonai/src/ArchonAI.Models/OpenAiModelProvider.cs`, `AnthropicModelProvider.cs`, `AzureOpenAiModelProvider.cs`, `LocalModelProvider.cs`
+- **Fix:** Implement real HTTP calls to LLM APIs using the already-registered HttpClient. The routing, fallback, and performance tracking infrastructure is production-ready — only the provider implementations need to be wired to real endpoints.
+- **Effort:** Medium (1 week) — the HttpClient, config, and routing are already in place
+
+### P0-007: Default configuration is all-in-memory
 - **Subsystem:** Infrastructure
 - **Current:** Empty `ConnectionString` → in-memory; `UseNats=false` → in-memory event bus
 - **Impact:** Default deployment loses all state on restart; misleading for anyone deploying without reading docs
@@ -279,8 +287,8 @@
 
 | Priority | Count | Effort Range |
 |----------|-------|-------------|
-| P0 | 6 | 4-7 weeks total |
+| P0 | 7 | 5-8 weeks total |
 | P1 | 10 | 6-10 weeks total |
 | P2 | 12 | 12-18 weeks total |
 | P3 | 9 | 6-10 weeks total |
-| **Total** | **37** | **28-45 weeks** |
+| **Total** | **38** | **29-46 weeks** |
