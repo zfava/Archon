@@ -96,6 +96,26 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  // ── Reasoner / Outcome Evaluation ──────────────────────────
+
+  getOutcomeEvaluationsForGoal: (goalId: string) =>
+    request(`/outcome-evaluation/goal/${goalId}`),
+
+  getOutcomeEvaluationsForStrategy: (strategy: string) =>
+    request(`/outcome-evaluation/strategy/${encodeURIComponent(strategy)}`),
+
+  evaluateEconomicsSingle: (body: {
+    objectiveTitle: string;
+    objectiveDescription: string;
+    strategy: string;
+    constraints?: Record<string, string>;
+    deadline?: string;
+  }) =>
+    request('/economics/evaluate-single', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   // ── Control Plane ──────────────────────────────────────────
 
   // Policies

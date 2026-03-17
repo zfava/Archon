@@ -646,3 +646,252 @@
   border-color: #6366f1;
   color: #818cf8;
 }
+
+/* ═══════════════════════════════════════════════════════
+   Decision Card — confidence + risk + reasoning
+   ═══════════════════════════════════════════════════════ */
+
+.decision-card {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.decision-header {
+  margin-bottom: 10px;
+}
+
+.decision-title-row {
+  margin-bottom: 8px;
+}
+
+.decision-scores {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.decision-score-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.decision-score-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #52525b;
+  margin-bottom: 6px;
+}
+
+.decision-confidence-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.decision-conf-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: #27272a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.decision-conf-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease-out;
+}
+
+.decision-conf-bar[data-level='high']   { background: #4ade80; }
+.decision-conf-bar[data-level='medium'] { background: #facc15; }
+.decision-conf-bar[data-level='low']    { background: #ef4444; }
+
+/* --- Decision reasoning toggle --- */
+
+.decision-reasoning {
+  border-top: 1px solid #27272a;
+  padding-top: 10px;
+}
+
+.decision-why-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: #6366f1;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 6px;
+  transition: color 0.15s;
+}
+
+.decision-why-btn:hover {
+  color: #818cf8;
+}
+
+.decision-why-btn svg {
+  transition: transform 0.2s;
+}
+
+.decision-chevron--open {
+  transform: rotate(90deg);
+}
+
+.decision-reason-text {
+  font-size: 13px;
+  color: #a1a1aa;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* --- Decision expanded detail --- */
+
+.decision-detail {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #27272a;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.decision-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.decision-detail-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #52525b;
+}
+
+.decision-assessment-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 4px;
+  width: fit-content;
+  background: #1c1c1f;
+  color: #a1a1aa;
+}
+
+.decision-assessment-badge[data-assessment='success'],
+.decision-assessment-badge[data-assessment='successful'] {
+  background: #052e16;
+  color: #4ade80;
+}
+
+.decision-assessment-badge[data-assessment='partial'],
+.decision-assessment-badge[data-assessment='mixed'] {
+  background: #2e2a1a;
+  color: #facc15;
+}
+
+.decision-assessment-badge[data-assessment='failure'],
+.decision-assessment-badge[data-assessment='failed'] {
+  background: #3b1111;
+  color: #ef4444;
+}
+
+.decision-insight-list,
+.decision-rec-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.decision-insight-list li,
+.decision-rec-list li {
+  font-size: 12px;
+  color: #a1a1aa;
+  padding: 3px 0 3px 16px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.decision-insight-list li::before {
+  content: '\2022';
+  position: absolute;
+  left: 4px;
+  color: #6366f1;
+}
+
+.decision-rec-list li::before {
+  content: '\2192';
+  position: absolute;
+  left: 2px;
+  color: #4ade80;
+  font-size: 11px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Risk Indicator — gauge arc + labels
+   ═══════════════════════════════════════════════════════ */
+
+.risk-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.risk-indicator--sm {
+  gap: 1px;
+}
+
+.risk-gauge {
+  display: block;
+}
+
+.risk-label-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.risk-pct {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.risk-indicator--sm .risk-pct {
+  font-size: 12px;
+}
+
+.risk-level-text {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+/* --- Risk badge (comparison table) --- */
+
+.risk-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: capitalize;
+}
+
+.risk-badge--low      { background: #052e16; color: #4ade80; }
+.risk-badge--medium   { background: #2e2a1a; color: #facc15; }
+.risk-badge--high     { background: #2e1a0a; color: #f97316; }
+.risk-badge--critical { background: #3b1111; color: #ef4444; }

@@ -120,6 +120,100 @@ export interface SimulationGuidedPlan {
   plannedAtUtc: string;
 }
 
+// ── Outcome Evaluation (from Reasoner) ────────────────────────
+
+export interface SuccessMetrics {
+  successRate: number;
+  accuracyScore: number;
+  durationAccuracy: number;
+  costAccuracy: number;
+  riskPredictionAccuracy: number;
+  totalNodes: number;
+  succeededNodes: number;
+  failedNodes: number;
+  overallScore: number;
+}
+
+export interface ExpectedVsActual {
+  expectedSuccessProbability: number;
+  actualSuccess: boolean;
+  expectedDurationHours: number;
+  actualDurationHours: number;
+  durationDeviationPercent: number;
+  expectedCost: number;
+  actualCost: number;
+  costDeviationPercent: number;
+  expectedRiskScore: number;
+  riskPredictionCorrect: boolean;
+}
+
+export interface NodeEvaluationResult {
+  nodeId: string;
+  nodeName: string;
+  agentType: string;
+  predictedSuccessProbability: number;
+  actualSuccess: boolean;
+  predictedDurationHours: number;
+  actualDurationHours: number;
+  predictedCost: number;
+  actualCost: number;
+  wasOnCriticalPath: boolean;
+  assessment: string;
+}
+
+export interface OutcomeEvaluationResult {
+  evaluationId: string;
+  graphId: string;
+  goalId: string;
+  strategy: string;
+  successMetrics: SuccessMetrics;
+  comparison: ExpectedVsActual;
+  nodeEvaluations: NodeEvaluationResult[];
+  insights: string[];
+  recommendations: string[];
+  overallAssessment: string;
+  evaluatedAtUtc: string;
+}
+
+// ── Economic Evaluation (from Reasoner) ───────────────────────
+
+export interface StrategyEvaluation {
+  strategy: string;
+  estimatedCost: number;
+  expectedImpact: number;
+  probabilityOfSuccess: number;
+  estimatedExecutionTimeHours: number;
+  economicScore: number;
+  scoreBreakdown: string;
+  factorScores: Record<string, number>;
+  evaluatedAtUtc: string;
+}
+
+export interface EconomicEvaluationResult {
+  evaluations: StrategyEvaluation[];
+  bestStrategy: StrategyEvaluation;
+  selectionRationale: string;
+  weightsUsed: {
+    costWeight: number;
+    impactWeight: number;
+    successProbabilityWeight: number;
+    executionTimeWeight: number;
+  };
+  evaluatedAtUtc: string;
+}
+
+// ── Decision Summary (composite) ──────────────────────────────
+
+export interface DecisionSummary {
+  confidenceScore: number;
+  riskScore: number;
+  riskLevel: string;
+  reasoning: string;
+  insights: string[];
+  recommendations: string[];
+  assessment: string;
+}
+
 export type CommandPhase =
   | 'idle'
   | 'parsing'

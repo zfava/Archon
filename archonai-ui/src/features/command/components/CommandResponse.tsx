@@ -1,13 +1,75 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { CommandResult } from '../types';
+import { api } from '../../../api/client';
+import type { CommandResult, DecisionSummary, OutcomeEvaluationResult } from '../types';
 import { ConfidenceBadge } from './ConfidenceBadge';
+import { DecisionCard } from './DecisionCard';
 
 interface Props {
   result: CommandResult;
 }
 
+/** Build a DecisionSummary from simulation + optional outcome evaluation. */
+function buildDecision(
+  result: CommandResult,
+  outcomeEval: OutcomeEvaluationResult | null,
+): DecisionSummary | null {
+  const sim = result.plan?.selectedSimulation;
+  if (!sim) return null;
+
+  // If we have a Reasoner outcome evaluation, use it for richer data
+  if (outcomeEval) {
+    return {
+      confidenceScore: outcomeEval.successMetrics.overallScore,
+      riskScore: outcomeEval.comparison.expectedRiskScore,
+      riskLevel: sim.riskLevel,
+      reasoning: result.plan?.planDecisionReason ?? outcomeEval.overallAssessment,
+      insights: outcomeEval.insights,
+      recommendations: outcomeEval.recommendations,
+      assessment: outcomeEval.overallAssessment,
+    };
+  }
+
+  // Fall back to simulation data
+  return {
+    confidenceScore: sim.expectedOutcome.confidence,
+    riskScore: sim.riskScore,
+    riskLevel: sim.riskLevel,
+    reasoning:
+      result.plan?.planDecisionReason ??
+      result.comparison?.recommendationReason ??
+      `Strategy "${sim.strategy}" selected with ${Math.round(sim.expectedOutcome.overallSuccessProbability * 100)}% predicted success.`,
+    insights: sim.warnings,
+    recommendations: [],
+    assessment: sim.expectedOutcome.predictedOutcomeLabel,
+  };
+}
+
 export function CommandResponse({ result }: Props) {
   const { goal, plan, comparison, phase, error } = result;
+  const [outcomeEval, setOutcomeEval] = useState<OutcomeEvaluationResult | null>(null);
+
+  // Fetch Reasoner outcome evaluation when plan is available
+  useEffect(() => {
+    if (!goal || !plan) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const evals = (await api.getOutcomeEvaluationsForGoal(
+          goal.goalId,
+        )) as OutcomeEvaluationResult[];
+        if (!cancelled && evals.length > 0) {
+          // Use the most recent evaluation
+          setOutcomeEval(evals[evals.length - 1]);
+        }
+      } catch {
+        // Outcome evaluations are optional — fail silently
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [goal, plan]);
 
   if (phase === 'parsing' || phase === 'planning') {
     return (
@@ -31,6 +93,7 @@ export function CommandResponse({ result }: Props) {
   if (!goal) return null;
 
   const sim = plan?.selectedSimulation;
+  const decision = buildDecision(result, outcomeEval);
 
   return (
     <div className="cmd-response">
@@ -67,6 +130,13 @@ export function CommandResponse({ result }: Props) {
         </div>
       )}
 
+      {/* Decision Card — unified confidence + risk + reasoning */}
+      {decision && (
+        <div className="response-section">
+          <DecisionCard decision={decision} title="Decision Analysis" />
+        </div>
+      )}
+
       {/* Expected Outcome */}
       {sim && (
         <div className="response-section">
@@ -77,10 +147,6 @@ export function CommandResponse({ result }: Props) {
                 {Math.round(sim.expectedOutcome.overallSuccessProbability * 100)}%
               </span>
               <span className="stat-label">Success</span>
-            </div>
-            <div className="outcome-stat">
-              <span className="stat-value">{sim.riskLevel}</span>
-              <span className="stat-label">Risk</span>
             </div>
             <div className="outcome-stat">
               <span className="stat-value">{sim.estimatedTotalDurationHours.toFixed(1)}h</span>
@@ -95,25 +161,13 @@ export function CommandResponse({ result }: Props) {
               <span className="stat-label">Tasks</span>
             </div>
             <div className="outcome-stat">
+              <span className="stat-value">{sim.expectedOutcome.criticalPathLength}</span>
+              <span className="stat-label">Critical Path</span>
+            </div>
+            <div className="outcome-stat">
               <span className="stat-value">{sim.expectedOutcome.parallelismDegree}</span>
               <span className="stat-label">Parallelism</span>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confidence Score */}
-      {sim && (
-        <div className="response-section">
-          <span className="response-label">Confidence Score</span>
-          <div className="confidence-bar-wrap">
-            <div
-              className="confidence-bar"
-              style={{ width: `${Math.round(sim.expectedOutcome.confidence * 100)}%` }}
-            />
-            <span className="confidence-value">
-              {Math.round(sim.expectedOutcome.confidence * 100)}%
-            </span>
           </div>
         </div>
       )}
@@ -127,8 +181,9 @@ export function CommandResponse({ result }: Props) {
               <thead>
                 <tr>
                   <th>Strategy</th>
-                  <th>Success</th>
+                  <th>Confidence</th>
                   <th>Risk</th>
+                  <th>Success</th>
                   <th>Duration</th>
                   <th>Cost</th>
                 </tr>
@@ -141,9 +196,18 @@ export function CommandResponse({ result }: Props) {
                   >
                     <td>{s.strategy}</td>
                     <td>
+                      <ConfidenceBadge value={s.expectedOutcome.confidence} label="Confidence" />
+                    </td>
+                    <td>
+                      <span
+                        className={`risk-badge risk-badge--${s.riskLevel.toLowerCase()}`}
+                      >
+                        {s.riskLevel}
+                      </span>
+                    </td>
+                    <td>
                       <ConfidenceBadge value={s.expectedOutcome.overallSuccessProbability} />
                     </td>
-                    <td>{s.riskLevel}</td>
                     <td>{s.estimatedTotalDurationHours.toFixed(1)}h</td>
                     <td>${s.estimatedTotalCost.toFixed(2)}</td>
                   </tr>
