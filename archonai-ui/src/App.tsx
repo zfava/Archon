@@ -4,6 +4,7 @@ import { StrategyView } from './features/strategy';
 import { SystemActivityView } from './features/activity';
 import { ControlPanel } from './features/control';
 import { AuditLogView } from './features/audit';
+import { ImpactDashboard } from './features/impact';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/activity" element={<SystemActivityView />} />
         <Route path="/control" element={<ControlPanel />} />
         <Route path="/audit" element={<AuditLogView />} />
+        <Route path="/impact" element={<ImpactDashboard />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

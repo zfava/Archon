@@ -225,4 +225,21 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(fromEntryId ? { fromEntryId } : {}),
     }),
+
+  // ── Observability ────────────────────────────────────────
+
+  getUnifiedDashboard: () =>
+    request('/control-plane/observability/unified'),
+
+  getTaskPerformance: () =>
+    request('/control-plane/observability/task-performance'),
+
+  getAgentActivity: () =>
+    request('/control-plane/observability/agent-activity'),
+
+  getModelUsage: () =>
+    request('/control-plane/observability/model-usage'),
+
+  getSystemHealth: () =>
+    request('/control-plane/observability/system-health'),
 };
