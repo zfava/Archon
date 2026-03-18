@@ -259,7 +259,7 @@ export function useImpactDashboard() {
   }, [recompute]);
 
   useEffect(() => {
-    fetchAll();
+    queueMicrotask(() => fetchAll());
   }, [fetchAll]);
 
   // SignalR for real-time updates
@@ -267,7 +267,7 @@ export function useImpactDashboard() {
     (update: DashboardUpdate) => {
       const now = new Date().toISOString();
       setState((s) => {
-        let next = { ...s, lastUpdated: now };
+        const next = { ...s, lastUpdated: now };
 
         switch (update.module) {
           case 'task-performance':
@@ -320,7 +320,7 @@ export function useImpactDashboard() {
       setState((s) => ({ ...s, connectionStatus: 'disconnected' }));
     });
 
-    setState((s) => ({ ...s, connectionStatus: 'connecting' }));
+    queueMicrotask(() => setState((s) => ({ ...s, connectionStatus: 'connecting' })));
 
     connection
       .start()

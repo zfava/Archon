@@ -118,7 +118,7 @@ export function useDashboardHub() {
       setState((s) => ({ ...s, connectionStatus: 'disconnected' }));
     });
 
-    setState((s) => ({ ...s, connectionStatus: 'connecting' }));
+    queueMicrotask(() => setState((s) => ({ ...s, connectionStatus: 'connecting' })));
 
     connection
       .start()

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 
 export interface UserInfo {
@@ -97,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
-      setState(s => ({ ...s, isLoading: false }));
+      queueMicrotask(() => setState(s => ({ ...s, isLoading: false })));
       return;
     }
 

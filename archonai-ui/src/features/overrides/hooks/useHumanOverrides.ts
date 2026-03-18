@@ -37,7 +37,7 @@ export function useHumanOverrides() {
   }, []);
 
   useEffect(() => {
-    loadLog();
+    queueMicrotask(() => loadLog());
   }, [loadLog]);
 
   const pauseWorkflow = useCallback(

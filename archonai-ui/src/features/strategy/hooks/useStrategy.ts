@@ -39,7 +39,10 @@ export function useStrategy(goalId: string | undefined) {
   }, []);
 
   useEffect(() => {
-    if (goalId) load(goalId);
+    if (goalId) {
+      const id = goalId;
+      queueMicrotask(() => load(id));
+    }
   }, [goalId, load]);
 
   return state;

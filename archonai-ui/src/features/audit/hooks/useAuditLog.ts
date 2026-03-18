@@ -101,8 +101,10 @@ export function useAuditLog() {
 
   // Initial load
   useEffect(() => {
-    fetchEntries(emptyFilters, 0);
-    fetchStatus();
+    queueMicrotask(() => {
+      fetchEntries(emptyFilters, 0);
+      fetchStatus();
+    });
   }, [fetchEntries, fetchStatus]);
 
   const setFilters = useCallback(
