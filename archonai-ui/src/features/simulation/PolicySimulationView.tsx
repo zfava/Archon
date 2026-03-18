@@ -127,6 +127,16 @@ export function PolicySimulationView() {
   const [costHigh, setCostHigh] = useState('');
   const [downsideRisk, setDownsideRisk] = useState('');
   const [upsidePotential, setUpsidePotential] = useState('');
+  const [workflowCatalog, setWorkflowCatalog] = useState<{ workflowType: string; displayName: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const cat = await api.getHeroWorkflowCatalog() as { workflowType: string; displayName: string }[];
+        setWorkflowCatalog(cat);
+      } catch { /* catalog not available, fall back to empty */ }
+    })();
+  }, []);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -258,9 +268,9 @@ export function PolicySimulationView() {
               <label className="sim-label">Workflow Type</label>
               <select className="sim-select" value={workflowType} onChange={e => setWorkflowType(e.target.value)}>
                 <option value="">— None —</option>
-                <option value="vendor-selection">Vendor Selection</option>
-                <option value="revenue-forecast-override">Revenue Forecast Override</option>
-                <option value="compliance-exception-resolution">Compliance Exception</option>
+                {workflowCatalog.map(wf => (
+                  <option key={wf.workflowType} value={wf.workflowType}>{wf.displayName}</option>
+                ))}
               </select>
             </div>
             <div className="sim-field">
@@ -434,7 +444,7 @@ export function PolicySimulationView() {
                 <div key={h.id} className="sim-history-row" onClick={() => loadDetail(h.id)}>
                   <span className="sim-history-action">{h.actionType}</span>
                   <span className="sim-history-title">{h.title}</span>
-                  <span className={`hw-status hw-status--${h.verdict.toLowerCase()}`}>{verdictLabel(h.verdict)}</span>
+                  <span className={`sim-verdict-pill sim-verdict-pill--${h.verdict.toLowerCase()}`}>{verdictLabel(h.verdict)}</span>
                   <span className="sim-history-ts">{fmtDate(h.simulatedAtUtc)}</span>
                 </div>
               ))}

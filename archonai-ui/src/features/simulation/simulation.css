@@ -123,5 +123,15 @@
 .sim-history-action { font-family: var(--mono); font-size: 10px; color: var(--purple); text-transform: uppercase; min-width: 120px; }
 .sim-history-ts { font-family: var(--mono); font-size: 10px; color: var(--text-3); }
 
+.sim-verdict-pill {
+  font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+  padding: 3px 10px; border-radius: 3px; text-transform: uppercase; white-space: nowrap;
+}
+.sim-verdict-pill--allowed { background: rgba(34,197,94,0.12); color: #22c55e; }
+.sim-verdict-pill--requiresapproval { background: rgba(234,179,8,0.12); color: #eab308; }
+.sim-verdict-pill--blocked { background: rgba(239,68,68,0.12); color: #ef4444; }
+.sim-verdict-pill--recommendonly { background: rgba(99,102,241,0.12); color: #6366f1; }
+.sim-verdict-pill--observeonly { background: rgba(148,163,184,0.12); color: #94a3b8; }
+
 .sim-empty { padding: 48px; text-align: center; color: var(--text-3); font-size: 13px; }
 .sim-loading { padding: 48px; text-align: center; color: var(--text-3); }

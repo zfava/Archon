@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
 import './hero-workflows.css';
 
@@ -190,6 +191,24 @@ export function HeroWorkflowsView() {
               </div>
             </div>
           )}
+
+          {/* Cross-system links */}
+          <div className="hw-cross-links">
+            <Link to="/inspection" className="hw-cross-link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Inspect Diagnostics
+            </Link>
+            <Link to="/proof-analytics" className="hw-cross-link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Proof Timeline
+            </Link>
+            {selected.status === 'Failed' && (
+              <Link to="/exceptions" className="hw-cross-link hw-cross-link--alert">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                View Exceptions
+              </Link>
+            )}
+          </div>
 
           {(selected.status === 'InProgress' || selected.status === 'AwaitingApproval') && (
             <div className="hw-actions">

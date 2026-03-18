@@ -79,6 +79,17 @@
 .dec-alt-col-label.con { color: #F87171; }
 .dec-alt-item { font-size: 12px; color: var(--text-2); padding: 2px 0; }
 
+.dec-cross-links { display: flex; gap: 8px; flex-wrap: wrap; }
+.dec-cross-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: var(--text-3);
+  padding: 6px 12px; border: 1px solid var(--border); border-radius: 4px;
+  text-decoration: none; transition: all 0.15s ease;
+}
+.dec-cross-link:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-faint); }
+.dec-cross-link svg { opacity: 0.6; }
+.dec-cross-link:hover svg { opacity: 1; }
+
 .dec-links { display: flex; flex-direction: column; gap: 6px; }
 .dec-link-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); }
 .dec-link-type { font-family: var(--mono); font-size: 10px; color: var(--purple); text-transform: uppercase; letter-spacing: 0.06em; min-width: 80px; }

@@ -117,6 +117,19 @@
 .hw-artifact-val { font-family: var(--mono); font-size: 11px; color: var(--text-1); word-break: break-all; }
 
 /* Actions */
+.hw-cross-links { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.hw-cross-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: var(--text-3);
+  padding: 6px 12px; border: 1px solid var(--border); border-radius: 4px;
+  text-decoration: none; transition: all 0.15s ease;
+}
+.hw-cross-link:hover { border-color: var(--purple); color: var(--purple); }
+.hw-cross-link svg { opacity: 0.6; }
+.hw-cross-link:hover svg { opacity: 1; }
+.hw-cross-link--alert { border-color: var(--red-faint, #3a1a1a); color: var(--red, #f44); }
+.hw-cross-link--alert:hover { border-color: var(--red, #f44); }
+
 .hw-actions { display: flex; gap: 8px; margin-top: 16px; }
 .hw-btn {
   font-family: var(--mono); font-size: 11px; padding: 6px 16px;
