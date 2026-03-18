@@ -203,7 +203,11 @@ public sealed class AnthropicModelProvider : IModelProvider
             var node = JsonNode.Parse(body);
             return node?["error"]?["message"]?.GetValue<string>();
         }
-        catch { return null; }
+        catch (JsonException)
+        {
+            // API returned non-JSON error body — caller will use HTTP status code instead
+            return null;
+        }
     }
 
     private ModelResponse CreateError(ModelRequest request, string message) =>

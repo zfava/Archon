@@ -92,8 +92,10 @@ public static class PluginRegistrationServiceCollectionExtensions
         {
             return AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(assemblyPath));
         }
-        catch
+        catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException)
         {
+            // Assembly is not a valid .NET assembly or cannot be loaded — skip it
+            System.Diagnostics.Debug.WriteLine($"Plugin assembly load skipped: {assemblyPath} ({ex.GetType().Name}: {ex.Message})");
             return null;
         }
     }

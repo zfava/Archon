@@ -5,3 +5,16 @@
 **/*.user
 **/*.suo
 .git
+.github
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.pfx
+**/secrets
+**/node_modules
+**/tests
+**/*.md
+**/docs
+**/.DS_Store
+**/Thumbs.db

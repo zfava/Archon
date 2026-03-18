@@ -8,10 +8,14 @@ RUN dotnet restore ./src/ArchonAI.Gateway/ArchonAI.Gateway.csproj
 RUN dotnet publish ./src/ArchonAI.Gateway/ArchonAI.Gateway.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+RUN groupadd --gid 1654 archon && useradd --uid 1654 --gid archon --shell /bin/false --create-home archon
+
 WORKDIR /app
 
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
-COPY --from=build /app/publish .
+COPY --from=build --chown=archon:archon /app/publish .
+USER archon
 ENTRYPOINT ["dotnet", "ArchonAI.Gateway.dll"]

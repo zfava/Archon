@@ -66,7 +66,7 @@ public sealed class ObservabilityService : IObservabilityService
     public global::System.Threading.Tasks.Task<WorkflowPerformanceSnapshot?> GetWorkflowPerformanceAsync(
         Guid workflowId, CancellationToken ct = default)
     {
-        // Stub - real implementation would query the workflow runtime
+        _logger.LogDebug("Workflow performance query for {WorkflowId} — per-workflow metrics not yet implemented", workflowId);
         return global::System.Threading.Tasks.Task.FromResult<WorkflowPerformanceSnapshot?>(null);
     }
 
@@ -207,11 +207,10 @@ public sealed class ObservabilityService : IObservabilityService
     }
 
     /// <summary>
-    /// Reads the current value from a Counter by examining its underlying field.
-    /// Since System.Diagnostics.Metrics Counter does not expose a direct read API,
-    /// we track via the Interlocked pattern on the observability side. For connector
-    /// counters that are incremented elsewhere, we return 0 as a baseline - the real
-    /// values are exported via Prometheus/OpenTelemetry.
+    /// System.Diagnostics.Metrics Counter has no direct read API — values are exported
+    /// via OpenTelemetry/Prometheus collectors. This method exists to satisfy the
+    /// connector health computation; in-process reads always return 0.
+    /// For accurate connector metrics, query the Prometheus /metrics endpoint.
     /// </summary>
     private static long CounterValue(System.Diagnostics.Metrics.Counter<long> _) => 0;
 

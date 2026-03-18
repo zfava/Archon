@@ -116,9 +116,10 @@ public sealed class WorkflowExecutionEngine : IWorkflowExecutionEngine
         {
             _workflowEngine.Transition(workflowId, trigger);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
-            // no-op: workflow may already be in a later valid state.
+            // Workflow may already be in a later valid state — log and continue
+            System.Diagnostics.Debug.WriteLine($"Workflow {workflowId} transition skipped: {ex.Message}");
         }
     }
 }

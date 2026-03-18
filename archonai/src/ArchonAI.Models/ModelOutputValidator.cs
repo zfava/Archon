@@ -66,7 +66,7 @@ public sealed class ModelOutputValidator
         {
             return JsonNode.Parse(text);
         }
-        catch
+        catch (JsonException)
         {
             return null;
         }
@@ -124,7 +124,7 @@ public sealed class ModelOutputValidator
             }
             return valid;
         }
-        catch
+        catch (JsonException)
         {
             // Schema itself is malformed — can't validate
             warnings.Add("SCHEMA_PARSE_ERROR: Could not parse validation schema.");

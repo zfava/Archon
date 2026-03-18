@@ -114,7 +114,7 @@ public sealed class DataFabricEngine : IDataFabricEngine
             }
             catch (JsonException)
             {
-                // Fall back to metadata/content wrapping.
+                // Content is not valid JSON — fall back to metadata/content wrapping
             }
         }
 

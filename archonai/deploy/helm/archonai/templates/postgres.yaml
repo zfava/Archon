@@ -28,9 +28,15 @@ spec:
             - name: POSTGRES_DB
               value: {{ .Values.postgres.database | quote }}
             - name: POSTGRES_USER
-              value: {{ .Values.postgres.username | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: archonai-postgres-credentials
+                  key: username
             - name: POSTGRES_PASSWORD
-              value: {{ .Values.postgres.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: archonai-postgres-credentials
+                  key: password
           {{- with .Values.postgres.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -52,6 +58,20 @@ spec:
         - name: postgres-data
           persistentVolumeClaim:
             claimName: archonai-postgres-pvc
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: archonai-postgres-credentials
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: archonai
+type: Opaque
+data:
+  username: {{ .Values.postgres.username | b64enc | quote }}
+  password: {{ .Values.postgres.password | b64enc | quote }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
