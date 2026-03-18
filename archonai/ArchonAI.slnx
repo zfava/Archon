@@ -68,5 +68,7 @@
     <Project Path="tests/ArchonAI.Agents.Support.Tests/ArchonAI.Agents.Support.Tests.csproj" />
     <Project Path="tests/ArchonAI.AdminAPI.Tests/ArchonAI.AdminAPI.Tests.csproj" />
     <Project Path="tests/ArchonAI.WorkflowDesigner.Tests/ArchonAI.WorkflowDesigner.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Tests/ArchonAI.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj" />
   </Folder>
 </Solution>
