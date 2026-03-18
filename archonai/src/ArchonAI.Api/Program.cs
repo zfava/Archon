@@ -54,6 +54,7 @@ using ArchonAI.Core.Models.Identity;
 using ArchonAI.Core.Models.Decisions;
 using ArchonAI.Core.Models.HeroWorkflow;
 using ArchonAI.Core.Models.PolicySimulation;
+using ArchonAI.Core.Models.ProofAnalytics;
 using ArchonAI.Identity;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -84,6 +85,7 @@ builder.Services.AddSingleton<IDecisionService, DecisionService>();
 builder.Services.AddSingleton<IFinancialConsequenceService, FinancialConsequenceService>();
 builder.Services.AddSingleton<IHeroWorkflowService, HeroWorkflowService>();
 builder.Services.AddSingleton<IPolicySimulationService, PolicySimulationService>();
+builder.Services.AddSingleton<IProofAnalyticsService, ProofAnalyticsService>();
 
 // ── Health Checks ─────────────────────────────────────────────
 builder.Services.AddHealthChecks()
@@ -3792,6 +3794,153 @@ outcomes.MapGet("/calibration", async (
     return Results.Ok(summary);
 }).RequireAuthorization("GovernanceRead");
 
+// ── Proof Analytics ───────────────────────────────────────
+var proof = v1.MapGroup("/proof-analytics")
+    .WithTags("proof-analytics");
+
+proof.MapPost("/events", async (
+    RecordProofEventRequest req,
+    HttpContext ctx,
+    IProofAnalyticsService proofSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    var userId = ctx.User?.FindFirst("sub")?.Value ?? "unknown";
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    if (!Enum.TryParse<ProofEventType>(req.EventType, true, out var eventType))
+        return Results.BadRequest(new { error = $"Invalid event type: {req.EventType}." });
+
+    var proofEvent = new ProofEvent(
+        Id: Guid.NewGuid(),
+        TenantId: tenantId,
+        DecisionId: req.DecisionId,
+        WorkflowId: req.WorkflowId,
+        EventType: eventType,
+        Actor: userId,
+        Detail: req.Detail,
+        ExpectedValue: req.ExpectedValue,
+        ActualValue: req.ActualValue,
+        Variance: req.Variance,
+        VariancePercent: req.VariancePercent,
+        ActionType: req.ActionType,
+        IsSuccess: req.IsSuccess,
+        OverrideReason: req.OverrideReason,
+        EconomicImpact: req.EconomicImpact,
+        ImpactAttribution: req.ImpactAttribution,
+        OccurredAtUtc: DateTimeOffset.UtcNow);
+
+    var created = await proofSvc.RecordEventAsync(proofEvent, ct);
+    return Results.Created($"/api/v1/proof-analytics/timeline/{req.DecisionId}", created);
+}).RequireAuthorization("OperatorOrAdmin");
+
+proof.MapGet("/timeline/{decisionId:guid}", async (
+    Guid decisionId,
+    IProofAnalyticsService proofSvc,
+    CancellationToken ct) =>
+{
+    var timeline = await proofSvc.GetTimelineAsync(decisionId, ct);
+    return timeline is null ? Results.NotFound() : Results.Ok(timeline);
+}).RequireAuthorization("GovernanceRead");
+
+proof.MapGet("/workflow/{workflowId:guid}/timelines", async (
+    Guid workflowId,
+    IProofAnalyticsService proofSvc,
+    CancellationToken ct) =>
+{
+    var timelines = await proofSvc.GetWorkflowTimelinesAsync(workflowId, ct);
+    return Results.Ok(timelines);
+}).RequireAuthorization("GovernanceRead");
+
+proof.MapGet("/predicted-vs-actual", async (
+    string? domain, int? limit,
+    HttpContext ctx,
+    IProofAnalyticsService proofSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var summary = await proofSvc.GetPredictedVsActualAsync(tenantId, domain, limit ?? 50, ct);
+    return Results.Ok(summary);
+}).RequireAuthorization("GovernanceRead");
+
+proof.MapGet("/approval-conversion", async (
+    HttpContext ctx,
+    IProofAnalyticsService proofSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var summary = await proofSvc.GetApprovalConversionAsync(tenantId, ct);
+    return Results.Ok(summary);
+}).RequireAuthorization("GovernanceRead");
+
+proof.MapGet("/execution-trends", async (
+    int? buckets,
+    HttpContext ctx,
+    IProofAnalyticsService proofSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var summary = await proofSvc.GetExecutionTrendsAsync(tenantId, buckets ?? 10, ct);
+    return Results.Ok(summary);
+}).RequireAuthorization("GovernanceRead");
+
+proof.MapGet("/override-rates", async (
+    HttpContext ctx,
+    IProofAnalyticsService proofSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var summary = await proofSvc.GetOverrideRatesAsync(tenantId, ct);
+    return Results.Ok(summary);
+}).RequireAuthorization("GovernanceRead");
+
+proof.MapGet("/trust-analytics", async (
+    HttpContext ctx,
+    IProofAnalyticsService proofSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var summary = await proofSvc.GetTrustAnalyticsAsync(tenantId, ct);
+    return Results.Ok(summary);
+}).RequireAuthorization("GovernanceRead");
+
+proof.MapGet("/dashboard", async (
+    string? domain,
+    HttpContext ctx,
+    IProofAnalyticsService proofSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var dashboard = await proofSvc.GetDashboardAsync(tenantId, domain, ct);
+    return Results.Ok(dashboard);
+}).RequireAuthorization("GovernanceRead");
+
 // ── Enterprise Memory Hierarchy ───────────────────────────
 var enterpriseMemory = v1.MapGroup("/enterprise-memory")
     .WithTags("enterprise-memory");
@@ -5062,6 +5211,22 @@ public sealed record StartHeroWorkflowRequest(
 
 public sealed record AdvanceHeroWorkflowRequest(
     Dictionary<string, string>? Inputs);
+
+// ── Proof Analytics DTOs ────────────────────────────────────
+public sealed record RecordProofEventRequest(
+    Guid DecisionId,
+    Guid? WorkflowId,
+    string EventType,
+    string? Detail,
+    decimal? ExpectedValue,
+    decimal? ActualValue,
+    decimal? Variance,
+    double? VariancePercent,
+    string? ActionType,
+    bool? IsSuccess,
+    string? OverrideReason,
+    decimal? EconomicImpact,
+    string? ImpactAttribution);
 
 // ── Policy Simulation DTOs ──────────────────────────────────
 public sealed record RunSimulationRequest(

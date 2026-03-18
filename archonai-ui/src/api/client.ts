@@ -723,6 +723,53 @@ export const api = {
   listSimulations: (limit?: number) =>
     request(`/policy-simulation${limit ? `?limit=${limit}` : ''}`),
 
+  // ── Proof Analytics ──────────────────────────────────────
+  getProofDashboard: (domain?: string) =>
+    request(`/proof-analytics/dashboard${domain ? `?domain=${encodeURIComponent(domain)}` : ''}`),
+
+  getProofTimeline: (decisionId: string) =>
+    request(`/proof-analytics/timeline/${decisionId}`),
+
+  getProofWorkflowTimelines: (workflowId: string) =>
+    request(`/proof-analytics/workflow/${workflowId}/timelines`),
+
+  getProofPredictedVsActual: (params?: { domain?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.domain) qs.set('domain', params.domain);
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    const q = qs.toString();
+    return request(`/proof-analytics/predicted-vs-actual${q ? `?${q}` : ''}`);
+  },
+
+  getProofApprovalConversion: () =>
+    request('/proof-analytics/approval-conversion'),
+
+  getProofExecutionTrends: (buckets?: number) =>
+    request(`/proof-analytics/execution-trends${buckets ? `?buckets=${buckets}` : ''}`),
+
+  getProofOverrideRates: () =>
+    request('/proof-analytics/override-rates'),
+
+  getProofTrustAnalytics: () =>
+    request('/proof-analytics/trust-analytics'),
+
+  recordProofEvent: (body: {
+    decisionId: string;
+    workflowId?: string;
+    eventType: string;
+    detail?: string;
+    expectedValue?: number;
+    actualValue?: number;
+    variance?: number;
+    variancePercent?: number;
+    actionType?: string;
+    isSuccess?: boolean;
+    overrideReason?: string;
+    economicImpact?: number;
+    impactAttribution?: string;
+  }) =>
+    request('/proof-analytics/events', { method: 'POST', body: JSON.stringify(body) }),
+
   // ── Executive Command ───────────────────────────────────
   getExecutiveCommandSummary: () =>
     request('/executive-command/summary'),
