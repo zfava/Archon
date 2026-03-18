@@ -613,6 +613,45 @@ export const api = {
   deleteScenario: (scenarioId: string) =>
     request(`/scenarios/${scenarioId}`, { method: 'DELETE' }),
 
+  // ── Exception Intelligence ──────────────────────────────
+  raiseException: (body: {
+    category: string;
+    severity: string;
+    title: string;
+    description?: string;
+    domain?: string;
+    urgency?: number;
+    economicImpactEstimate?: number;
+    confidence?: number;
+    escalationLevel?: string;
+    assignedTo?: string;
+    escalationPath?: string;
+    linkedArtifacts?: { artifactType: string; artifactId: string; label?: string }[];
+    recommendedAction?: { actionType: string; description: string; targetArtifactType?: string; targetArtifactId?: string; confidence?: string };
+  }) =>
+    request('/exceptions/', { method: 'POST', body: JSON.stringify(body) }),
+
+  listExceptions: (params?: Record<string, string>) =>
+    request('/exceptions/' + (params ? '?' + new URLSearchParams(params).toString() : '')),
+
+  getException: (exceptionId: string) =>
+    request(`/exceptions/${exceptionId}`),
+
+  updateExceptionStatus: (exceptionId: string, body: { status: string; assignedTo?: string }) =>
+    request(`/exceptions/${exceptionId}/status`, { method: 'PUT', body: JSON.stringify(body) }),
+
+  setRecommendedAction: (exceptionId: string, body: {
+    actionType: string; description: string;
+    targetArtifactType?: string; targetArtifactId?: string; confidence?: string;
+  }) =>
+    request(`/exceptions/${exceptionId}/recommended-action`, { method: 'POST', body: JSON.stringify(body) }),
+
+  getExceptionSummary: () =>
+    request('/exceptions/summary'),
+
+  getExceptionPrioritized: (limit?: number) =>
+    request(`/exceptions/prioritized${limit ? `?limit=${limit}` : ''}`),
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];

@@ -8,6 +8,7 @@ using ArchonAI.Core.Models.AuditLog;
 using ArchonAI.Core.Models.Governance;
 using ArchonAI.Core.Models.OperationalTwin;
 using ArchonAI.Core.Models.Scenario;
+using ArchonAI.Core.Models.ExceptionIntelligence;
 using ArchonAI.Core.Models.Planning;
 using ArchonAI.Core.Models.Rbac;
 using ArchonAI.Core.Models.Monitoring;
@@ -4293,6 +4294,180 @@ scenarios.MapDelete("/{scenarioId:guid}", async (
     return deleted ? Results.NoContent() : Results.NotFound();
 }).RequireAuthorization("GovernanceWrite");
 
+// ══════════════════════════════════════════════════════════════
+//  Exception Intelligence
+// ══════════════════════════════════════════════════════════════
+var exceptions = v1.MapGroup("/exceptions")
+    .WithTags("Exceptions")
+    .RequireRateLimiting("api");
+
+exceptions.MapPost("/", async (
+    RaiseExceptionRequest req,
+    HttpContext ctx,
+    IExceptionIntelligenceService exSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    if (!Enum.TryParse<ExceptionCategory>(req.Category, true, out var category))
+        return Results.BadRequest(new { error = $"Invalid category: {req.Category}" });
+    if (!Enum.TryParse<ExceptionSeverity>(req.Severity, true, out var severity))
+        return Results.BadRequest(new { error = $"Invalid severity: {req.Severity}" });
+
+    var escalation = EscalationLevel.None;
+    if (req.EscalationLevel is not null)
+        Enum.TryParse(req.EscalationLevel, true, out escalation);
+
+    var links = req.LinkedArtifacts?.Select(l =>
+        new ExceptionArtifactLink(l.ArtifactType, l.ArtifactId, l.Label)).ToList()
+        ?? new List<ExceptionArtifactLink>();
+
+    RecommendedAction? action = null;
+    if (req.RecommendedAction is not null)
+    {
+        var ra = req.RecommendedAction;
+        action = new RecommendedAction(ra.ActionType, ra.Description, ra.TargetArtifactType, ra.TargetArtifactId, ra.Confidence ?? "Medium");
+    }
+
+    var now = DateTimeOffset.UtcNow;
+    var user = ctx.User?.Identity?.Name ?? "system";
+
+    var exception = new OperationalException(
+        Id: Guid.NewGuid(),
+        TenantId: tenantId,
+        Category: category,
+        Severity: severity,
+        Title: req.Title,
+        Description: req.Description ?? "",
+        Domain: req.Domain ?? "General",
+        Status: ExceptionStatus.Open,
+        Urgency: req.Urgency ?? 0.5,
+        EconomicImpactEstimate: req.EconomicImpactEstimate ?? 0,
+        Confidence: req.Confidence ?? 0.5,
+        EscalationLevel: escalation,
+        AssignedTo: req.AssignedTo,
+        EscalationPath: req.EscalationPath,
+        LinkedArtifacts: links,
+        RecommendedAction: action,
+        CreatedBy: user,
+        CreatedAtUtc: now,
+        UpdatedAtUtc: now,
+        AcknowledgedAtUtc: null,
+        ResolvedAtUtc: null);
+
+    var result = await exSvc.RaiseExceptionAsync(exception, ct);
+    return Results.Created($"/api/v1/exceptions/{result.Id}", result);
+}).RequireAuthorization("GovernanceWrite");
+
+exceptions.MapGet("/", async (
+    HttpContext ctx,
+    IExceptionIntelligenceService exSvc,
+    string? severity, string? category, string? status, string? domain,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    ExceptionSeverity? sevFilter = null;
+    if (severity is not null && Enum.TryParse<ExceptionSeverity>(severity, true, out var sv)) sevFilter = sv;
+    ExceptionCategory? catFilter = null;
+    if (category is not null && Enum.TryParse<ExceptionCategory>(category, true, out var cv)) catFilter = cv;
+    ExceptionStatus? statusFilter = null;
+    if (status is not null && Enum.TryParse<ExceptionStatus>(status, true, out var stv)) statusFilter = stv;
+
+    var list = await exSvc.ListExceptionsAsync(tenantId, sevFilter, catFilter, statusFilter, domain, ct);
+    return Results.Ok(list);
+}).RequireAuthorization("GovernanceRead");
+
+exceptions.MapGet("/{exceptionId:guid}", async (
+    Guid exceptionId,
+    HttpContext ctx,
+    IExceptionIntelligenceService exSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var ex = await exSvc.GetExceptionAsync(exceptionId, tenantId, ct);
+    return ex is null ? Results.NotFound() : Results.Ok(ex);
+}).RequireAuthorization("GovernanceRead");
+
+exceptions.MapPut("/{exceptionId:guid}/status", async (
+    Guid exceptionId,
+    UpdateExceptionStatusRequest req,
+    HttpContext ctx,
+    IExceptionIntelligenceService exSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    if (!Enum.TryParse<ExceptionStatus>(req.Status, true, out var status))
+        return Results.BadRequest(new { error = $"Invalid status: {req.Status}" });
+
+    var updated = await exSvc.UpdateStatusAsync(exceptionId, tenantId, status, req.AssignedTo, ct);
+    return updated is null ? Results.NotFound() : Results.Ok(updated);
+}).RequireAuthorization("GovernanceWrite");
+
+exceptions.MapPost("/{exceptionId:guid}/recommended-action", async (
+    Guid exceptionId,
+    SetRecommendedActionRequest req,
+    HttpContext ctx,
+    IExceptionIntelligenceService exSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var action = new RecommendedAction(
+        req.ActionType, req.Description,
+        req.TargetArtifactType, req.TargetArtifactId,
+        req.Confidence ?? "Medium");
+
+    var updated = await exSvc.SetRecommendedActionAsync(exceptionId, tenantId, action, ct);
+    return updated is null ? Results.NotFound() : Results.Ok(updated);
+}).RequireAuthorization("GovernanceWrite");
+
+exceptions.MapGet("/summary", async (
+    HttpContext ctx,
+    IExceptionIntelligenceService exSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var summary = await exSvc.GetQueueSummaryAsync(tenantId, ct);
+    return Results.Ok(summary);
+}).RequireAuthorization("GovernanceRead");
+
+exceptions.MapGet("/prioritized", async (
+    HttpContext ctx,
+    IExceptionIntelligenceService exSvc,
+    int? limit,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var queue = await exSvc.GetPrioritizedQueueAsync(tenantId, limit ?? 20, ct);
+    return Results.Ok(queue);
+}).RequireAuthorization("GovernanceRead");
+
 app.Run();
 
 
@@ -4655,3 +4830,29 @@ public sealed record UpdateAssumptionsRequest(
 
 public sealed record CompareScenarioRequest(
     IReadOnlyList<Guid> ScenarioIds);
+
+// ── Exception Intelligence DTOs ─────────────────────────────
+public sealed record RaiseExceptionRequest(
+    string Category, string Severity, string Title,
+    string? Description, string? Domain,
+    double? Urgency, double? EconomicImpactEstimate,
+    double? Confidence, string? EscalationLevel,
+    string? AssignedTo, string? EscalationPath,
+    IReadOnlyList<ExceptionArtifactLinkDto>? LinkedArtifacts,
+    RecommendedActionDto? RecommendedAction);
+
+public sealed record ExceptionArtifactLinkDto(
+    string ArtifactType, string ArtifactId, string? Label);
+
+public sealed record RecommendedActionDto(
+    string ActionType, string Description,
+    string? TargetArtifactType, string? TargetArtifactId,
+    string? Confidence);
+
+public sealed record UpdateExceptionStatusRequest(
+    string Status, string? AssignedTo);
+
+public sealed record SetRecommendedActionRequest(
+    string ActionType, string Description,
+    string? TargetArtifactType, string? TargetArtifactId,
+    string? Confidence);

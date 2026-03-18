@@ -52,6 +52,7 @@ public static class SecurityServiceCollectionExtensions
         services.AddSingleton<IEnterpriseMemoryService, EnterpriseMemoryService>();
         services.AddSingleton<IOperationalTwinService, OperationalTwinService>();
         services.AddSingleton<IScenarioService, ScenarioService>();
+        services.AddSingleton<IExceptionIntelligenceService, ExceptionIntelligenceService>();
         services.AddSingleton<IGatedActionExecutor, GatedActionExecutor>();
         services.AddSingleton<IAuthorizationHandler, PermissionRequirementHandler>();
         services.AddSingleton<IAuthorizationHandler, TenantMatchRequirementHandler>();
