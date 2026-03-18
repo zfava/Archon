@@ -52,6 +52,7 @@ using ArchonAI.Core.Models.HumanOverride;
 using ArchonAI.Core.Models.Explanation;
 using ArchonAI.Core.Models.Identity;
 using ArchonAI.Core.Models.Decisions;
+using ArchonAI.Core.Models.HeroWorkflow;
 using ArchonAI.Identity;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -80,6 +81,7 @@ builder.Services.AddArchonAIPerception();
 builder.Services.AddArchonAIOrganizationState();
 builder.Services.AddSingleton<IDecisionService, DecisionService>();
 builder.Services.AddSingleton<IFinancialConsequenceService, FinancialConsequenceService>();
+builder.Services.AddSingleton<IHeroWorkflowService, HeroWorkflowService>();
 
 // ── Health Checks ─────────────────────────────────────────────
 builder.Services.AddHealthChecks()
@@ -4490,6 +4492,108 @@ execCmd.MapGet("/summary", async (
     return Results.Ok(summary);
 }).RequireAuthorization("GovernanceRead");
 
+// ── Hero Workflows ──────────────────────────────────────────────
+var heroWorkflows = v1.MapGroup("/hero-workflows")
+    .WithTags("HeroWorkflows")
+    .RequireRateLimiting("api");
+
+heroWorkflows.MapGet("/catalog", async (
+    IHeroWorkflowService heroSvc,
+    CancellationToken ct) =>
+{
+    var catalog = await heroSvc.GetCatalogAsync(ct);
+    return Results.Ok(catalog);
+}).RequireAuthorization("GovernanceRead");
+
+heroWorkflows.MapGet("/catalog/{workflowType}", async (
+    string workflowType,
+    IHeroWorkflowService heroSvc,
+    CancellationToken ct) =>
+{
+    var def = await heroSvc.GetDefinitionAsync(workflowType, ct);
+    return def is null ? Results.NotFound() : Results.Ok(def);
+}).RequireAuthorization("GovernanceRead");
+
+heroWorkflows.MapPost("/", async (
+    StartHeroWorkflowRequest req,
+    IHeroWorkflowService heroSvc,
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.WorkflowType) || string.IsNullOrWhiteSpace(req.Title))
+        return Results.BadRequest(new { error = "WorkflowType and Title are required." });
+
+    var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+    var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : Guid.Empty;
+    var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+
+    var instance = await heroSvc.StartAsync(
+        tenantId, req.WorkflowType, req.Title,
+        req.Inputs ?? new Dictionary<string, string>(),
+        userId, ct);
+
+    return Results.Created($"/api/v1/hero-workflows/{instance.Id}", instance);
+}).RequireAuthorization("GovernanceWrite");
+
+heroWorkflows.MapPost("/{workflowId:guid}/advance", async (
+    Guid workflowId,
+    AdvanceHeroWorkflowRequest? req,
+    IHeroWorkflowService heroSvc,
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+    var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : Guid.Empty;
+    var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+
+    var result = await heroSvc.AdvanceAsync(workflowId, tenantId, req?.Inputs, userId, ct);
+    return result is null ? Results.NotFound() : Results.Ok(result);
+}).RequireAuthorization("GovernanceWrite");
+
+heroWorkflows.MapGet("/{workflowId:guid}", async (
+    Guid workflowId,
+    IHeroWorkflowService heroSvc,
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+    var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : Guid.Empty;
+
+    var result = await heroSvc.GetAsync(workflowId, tenantId, ct);
+    return result is null ? Results.NotFound() : Results.Ok(result);
+}).RequireAuthorization("GovernanceRead");
+
+heroWorkflows.MapGet("/", async (
+    IHeroWorkflowService heroSvc,
+    HttpContext httpContext,
+    string? workflowType,
+    string? status,
+    int? limit,
+    CancellationToken ct) =>
+{
+    var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+    var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : Guid.Empty;
+    var parsedStatus = Enum.TryParse<HeroWorkflowStatus>(status, true, out var s)
+        ? s : (HeroWorkflowStatus?)null;
+
+    var results = await heroSvc.ListAsync(tenantId, workflowType, parsedStatus, limit ?? 50, ct);
+    return Results.Ok(results);
+}).RequireAuthorization("GovernanceRead");
+
+heroWorkflows.MapPost("/{workflowId:guid}/cancel", async (
+    Guid workflowId,
+    IHeroWorkflowService heroSvc,
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+    var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : Guid.Empty;
+    var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+
+    var result = await heroSvc.CancelAsync(workflowId, tenantId, userId, ct);
+    return result is null ? Results.NotFound() : Results.Ok(result);
+}).RequireAuthorization("GovernanceWrite");
+
 app.Run();
 
 
@@ -4878,3 +4982,12 @@ public sealed record SetRecommendedActionRequest(
     string ActionType, string Description,
     string? TargetArtifactType, string? TargetArtifactId,
     string? Confidence);
+
+// ── Hero Workflow DTOs ────────────────────────────────────────
+public sealed record StartHeroWorkflowRequest(
+    string WorkflowType,
+    string Title,
+    Dictionary<string, string>? Inputs);
+
+public sealed record AdvanceHeroWorkflowRequest(
+    Dictionary<string, string>? Inputs);

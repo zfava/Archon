@@ -20,6 +20,7 @@ import { OperationalTwinView } from './features/operational-twin';
 import { ScenarioEngineView } from './features/scenarios';
 import { ExceptionIntelligenceView } from './features/exceptions';
 import { ExecutiveCommandView } from './features/executive-command';
+import { HeroWorkflowsView } from './features/hero-workflows';
 import { OrgAdminView } from './features/admin/OrgAdminView';
 import { SystemHealthView } from './features/admin/SystemHealthView';
 import { PermissionGate, UnauthorizedPage } from './shared/PermissionGate';
@@ -62,6 +63,7 @@ function App() {
           <Route path="/operational-twin" element={<AdminGated permission="governance:read"><OperationalTwinView /></AdminGated>} />
           <Route path="/scenarios" element={<AdminGated permission="governance:read"><ScenarioEngineView /></AdminGated>} />
           <Route path="/exceptions" element={<AdminGated permission="governance:read"><ExceptionIntelligenceView /></AdminGated>} />
+          <Route path="/hero-workflows" element={<AdminGated permission="governance:read"><HeroWorkflowsView /></AdminGated>} />
           <Route path="/executive" element={<AdminGated permission="governance:read"><ExecutiveCommandView /></AdminGated>} />
           <Route path="/admin/org" element={<AdminGated permission="admin:read"><OrgAdminView /></AdminGated>} />
           <Route path="/admin/health" element={<AdminGated permission="monitoring:read"><SystemHealthView /></AdminGated>} />

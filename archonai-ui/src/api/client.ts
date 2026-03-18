@@ -660,6 +660,41 @@ export const api = {
   getExceptionPrioritized: (limit?: number) =>
     request(`/exceptions/prioritized${limit ? `?limit=${limit}` : ''}`),
 
+  // ── Hero Workflows ──────────────────────────────────────
+  getHeroWorkflowCatalog: () =>
+    request('/hero-workflows/catalog'),
+
+  getHeroWorkflowDefinition: (workflowType: string) =>
+    request(`/hero-workflows/catalog/${encodeURIComponent(workflowType)}`),
+
+  startHeroWorkflow: (body: {
+    workflowType: string;
+    title: string;
+    inputs?: Record<string, string>;
+  }) =>
+    request('/hero-workflows', { method: 'POST', body: JSON.stringify(body) }),
+
+  advanceHeroWorkflow: (workflowId: string, inputs?: Record<string, string>) =>
+    request(`/hero-workflows/${workflowId}/advance`, {
+      method: 'POST',
+      body: JSON.stringify({ inputs }),
+    }),
+
+  getHeroWorkflow: (workflowId: string) =>
+    request(`/hero-workflows/${workflowId}`),
+
+  listHeroWorkflows: (params?: { workflowType?: string; status?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.workflowType) qs.set('workflowType', params.workflowType);
+    if (params?.status) qs.set('status', params.status);
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    const q = qs.toString();
+    return request(`/hero-workflows${q ? `?${q}` : ''}`);
+  },
+
+  cancelHeroWorkflow: (workflowId: string) =>
+    request(`/hero-workflows/${workflowId}/cancel`, { method: 'POST' }),
+
   // ── Executive Command ───────────────────────────────────
   getExecutiveCommandSummary: () =>
     request('/executive-command/summary'),
