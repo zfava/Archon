@@ -1,5 +1,55 @@
 namespace: archonai
 
+# ── Deployment topology ──────────────────────────────────────────
+# Supported modes: saas | single-tenant | private
+# Each mode changes defaults for isolation, networking, and secret handling.
+# Use the corresponding values-<mode>.yaml overlay for full configuration.
+topology:
+  mode: saas
+  # Tenant isolation level: shared (multi-tenant DB) | schema (per-tenant schema) | dedicated (per-tenant DB)
+  tenantIsolation: shared
+  # Whether to deploy bundled postgres/nats or expect external services
+  bundledInfra: true
+
+# ── Secret management ────────────────────────────────────────────
+# Secrets can be provided inline (default) or via external secret stores.
+# Set externalSecrets.enabled=true to use Kubernetes ExternalSecrets Operator,
+# AWS Secrets Manager, Azure Key Vault, or HashiCorp Vault.
+secrets:
+  provider: inline  # inline | external-secrets | vault-injector
+  # External Secrets Operator configuration (when provider=external-secrets)
+  externalSecrets:
+    enabled: false
+    # SecretStore reference — must exist in the target namespace
+    secretStoreRef:
+      name: ""
+      kind: SecretStore  # SecretStore | ClusterSecretStore
+    # Remote key paths for each secret
+    remoteRefs:
+      jwtSigningKey: ""          # e.g. archonai/production/jwt-signing-key
+      postgresUsername: ""       # e.g. archonai/production/postgres-username
+      postgresPassword: ""       # e.g. archonai/production/postgres-password
+      modelProviderApiKey: ""    # e.g. archonai/production/openai-api-key
+    refreshInterval: 1h
+
+# ── Network policies ─────────────────────────────────────────────
+networkPolicy:
+  enabled: false
+  # Additional CIDR ranges allowed to reach the gateway (e.g. corporate VPN)
+  ingressCIDRs: []
+  # Allow egress to these CIDRs only (empty = allow all egress)
+  egressCIDRs: []
+
+# ── Pod disruption budgets ───────────────────────────────────────
+podDisruptionBudget:
+  enabled: false
+  gateway:
+    minAvailable: 1
+  api:
+    minAvailable: 1
+  agents:
+    minAvailable: 1
+
 global:
   imageRegistry: ""
   imagePullSecrets: []

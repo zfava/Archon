@@ -1,0 +1,69 @@
+# ══════════════════════════════════════════════════════════════════
+#  ArchonAI — Single-tenant hosted deployment overlay
+# ══════════════════════════════════════════════════════════════════
+#
+#  Usage:
+#    helm install archonai-<customer> ./deploy/helm/archonai \
+#      -n archonai-<customer> --create-namespace \
+#      -f ./deploy/helm/archonai/values-single-tenant.yaml \
+#      --set security.jwtSigningKey="$(openssl rand -base64 48)" \
+#      --set postgres.password="$(openssl rand -base64 24)"
+#
+#  Topology: dedicated namespace per customer, bundled infra per
+#  tenant, network policies enforced, PDBs active. Each customer
+#  gets their own Postgres instance and NATS bus — full data
+#  isolation at the infrastructure level.
+# ══════════════════════════════════════════════════════════════════
+
+# Override per customer: archonai-<customer-slug>
+namespace: archonai-dedicated
+
+topology:
+  mode: single-tenant
+  tenantIsolation: dedicated
+  bundledInfra: true
+
+secrets:
+  provider: inline
+
+networkPolicy:
+  enabled: true
+  ingressCIDRs: []
+  egressCIDRs: []
+
+podDisruptionBudget:
+  enabled: true
+  gateway:
+    minAvailable: 1
+  api:
+    minAvailable: 1
+  agents:
+    minAvailable: 1
+
+gateway:
+  replicaCount: 2
+  service:
+    type: ClusterIP  # fronted by shared ingress controller
+    port: 80
+
+api:
+  replicaCount: 2
+
+runtime:
+  enabled: true
+  replicaCount: 1
+
+scheduler:
+  enabled: true
+  replicaCount: 1
+
+agents:
+  enabled: true
+  replicaCount: 2
+
+postgres:
+  storage: 20Gi
+  # Dedicated credentials per customer — set via --set or external secrets
+  database: archonai
+  username: archonai
+  password: change-me

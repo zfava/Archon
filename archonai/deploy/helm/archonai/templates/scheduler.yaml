@@ -20,11 +20,15 @@ spec:
         app.kubernetes.io/name: archonai-scheduler
         app.kubernetes.io/component: scheduler
     spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
       containers:
         - name: scheduler
-          image: "{{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag }}"
+          image: "{{ if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}{{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag }}"
           imagePullPolicy: {{ .Values.scheduler.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false

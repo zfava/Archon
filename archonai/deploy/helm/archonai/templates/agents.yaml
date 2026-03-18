@@ -20,11 +20,15 @@ spec:
         app.kubernetes.io/name: archonai-agents
         app.kubernetes.io/component: agents
     spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
       containers:
         - name: agents
-          image: "{{ .Values.agents.image.repository }}:{{ .Values.agents.image.tag }}"
+          image: "{{ if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}{{ .Values.agents.image.repository }}:{{ .Values.agents.image.tag }}"
           imagePullPolicy: {{ .Values.agents.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false

@@ -20,11 +20,15 @@ spec:
         app.kubernetes.io/name: archonai-runtime
         app.kubernetes.io/component: runtime
     spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
       containers:
         - name: runtime
-          image: "{{ .Values.runtime.image.repository }}:{{ .Values.runtime.image.tag }}"
+          image: "{{ if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}{{ .Values.runtime.image.repository }}:{{ .Values.runtime.image.tag }}"
           imagePullPolicy: {{ .Values.runtime.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false

@@ -19,11 +19,15 @@ spec:
         app.kubernetes.io/name: archonai-gateway
         app.kubernetes.io/component: gateway
     spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
       containers:
         - name: gateway
-          image: "{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
+          image: "{{ if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
           imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
           securityContext:
             allowPrivilegeEscalation: false
