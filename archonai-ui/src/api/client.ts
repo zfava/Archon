@@ -809,6 +809,28 @@ export const api = {
   getActionSafetySummary: () =>
     request('/action-safety/summary'),
 
+  // ── Operator Inspection & Diagnostics ──────────────────
+  getInspectionSummaries: (subjectType?: string, domain?: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (subjectType) params.set('subjectType', subjectType);
+    if (domain) params.set('domain', domain);
+    if (limit) params.set('limit', limit.toString());
+    const qs = params.toString();
+    return request(`/inspection/summaries${qs ? `?${qs}` : ''}`);
+  },
+
+  inspectDecisionRationale: (decisionId: string) =>
+    request(`/inspection/decisions/${decisionId}/rationale`),
+
+  inspectPolicyEvaluation: (subjectType: string, subjectId: string) =>
+    request(`/inspection/policy/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}`),
+
+  inspectMemoryReferences: (subjectType: string, subjectId: string) =>
+    request(`/inspection/memory/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}`),
+
+  inspectWorkflowDiagnostics: (workflowId: string) =>
+    request(`/inspection/workflows/${workflowId}/diagnostics`),
+
   // ── Executive Command ───────────────────────────────────
   getExecutiveCommandSummary: () =>
     request('/executive-command/summary'),

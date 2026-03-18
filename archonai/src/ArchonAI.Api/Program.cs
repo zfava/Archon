@@ -56,6 +56,7 @@ using ArchonAI.Core.Models.HeroWorkflow;
 using ArchonAI.Core.Models.PolicySimulation;
 using ArchonAI.Core.Models.ProofAnalytics;
 using ArchonAI.Core.Models.ActionSafety;
+using ArchonAI.Core.Models.Inspection;
 using ArchonAI.Identity;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -88,6 +89,8 @@ builder.Services.AddSingleton<IHeroWorkflowService, HeroWorkflowService>();
 builder.Services.AddSingleton<IPolicySimulationService, PolicySimulationService>();
 builder.Services.AddSingleton<IProofAnalyticsService, ProofAnalyticsService>();
 builder.Services.AddSingleton<IActionSafetyService, ActionSafetyService>();
+builder.Services.AddSingleton<IInspectionService, InspectionService>();
+builder.Services.AddSingleton<InspectionService>();
 
 // ── Health Checks ─────────────────────────────────────────────
 builder.Services.AddHealthChecks()
@@ -4958,6 +4961,91 @@ policySimulation.MapGet("/", async (
 
     var results = await simSvc.ListAsync(tenantId, limit ?? 50, ct);
     return Results.Ok(results);
+}).RequireAuthorization("GovernanceRead");
+
+// ── Operator Inspection & Diagnostics ─────────────────────────────
+var inspection = v1.MapGroup("/inspection")
+    .WithTags("Inspection")
+    .RequireRateLimiting("api");
+
+inspection.MapGet("/summaries", async (
+    IInspectionService inspectionSvc,
+    HttpContext ctx,
+    string? subjectType,
+    string? domain,
+    int? limit,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var results = await inspectionSvc.ListInspectionSummariesAsync(
+        tenantId, subjectType, domain, limit ?? 50, ct);
+    return Results.Ok(results);
+}).RequireAuthorization("GovernanceRead");
+
+inspection.MapGet("/decisions/{decisionId:guid}/rationale", async (
+    Guid decisionId,
+    IInspectionService inspectionSvc,
+    HttpContext ctx,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var bundle = await inspectionSvc.InspectDecisionRationaleAsync(decisionId, tenantId, ct);
+    return bundle is null ? Results.NotFound() : Results.Ok(bundle);
+}).RequireAuthorization("GovernanceRead");
+
+inspection.MapGet("/policy/{subjectType}/{subjectId}", async (
+    string subjectType,
+    string subjectId,
+    IInspectionService inspectionSvc,
+    HttpContext ctx,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var result = await inspectionSvc.InspectPolicyEvaluationAsync(subjectType, subjectId, tenantId, ct);
+    return result is null ? Results.NotFound() : Results.Ok(result);
+}).RequireAuthorization("GovernanceRead");
+
+inspection.MapGet("/memory/{subjectType}/{subjectId}", async (
+    string subjectType,
+    string subjectId,
+    IInspectionService inspectionSvc,
+    HttpContext ctx,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var refs = await inspectionSvc.InspectMemoryReferencesAsync(subjectType, subjectId, tenantId, ct);
+    return Results.Ok(refs);
+}).RequireAuthorization("GovernanceRead");
+
+inspection.MapGet("/workflows/{workflowId:guid}/diagnostics", async (
+    Guid workflowId,
+    IInspectionService inspectionSvc,
+    HttpContext ctx,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var diag = await inspectionSvc.InspectWorkflowFailureAsync(workflowId, tenantId, ct);
+    return diag is null ? Results.NotFound() : Results.Ok(diag);
 }).RequireAuthorization("GovernanceRead");
 
 app.Run();
