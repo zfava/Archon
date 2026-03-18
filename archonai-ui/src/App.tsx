@@ -13,6 +13,7 @@ import { OnboardingWizard } from './features/onboarding';
 import { IntegrationMarketplace } from './features/integrations';
 import { HumanOverridesView } from './features/overrides';
 import { ExplanationView } from './features/explanations';
+import { DecisionsView } from './features/decisions';
 import { OrgAdminView } from './features/admin/OrgAdminView';
 import { SystemHealthView } from './features/admin/SystemHealthView';
 import { PermissionGate, UnauthorizedPage } from './shared/PermissionGate';
@@ -49,6 +50,7 @@ function App() {
           <Route path="/impact" element={<Protected><ImpactDashboard /></Protected>} />
           <Route path="/overrides" element={<AdminGated permission="governance:read"><HumanOverridesView /></AdminGated>} />
           <Route path="/explanations" element={<Protected><ExplanationView /></Protected>} />
+          <Route path="/decisions" element={<Protected><DecisionsView /></Protected>} />
           <Route path="/admin/org" element={<AdminGated permission="admin:read"><OrgAdminView /></AdminGated>} />
           <Route path="/admin/health" element={<AdminGated permission="monitoring:read"><SystemHealthView /></AdminGated>} />
           <Route path="*" element={<Navigate to="/" replace />} />

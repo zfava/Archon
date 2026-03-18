@@ -47,6 +47,7 @@ using ArchonAI.Core.Models.Simulation;
 using ArchonAI.Core.Models.HumanOverride;
 using ArchonAI.Core.Models.Explanation;
 using ArchonAI.Core.Models.Identity;
+using ArchonAI.Core.Models.Decisions;
 using ArchonAI.Identity;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -73,6 +74,7 @@ builder.Services.AddArchonAIWorkflowSimulation(builder.Configuration);
 builder.Services.AddArchonAIMemory(builder.Configuration);
 builder.Services.AddArchonAIPerception();
 builder.Services.AddArchonAIOrganizationState();
+builder.Services.AddSingleton<IDecisionService, DecisionService>();
 
 // ── Health Checks ─────────────────────────────────────────────
 builder.Services.AddHealthChecks()
@@ -3386,6 +3388,122 @@ v1.MapGet("/auth/permissions", async (
     return Results.Ok(new { userId, role = roleClaim, permissions = all.Order().ToList() });
 }).RequireAuthorization();
 
+// ── Decision Engine ───────────────────────────────────────────
+var decisions = v1.MapGroup("/decisions")
+    .RequireAuthorization("OperatorOrAdmin");
+
+decisions.MapPost("/", async (
+    CreateDecisionRequest req,
+    IDecisionService decisionService,
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Title) || string.IsNullOrWhiteSpace(req.Domain))
+        return Results.BadRequest(new { error = "Title and domain are required." });
+
+    var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+    var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : Guid.Empty;
+    var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+
+    var alternatives = req.Alternatives?.Select(a => new DecisionAlternative(
+        Guid.NewGuid().ToString("N")[..8], a.Title, a.Rationale,
+        a.Pros ?? Array.Empty<string>(), a.Cons ?? Array.Empty<string>(),
+        a.EstimatedConfidence, a.EstimatedValue)).ToList()
+        ?? new List<DecisionAlternative>();
+
+    var decision = new DecisionRecord(
+        Id: Guid.NewGuid(),
+        TenantId: tenantId,
+        Title: req.Title,
+        Domain: req.Domain,
+        Objective: req.Objective ?? string.Empty,
+        Constraints: req.Constraints ?? Array.Empty<string>(),
+        Assumptions: req.Assumptions ?? Array.Empty<string>(),
+        Alternatives: alternatives,
+        RecommendedOptionId: req.RecommendedOptionId ?? string.Empty,
+        Confidence: Math.Clamp(req.Confidence ?? 0.0, 0.0, 1.0),
+        Reversibility: Enum.TryParse<DecisionReversibility>(req.Reversibility, true, out var rev) ? rev : DecisionReversibility.PartiallyReversible,
+        RiskLevel: Enum.TryParse<DecisionRiskLevel>(req.RiskLevel, true, out var risk) ? risk : DecisionRiskLevel.Medium,
+        ExpectedValue: req.ExpectedValue,
+        RequiresApproval: req.RequiresApproval ?? (risk >= DecisionRiskLevel.High),
+        LinkedArtifacts: Array.Empty<DecisionLink>(),
+        Status: DecisionStatus.Draft,
+        CreatedBy: userId,
+        CreatedAtUtc: DateTimeOffset.UtcNow,
+        UpdatedAtUtc: DateTimeOffset.UtcNow);
+
+    var created = await decisionService.CreateAsync(decision, ct);
+    return Results.Created($"/api/v1/decisions/{created.Id}", created);
+});
+
+decisions.MapGet("/", async (
+    IDecisionService decisionService,
+    HttpContext httpContext,
+    string? domain,
+    string? status,
+    int? limit,
+    CancellationToken ct) =>
+{
+    var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+    var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : Guid.Empty;
+    var parsedStatus = Enum.TryParse<DecisionStatus>(status, true, out var s) ? s : (DecisionStatus?)null;
+
+    var results = await decisionService.ListAsync(tenantId, domain, parsedStatus, limit ?? 50, ct);
+    return Results.Ok(results);
+});
+
+decisions.MapGet("/{decisionId:guid}", async (
+    Guid decisionId,
+    IDecisionService decisionService,
+    CancellationToken ct) =>
+{
+    var decision = await decisionService.GetAsync(decisionId, ct);
+    return decision is null ? Results.NotFound() : Results.Ok(decision);
+});
+
+decisions.MapPut("/{decisionId:guid}/status", async (
+    Guid decisionId,
+    UpdateDecisionStatusRequest req,
+    IDecisionService decisionService,
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Status))
+        return Results.BadRequest(new { error = "Status is required." });
+
+    if (!Enum.TryParse<DecisionStatus>(req.Status, true, out var newStatus))
+        return Results.BadRequest(new { error = $"Invalid status: {req.Status}." });
+
+    var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+    var updated = await decisionService.UpdateStatusAsync(decisionId, newStatus, userId, req.Detail, ct);
+    return updated is null ? Results.NotFound() : Results.Ok(updated);
+});
+
+decisions.MapPost("/{decisionId:guid}/links", async (
+    Guid decisionId,
+    CreateDecisionLinkRequest req,
+    IDecisionService decisionService,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.ArtifactType) || string.IsNullOrWhiteSpace(req.ArtifactId))
+        return Results.BadRequest(new { error = "ArtifactType and ArtifactId are required." });
+
+    var link = new DecisionLink(req.ArtifactType, req.ArtifactId,
+        req.Description ?? string.Empty, DateTimeOffset.UtcNow);
+
+    var updated = await decisionService.LinkArtifactAsync(decisionId, link, ct);
+    return updated is null ? Results.NotFound() : Results.Ok(updated);
+});
+
+decisions.MapGet("/{decisionId:guid}/history", async (
+    Guid decisionId,
+    IDecisionService decisionService,
+    CancellationToken ct) =>
+{
+    var events = await decisionService.GetHistoryAsync(decisionId, ct);
+    return Results.Ok(events);
+});
+
 app.Run();
 
 
@@ -3607,3 +3725,36 @@ public sealed record RequestApprovalRequest(
 public sealed record ReviewApprovalRequest(
     bool Approve,
     string? Notes);
+
+// ── Decision DTOs ─────────────────────────────────────────
+
+public sealed record CreateDecisionRequest(
+    string Title,
+    string Domain,
+    string? Objective,
+    IReadOnlyList<string>? Constraints,
+    IReadOnlyList<string>? Assumptions,
+    IReadOnlyList<CreateAlternativeRequest>? Alternatives,
+    string? RecommendedOptionId,
+    double? Confidence,
+    string? Reversibility,
+    string? RiskLevel,
+    decimal? ExpectedValue,
+    bool? RequiresApproval);
+
+public sealed record CreateAlternativeRequest(
+    string Title,
+    string Rationale,
+    IReadOnlyList<string>? Pros,
+    IReadOnlyList<string>? Cons,
+    double? EstimatedConfidence,
+    decimal? EstimatedValue);
+
+public sealed record UpdateDecisionStatusRequest(
+    string Status,
+    string? Detail);
+
+public sealed record CreateDecisionLinkRequest(
+    string ArtifactType,
+    string ArtifactId,
+    string? Description);

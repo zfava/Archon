@@ -359,6 +359,61 @@ export const api = {
     return request(`/overrides/log${qs ? `?${qs}` : ''}`);
   },
 
+  // ── Decisions ──────────────────────────────────────────
+  listDecisions: (params?: { domain?: string; status?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.domain) qs.set('domain', params.domain);
+    if (params?.status) qs.set('status', params.status);
+    if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+    const q = qs.toString();
+    return request(`/decisions${q ? `?${q}` : ''}`);
+  },
+
+  getDecision: (decisionId: string) =>
+    request(`/decisions/${decisionId}`),
+
+  createDecision: (body: {
+    title: string;
+    domain: string;
+    objective?: string;
+    constraints?: string[];
+    assumptions?: string[];
+    alternatives?: {
+      title: string;
+      rationale: string;
+      pros?: string[];
+      cons?: string[];
+      estimatedConfidence?: number;
+      estimatedValue?: number;
+    }[];
+    recommendedOptionId?: string;
+    confidence?: number;
+    reversibility?: string;
+    riskLevel?: string;
+    expectedValue?: number;
+    requiresApproval?: boolean;
+  }) =>
+    request('/decisions', { method: 'POST', body: JSON.stringify(body) }),
+
+  updateDecisionStatus: (decisionId: string, status: string, detail?: string) =>
+    request(`/decisions/${decisionId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, detail }),
+    }),
+
+  linkDecisionArtifact: (decisionId: string, body: {
+    artifactType: string;
+    artifactId: string;
+    description?: string;
+  }) =>
+    request(`/decisions/${decisionId}/links`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  getDecisionHistory: (decisionId: string) =>
+    request(`/decisions/${decisionId}/history`),
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];
