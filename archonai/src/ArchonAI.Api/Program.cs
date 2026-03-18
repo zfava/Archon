@@ -6,6 +6,7 @@ using ArchonAI.Connectors;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.AuditLog;
 using ArchonAI.Core.Models.Governance;
+using ArchonAI.Core.Models.OperationalTwin;
 using ArchonAI.Core.Models.Planning;
 using ArchonAI.Core.Models.Rbac;
 using ArchonAI.Core.Models.Monitoring;
@@ -3925,6 +3926,214 @@ enterpriseMemory.MapPost("/expire-sessions", async (
     return Results.Ok(new { expiredCount = expired });
 }).RequireAuthorization("GovernanceWrite");
 
+// ── Operational Twin ──────────────────────────────────────
+var twin = v1.MapGroup("/twin")
+    .WithTags("operational-twin");
+
+twin.MapPost("/entities", async (
+    UpsertTwinEntityRequest req,
+    HttpContext ctx,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    var userId = ctx.User?.FindFirst("sub")?.Value ?? "unknown";
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+    if (!Enum.TryParse<TwinEntityType>(req.EntityType, true, out var entityType))
+        return Results.BadRequest(new { error = $"Invalid entity type: {req.EntityType}." });
+
+    var now = DateTimeOffset.UtcNow;
+    var entity = new TwinEntity(
+        Id: req.Id ?? Guid.NewGuid(), TenantId: tenantId, EntityType: entityType,
+        Name: req.Name, Description: req.Description,
+        Status: Enum.TryParse<TwinEntityStatus>(req.Status, true, out var s) ? s : TwinEntityStatus.Active,
+        Properties: req.Properties?.AsReadOnly() ?? new Dictionary<string, string>().AsReadOnly(),
+        Tags: req.Tags ?? Array.Empty<string>(),
+        CreatedBy: userId, CreatedAtUtc: now, UpdatedAtUtc: now);
+
+    var created = await twinSvc.UpsertEntityAsync(entity, ct);
+    return Results.Created($"/api/v1/twin/entities/{created.Id}", created);
+}).RequireAuthorization("OperatorOrAdmin");
+
+twin.MapGet("/entities", async (
+    string? type,
+    HttpContext ctx,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    TwinEntityType? parsedType = null;
+    if (type is not null && Enum.TryParse<TwinEntityType>(type, true, out var t))
+        parsedType = t;
+
+    var entities = await twinSvc.ListEntitiesAsync(tenantId, parsedType, ct);
+    return Results.Ok(entities);
+}).RequireAuthorization("GovernanceRead");
+
+twin.MapGet("/entities/{entityId:guid}", async (
+    Guid entityId,
+    HttpContext ctx,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var entity = await twinSvc.GetEntityAsync(entityId, tenantId, ct);
+    return entity is null ? Results.NotFound() : Results.Ok(entity);
+}).RequireAuthorization("GovernanceRead");
+
+twin.MapPost("/dependencies", async (
+    AddTwinDependencyRequest req,
+    HttpContext ctx,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+    if (!Enum.TryParse<DependencyType>(req.Type, true, out var depType))
+        return Results.BadRequest(new { error = $"Invalid dependency type: {req.Type}." });
+
+    var dep = new TwinDependency(Guid.NewGuid(), tenantId,
+        req.FromEntityId, req.ToEntityId, depType,
+        req.Label, req.CriticalityScore, DateTimeOffset.UtcNow);
+    var created = await twinSvc.AddDependencyAsync(dep, ct);
+    return Results.Created($"/api/v1/twin/dependencies/{created.Id}", created);
+}).RequireAuthorization("OperatorOrAdmin");
+
+twin.MapGet("/entities/{entityId:guid}/dependencies", async (
+    Guid entityId,
+    HttpContext ctx,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var deps = await twinSvc.GetDependenciesAsync(entityId, tenantId, ct);
+    return Results.Ok(deps);
+}).RequireAuthorization("GovernanceRead");
+
+twin.MapPost("/kpis", async (
+    RecordTwinKpiRequest req,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    if (!Enum.TryParse<KpiDirection>(req.Direction, true, out var dir))
+        dir = KpiDirection.HigherIsBetter;
+
+    var kpi = new TwinKpi(req.EntityId, req.MetricName, req.CurrentValue,
+        req.TargetValue, req.ThresholdWarning, req.ThresholdCritical,
+        dir, req.Unit ?? "", DateTimeOffset.UtcNow);
+    var created = await twinSvc.RecordKpiAsync(kpi, ct);
+    return Results.Ok(created);
+}).RequireAuthorization("OperatorOrAdmin");
+
+twin.MapGet("/entities/{entityId:guid}/kpis", async (
+    Guid entityId,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var kpis = await twinSvc.GetKpisAsync(entityId, ct);
+    return Results.Ok(kpis);
+}).RequireAuthorization("GovernanceRead");
+
+twin.MapPost("/bottlenecks", async (
+    ReportBottleneckRequest req,
+    HttpContext ctx,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+    if (!Enum.TryParse<BottleneckSeverity>(req.Severity, true, out var sev))
+        sev = BottleneckSeverity.Medium;
+
+    var bn = new TwinBottleneck(Guid.NewGuid(), tenantId, req.AffectedEntityId,
+        req.Description, sev, req.RootCause, false, DateTimeOffset.UtcNow, null);
+    var created = await twinSvc.ReportBottleneckAsync(bn, ct);
+    return Results.Created($"/api/v1/twin/bottlenecks/{created.Id}", created);
+}).RequireAuthorization("OperatorOrAdmin");
+
+twin.MapGet("/bottlenecks", async (
+    bool? activeOnly,
+    HttpContext ctx,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var bns = await twinSvc.ListBottlenecksAsync(tenantId, activeOnly ?? true, ct);
+    return Results.Ok(bns);
+}).RequireAuthorization("GovernanceRead");
+
+twin.MapPost("/bottlenecks/{bottleneckId:guid}/resolve", async (
+    Guid bottleneckId,
+    HttpContext ctx,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var resolved = await twinSvc.ResolveBottleneckAsync(bottleneckId, tenantId, ct);
+    return resolved is null ? Results.NotFound() : Results.Ok(resolved);
+}).RequireAuthorization("OperatorOrAdmin");
+
+twin.MapPost("/entities/{entityId:guid}/links", async (
+    Guid entityId,
+    LinkTwinArtifactRequest req,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var link = new TwinArtifactLink(Guid.NewGuid(), entityId,
+        req.ArtifactType, req.ArtifactId, req.Relationship, DateTimeOffset.UtcNow);
+    var created = await twinSvc.LinkArtifactAsync(link, ct);
+    return Results.Ok(created);
+}).RequireAuthorization("OperatorOrAdmin");
+
+twin.MapGet("/entities/{entityId:guid}/links", async (
+    Guid entityId,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var links = await twinSvc.GetArtifactLinksAsync(entityId, ct);
+    return Results.Ok(links);
+}).RequireAuthorization("GovernanceRead");
+
+twin.MapGet("/overview", async (
+    HttpContext ctx,
+    IOperationalTwinService twinSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var overview = await twinSvc.GetOverviewAsync(tenantId, ct);
+    return Results.Ok(overview);
+}).RequireAuthorization("GovernanceRead");
+
 app.Run();
 
 
@@ -4247,3 +4456,25 @@ public sealed record MemoryEntityLinkDto(
     string EntityType,
     string EntityId,
     string Relationship);
+
+// ── Operational Twin DTOs ────────────────────────────────
+public sealed record UpsertTwinEntityRequest(
+    Guid? Id, string EntityType, string Name, string? Description,
+    string? Status, Dictionary<string, string>? Properties,
+    IReadOnlyList<string>? Tags);
+
+public sealed record AddTwinDependencyRequest(
+    Guid FromEntityId, Guid ToEntityId, string Type,
+    string? Label, double? CriticalityScore);
+
+public sealed record RecordTwinKpiRequest(
+    Guid EntityId, string MetricName, double CurrentValue,
+    double? TargetValue, double? ThresholdWarning, double? ThresholdCritical,
+    string? Direction, string? Unit);
+
+public sealed record ReportBottleneckRequest(
+    Guid AffectedEntityId, string Description, string Severity,
+    string? RootCause);
+
+public sealed record LinkTwinArtifactRequest(
+    string ArtifactType, string ArtifactId, string Relationship);

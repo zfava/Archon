@@ -50,6 +50,7 @@ public static class SecurityServiceCollectionExtensions
         services.AddSingleton<ITrustTierService, TrustTierService>();
         services.AddSingleton<IOutcomeLearningService, OutcomeLearningService>();
         services.AddSingleton<IEnterpriseMemoryService, EnterpriseMemoryService>();
+        services.AddSingleton<IOperationalTwinService, OperationalTwinService>();
         services.AddSingleton<IGatedActionExecutor, GatedActionExecutor>();
         services.AddSingleton<IAuthorizationHandler, PermissionRequirementHandler>();
         services.AddSingleton<IAuthorizationHandler, TenantMatchRequirementHandler>();

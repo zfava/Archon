@@ -565,6 +565,25 @@ export const api = {
   getMemoryTimeline: (params?: Record<string, string | number>) =>
     request('/enterprise-memory/timeline' + (params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '')),
 
+  // ── Operational Twin ──────────────────────────────────
+  listTwinEntities: (params?: Record<string, string>) =>
+    request('/twin/entities' + (params ? '?' + new URLSearchParams(params).toString() : '')),
+
+  getTwinOverview: () =>
+    request('/twin/overview'),
+
+  getTwinEntityDeps: (entityId: string) =>
+    request(`/twin/entities/${entityId}/dependencies`),
+
+  getTwinEntityKpis: (entityId: string) =>
+    request(`/twin/entities/${entityId}/kpis`),
+
+  getTwinEntityLinks: (entityId: string) =>
+    request(`/twin/entities/${entityId}/links`),
+
+  listTwinBottlenecks: (params?: Record<string, string>) =>
+    request('/twin/bottlenecks' + (params ? '?' + new URLSearchParams(params).toString() : '')),
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];

@@ -1,0 +1,90 @@
+.twin-view { padding: 32px; max-width: 1200px; }
+
+.twin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+.twin-header-left { display: flex; align-items: center; gap: 14px; }
+.twin-back { color: var(--text-3); text-decoration: none; display: flex; }
+.twin-back:hover { color: var(--text-1); }
+.twin-title { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--text-1); margin: 0; }
+.twin-subtitle { font-size: 13px; color: var(--text-3); margin: 2px 0 0; }
+
+/* Overview cards */
+.twin-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }
+.twin-stat-card {
+  background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px;
+  padding: 16px; text-align: center; cursor: pointer; transition: all 0.15s;
+}
+.twin-stat-card:hover { border-color: var(--text-3); }
+.twin-stat-value { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--text-1); }
+.twin-stat-label { font-family: var(--mono); font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
+.twin-stat-warn { border-color: rgba(255,189,46,0.4); }
+.twin-stat-warn .twin-stat-value { color: #FFBD2E; }
+
+/* Sections */
+.twin-section { margin-bottom: 24px; }
+.twin-section-label { font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+
+/* Bottlenecks */
+.twin-bottleneck-list { display: flex; flex-direction: column; gap: 6px; }
+.twin-bottleneck {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  background: var(--navy-card); border: 1px solid var(--border); border-radius: 4px;
+}
+.twin-bn-desc { font-size: 13px; color: var(--text-1); flex: 1; }
+.twin-bn-cause { font-size: 11px; color: var(--text-3); }
+.twin-bn-time { font-family: var(--mono); font-size: 10px; color: var(--text-3); }
+
+/* Badge */
+.twin-badge {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
+  padding: 2px 8px; border-radius: 2px; border: 1px solid; text-transform: uppercase;
+}
+
+.sev-low { color: #60A5FA; border-color: rgba(96,165,250,0.3); }
+.sev-medium { color: #FFBD2E; border-color: rgba(255,189,46,0.3); }
+.sev-high { color: #F97316; border-color: rgba(249,115,22,0.3); }
+.sev-critical { color: #F87171; border-color: rgba(248,113,113,0.3); }
+
+.twin-type-badge { color: var(--purple); border-color: var(--border-lit); }
+.twin-status-active { color: #34D399; border-color: rgba(52,211,153,0.3); }
+.twin-status-degraded { color: #FFBD2E; border-color: rgba(255,189,46,0.3); }
+.twin-status-inactive { color: var(--text-3); border-color: var(--border); }
+.twin-status-archived { color: var(--text-3); border-color: var(--border); opacity: 0.6; }
+
+/* KPIs */
+.twin-kpi-list { display: flex; flex-direction: column; gap: 4px; }
+.twin-kpi-row {
+  display: flex; align-items: center; gap: 12px; padding: 8px 16px;
+  background: var(--navy-card); border: 1px solid var(--border); border-radius: 4px;
+}
+.twin-kpi-name { font-family: var(--mono); font-size: 12px; color: var(--text-1); font-weight: 500; flex: 1; }
+.twin-kpi-value { font-family: var(--mono); font-size: 13px; color: #FFBD2E; font-weight: 600; }
+.twin-kpi-target { font-family: var(--mono); font-size: 10px; color: var(--text-3); }
+
+/* Type filter */
+.twin-type-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.twin-type-btn {
+  font-family: var(--mono); font-size: 11px; padding: 5px 12px;
+  border: 1px solid var(--border); border-radius: 3px; background: var(--navy-card);
+  color: var(--text-3); cursor: pointer; transition: all 0.15s;
+}
+.twin-type-btn:hover { border-color: var(--text-3); }
+.twin-type-btn.active { border-color: var(--text-1); color: var(--text-1); background: #161F2E; }
+
+/* Entity list */
+.twin-entity-list { display: flex; flex-direction: column; gap: 6px; }
+.twin-entity {
+  background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px 18px; transition: background 0.15s;
+}
+.twin-entity:hover { background: #161F2E; }
+.twin-entity-top { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.twin-entity-name { font-size: 14px; font-weight: 600; color: var(--text-1); }
+.twin-entity-desc { font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.twin-entity-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.twin-tag {
+  font-family: var(--mono); font-size: 10px; color: var(--text-3);
+  padding: 2px 8px; border: 1px solid var(--border); border-radius: 2px;
+}
+
+.twin-loading { padding: 48px; text-align: center; color: var(--text-3); }
+.twin-empty { padding: 48px; text-align: center; color: var(--text-3); font-size: 14px; background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px; }
