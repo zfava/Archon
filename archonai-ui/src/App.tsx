@@ -47,7 +47,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Protected><CommandConsole /></Protected>} />
           <Route path="/onboarding" element={<Protected><OnboardingWizard /></Protected>} />
-          <Route path="/integrations" element={<Protected><IntegrationMarketplace /></Protected>} />
+          <Route path="/integrations" element={<AdminGated permission="connectors:read"><IntegrationMarketplace /></AdminGated>} />
           <Route path="/strategy/:goalId" element={<Protected><StrategyView /></Protected>} />
           <Route path="/attribution/:goalId" element={<Protected><AttributionView /></Protected>} />
           <Route path="/activity" element={<Protected><SystemActivityView /></Protected>} />

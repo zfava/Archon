@@ -530,8 +530,10 @@ export const api = {
   getOutcome: (decisionId: string) =>
     request(`/outcomes/${decisionId}`),
 
-  listOutcomes: (params?: Record<string, string | number>) =>
-    request('/outcomes/' + (params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '')),
+  listOutcomes: (params?: Record<string, string | number>) => {
+    const qs = params ? new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '';
+    return request(`/outcomes${qs ? `?${qs}` : ''}`);
+  },
 
   getCalibrationSummary: (params?: Record<string, string>) =>
     request('/outcomes/calibration' + (params ? '?' + new URLSearchParams(params).toString() : '')),
@@ -548,7 +550,7 @@ export const api = {
     importance?: number;
     expiresAtUtc?: string;
   }) =>
-    request('/enterprise-memory/', {
+    request('/enterprise-memory', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
@@ -556,8 +558,10 @@ export const api = {
   getMemory: (recordId: string) =>
     request(`/enterprise-memory/${recordId}`),
 
-  queryMemory: (params?: Record<string, string | number>) =>
-    request('/enterprise-memory/' + (params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '')),
+  queryMemory: (params?: Record<string, string | number>) => {
+    const qs = params ? new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '';
+    return request(`/enterprise-memory${qs ? `?${qs}` : ''}`);
+  },
 
   getEntityMemory: (entityType: string, entityId: string) =>
     request(`/enterprise-memory/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`),
@@ -594,7 +598,7 @@ export const api = {
     linkedDecisionIds?: string[];
     linkedEntityIds?: string[];
   }) =>
-    request('/scenarios/', { method: 'POST', body: JSON.stringify(body) }),
+    request('/scenarios', { method: 'POST', body: JSON.stringify(body) }),
 
   updateScenarioAssumptions: (scenarioId: string, body: {
     assumptions: { name: string; currentValue: string; proposedValue: string; unit?: string; rationale?: string }[];
@@ -604,8 +608,10 @@ export const api = {
   getScenario: (scenarioId: string) =>
     request(`/scenarios/${scenarioId}`),
 
-  listScenarios: (params?: Record<string, string>) =>
-    request('/scenarios/' + (params ? '?' + new URLSearchParams(params).toString() : '')),
+  listScenarios: (params?: Record<string, string>) => {
+    const qs = params ? new URLSearchParams(params).toString() : '';
+    return request(`/scenarios${qs ? `?${qs}` : ''}`);
+  },
 
   compareScenarios: (scenarioIds: string[]) =>
     request('/scenarios/compare', { method: 'POST', body: JSON.stringify({ scenarioIds }) }),
@@ -629,10 +635,12 @@ export const api = {
     linkedArtifacts?: { artifactType: string; artifactId: string; label?: string }[];
     recommendedAction?: { actionType: string; description: string; targetArtifactType?: string; targetArtifactId?: string; confidence?: string };
   }) =>
-    request('/exceptions/', { method: 'POST', body: JSON.stringify(body) }),
+    request('/exceptions', { method: 'POST', body: JSON.stringify(body) }),
 
-  listExceptions: (params?: Record<string, string>) =>
-    request('/exceptions/' + (params ? '?' + new URLSearchParams(params).toString() : '')),
+  listExceptions: (params?: Record<string, string>) => {
+    const qs = params ? new URLSearchParams(params).toString() : '';
+    return request(`/exceptions${qs ? `?${qs}` : ''}`);
+  },
 
   getException: (exceptionId: string) =>
     request(`/exceptions/${exceptionId}`),

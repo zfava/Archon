@@ -163,10 +163,10 @@ export function ExecutiveCommandView() {
       {/* ── Top exceptions ─────────────────────────────────── */}
       {exc.topExceptions.length > 0 && (
         <div className="exec-section">
-          <div className="exec-section-header">
+          <Link to="/exceptions" className="exec-section-header" style={{ textDecoration: 'none', color: 'inherit' }}>
             What Needs Attention
             <span className="exec-section-count">{exc.totalOpen}</span>
-          </div>
+          </Link>
           <div className="exec-exc-list">
             {exc.topExceptions.map(e => (
               <Link to="/exceptions" key={e.id} className="exec-exc-row" style={{ textDecoration: 'none' }}>
@@ -184,10 +184,10 @@ export function ExecutiveCommandView() {
       {/* ── Pending approvals ──────────────────────────────── */}
       {appr.pendingCount > 0 && (
         <div className="exec-section">
-          <div className="exec-section-header">
+          <Link to="/control" className="exec-section-header" style={{ textDecoration: 'none', color: 'inherit' }}>
             Awaiting Your Approval
             <span className="exec-section-count">{appr.pendingCount}</span>
-          </div>
+          </Link>
           <div className="exec-approval-list">
             {appr.pendingApprovals.map(a => (
               <div key={a.id} className="exec-approval-row">
@@ -204,7 +204,7 @@ export function ExecutiveCommandView() {
       {/* ── Outcome calibration ────────────────────────────── */}
       {cal.totalOutcomes > 0 && (
         <div className="exec-section">
-          <div className="exec-section-header">Decision Calibration</div>
+          <Link to="/decisions" className="exec-section-header" style={{ textDecoration: 'none', color: 'inherit' }}>Decision Calibration</Link>
           <div className="exec-cal-grid">
             <div className="exec-cal-item">
               <div className="exec-cal-val">{cal.totalOutcomes}</div>
@@ -228,7 +228,7 @@ export function ExecutiveCommandView() {
 
       {/* ── Operational twin ───────────────────────────────── */}
       <div className="exec-section">
-        <div className="exec-section-header">Operational Twin</div>
+        <Link to="/operational-twin" className="exec-section-header" style={{ textDecoration: 'none', color: 'inherit' }}>Operational Twin</Link>
         <div className="exec-ops-grid">
           {Object.entries(ops.entityCounts).map(([type, count]) => (
             <div key={type} className="exec-ops-item">
@@ -261,10 +261,10 @@ export function ExecutiveCommandView() {
       {/* ── Trust tiers ────────────────────────────────────── */}
       {trust.totalPolicies > 0 && (
         <div className="exec-section">
-          <div className="exec-section-header">
+          <Link to="/trust-tiers" className="exec-section-header" style={{ textDecoration: 'none', color: 'inherit' }}>
             AI Autonomy Controls
             <span className="exec-section-count">{trust.totalPolicies} policies</span>
-          </div>
+          </Link>
           <div className="exec-tier-list">
             {Object.entries(trust.tierMap).map(([scope, tier]) => (
               <span key={scope} className="exec-tier-chip">{scope}<strong>{tier}</strong></span>
@@ -276,10 +276,10 @@ export function ExecutiveCommandView() {
       {/* ── Scenarios ──────────────────────────────────────── */}
       {scen.recentScenarios.length > 0 && (
         <div className="exec-section">
-          <div className="exec-section-header">
+          <Link to="/scenarios" className="exec-section-header" style={{ textDecoration: 'none', color: 'inherit' }}>
             Scenario Planning
             <span className="exec-section-count">{scen.totalActive} active / {scen.totalCompared} compared</span>
-          </div>
+          </Link>
           <div className="exec-scenario-list">
             {scen.recentScenarios.map(s => (
               <Link to="/scenarios" key={s.id} className="exec-scenario-row" style={{ textDecoration: 'none' }}>
