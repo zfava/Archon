@@ -75,6 +75,7 @@ builder.Services.AddArchonAIMemory(builder.Configuration);
 builder.Services.AddArchonAIPerception();
 builder.Services.AddArchonAIOrganizationState();
 builder.Services.AddSingleton<IDecisionService, DecisionService>();
+builder.Services.AddSingleton<IFinancialConsequenceService, FinancialConsequenceService>();
 
 // ── Health Checks ─────────────────────────────────────────────
 builder.Services.AddHealthChecks()
@@ -3504,6 +3505,92 @@ decisions.MapGet("/{decisionId:guid}/history", async (
     return Results.Ok(events);
 });
 
+// ── Financial Consequence Engine ──────────────────────────────
+decisions.MapPost("/{decisionId:guid}/financial-consequence", async (
+    Guid decisionId,
+    AttachFinancialConsequenceRequest req,
+    IDecisionService decisionService,
+    IFinancialConsequenceService finService,
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    var decision = await decisionService.GetAsync(decisionId, ct);
+    if (decision is null) return Results.NotFound();
+
+    var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+
+    var consequence = new FinancialConsequence(
+        Id: Guid.NewGuid(),
+        DecisionId: decisionId,
+        TenantId: decision.TenantId,
+        ExpectedRevenueImpactLow: req.ExpectedRevenueImpactLow,
+        ExpectedRevenueImpactHigh: req.ExpectedRevenueImpactHigh,
+        ExpectedCostImpactLow: req.ExpectedCostImpactLow,
+        ExpectedCostImpactHigh: req.ExpectedCostImpactHigh,
+        ExpectedMarginImpact: req.ExpectedMarginImpact,
+        ExpectedCashTimingImpact: req.ExpectedCashTimingImpact,
+        LaborImpact: req.LaborImpact,
+        DownsideRisk: req.DownsideRisk,
+        UpsidePotential: req.UpsidePotential,
+        ConfidenceAdjustment: req.ConfidenceAdjustment,
+        RoiEstimateLow: req.RoiEstimateLow,
+        RoiEstimateHigh: req.RoiEstimateHigh,
+        BreakEvenEstimate: req.BreakEvenEstimate,
+        Assumptions: req.Assumptions ?? Array.Empty<string>(),
+        Notes: req.Notes,
+        CreatedBy: userId,
+        CreatedAtUtc: DateTimeOffset.UtcNow,
+        UpdatedAtUtc: DateTimeOffset.UtcNow);
+
+    var created = await finService.AttachAsync(consequence, ct);
+    return Results.Created($"/api/v1/decisions/{decisionId}/financial-consequence", created);
+});
+
+decisions.MapGet("/{decisionId:guid}/financial-consequence", async (
+    Guid decisionId,
+    IFinancialConsequenceService finService,
+    CancellationToken ct) =>
+{
+    var consequence = await finService.GetByDecisionAsync(decisionId, ct);
+    return consequence is null ? Results.NotFound() : Results.Ok(consequence);
+});
+
+decisions.MapPut("/{decisionId:guid}/financial-consequence", async (
+    Guid decisionId,
+    AttachFinancialConsequenceRequest req,
+    IFinancialConsequenceService finService,
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    var existing = await finService.GetByDecisionAsync(decisionId, ct);
+    if (existing is null) return Results.NotFound();
+
+    var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+
+    var updated = existing with
+    {
+        ExpectedRevenueImpactLow = req.ExpectedRevenueImpactLow,
+        ExpectedRevenueImpactHigh = req.ExpectedRevenueImpactHigh,
+        ExpectedCostImpactLow = req.ExpectedCostImpactLow,
+        ExpectedCostImpactHigh = req.ExpectedCostImpactHigh,
+        ExpectedMarginImpact = req.ExpectedMarginImpact,
+        ExpectedCashTimingImpact = req.ExpectedCashTimingImpact,
+        LaborImpact = req.LaborImpact,
+        DownsideRisk = req.DownsideRisk,
+        UpsidePotential = req.UpsidePotential,
+        ConfidenceAdjustment = req.ConfidenceAdjustment,
+        RoiEstimateLow = req.RoiEstimateLow,
+        RoiEstimateHigh = req.RoiEstimateHigh,
+        BreakEvenEstimate = req.BreakEvenEstimate,
+        Assumptions = req.Assumptions ?? existing.Assumptions,
+        Notes = req.Notes ?? existing.Notes,
+        UpdatedAtUtc = DateTimeOffset.UtcNow,
+    };
+
+    var result = await finService.UpdateAsync(decisionId, updated, ct);
+    return result is null ? Results.NotFound() : Results.Ok(result);
+});
+
 app.Run();
 
 
@@ -3758,3 +3845,21 @@ public sealed record CreateDecisionLinkRequest(
     string ArtifactType,
     string ArtifactId,
     string? Description);
+
+// ── Financial Consequence DTOs ────────────────────────────
+public sealed record AttachFinancialConsequenceRequest(
+    decimal? ExpectedRevenueImpactLow,
+    decimal? ExpectedRevenueImpactHigh,
+    decimal? ExpectedCostImpactLow,
+    decimal? ExpectedCostImpactHigh,
+    decimal? ExpectedMarginImpact,
+    string? ExpectedCashTimingImpact,
+    string? LaborImpact,
+    decimal? DownsideRisk,
+    decimal? UpsidePotential,
+    double? ConfidenceAdjustment,
+    decimal? RoiEstimateLow,
+    decimal? RoiEstimateHigh,
+    string? BreakEvenEstimate,
+    IReadOnlyList<string>? Assumptions,
+    string? Notes);

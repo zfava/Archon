@@ -20,6 +20,29 @@ interface DecisionLink {
   linkedAtUtc: string;
 }
 
+interface FinancialConsequence {
+  id: string;
+  decisionId: string;
+  expectedRevenueImpactLow: number | null;
+  expectedRevenueImpactHigh: number | null;
+  expectedCostImpactLow: number | null;
+  expectedCostImpactHigh: number | null;
+  expectedMarginImpact: number | null;
+  expectedCashTimingImpact: string | null;
+  laborImpact: string | null;
+  downsideRisk: number | null;
+  upsidePotential: number | null;
+  confidenceAdjustment: number | null;
+  roiEstimateLow: number | null;
+  roiEstimateHigh: number | null;
+  breakEvenEstimate: string | null;
+  assumptions: string[];
+  notes: string | null;
+  createdBy: string;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
 interface LifecycleEvent {
   id: string;
   decisionId: string;
@@ -67,10 +90,28 @@ function pct(n: number): string {
   return `${Math.round(n * 100)}%`;
 }
 
+function fmtCurrency(n: number): string {
+  const abs = Math.abs(n);
+  const formatted = abs >= 1_000_000
+    ? `$${(abs / 1_000_000).toFixed(1)}M`
+    : abs >= 1_000
+      ? `$${(abs / 1_000).toFixed(0)}K`
+      : `$${abs.toLocaleString()}`;
+  return n < 0 ? `-${formatted}` : formatted;
+}
+
+function fmtRange(low: number | null, high: number | null): string {
+  if (low != null && high != null) return `${fmtCurrency(low)} – ${fmtCurrency(high)}`;
+  if (low != null) return `${fmtCurrency(low)}+`;
+  if (high != null) return `up to ${fmtCurrency(high)}`;
+  return '—';
+}
+
 export function DecisionsView() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [selected, setSelected] = useState<Decision | null>(null);
   const [history, setHistory] = useState<LifecycleEvent[]>([]);
+  const [finCon, setFinCon] = useState<FinancialConsequence | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
 
@@ -97,6 +138,12 @@ export function DecisionsView() {
       setHistory(h);
     } catch {
       setHistory([]);
+    }
+    try {
+      const fc = await api.getFinancialConsequence(d.id) as FinancialConsequence;
+      setFinCon(fc);
+    } catch {
+      setFinCon(null);
     }
   };
 
@@ -168,6 +215,96 @@ export function DecisionsView() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {finCon && (
+          <div className="dec-section">
+            <div className="dec-section-label">Financial Consequence</div>
+            <div className="fin-con-grid">
+              {(finCon.expectedRevenueImpactLow != null || finCon.expectedRevenueImpactHigh != null) && (
+                <div className="fin-con-card">
+                  <div className="fin-con-label">Revenue Impact</div>
+                  <div className="fin-con-value fin-con-positive">
+                    {fmtRange(finCon.expectedRevenueImpactLow, finCon.expectedRevenueImpactHigh)}
+                  </div>
+                </div>
+              )}
+              {(finCon.expectedCostImpactLow != null || finCon.expectedCostImpactHigh != null) && (
+                <div className="fin-con-card">
+                  <div className="fin-con-label">Cost Impact</div>
+                  <div className="fin-con-value fin-con-negative">
+                    {fmtRange(finCon.expectedCostImpactLow, finCon.expectedCostImpactHigh)}
+                  </div>
+                </div>
+              )}
+              {finCon.expectedMarginImpact != null && (
+                <div className="fin-con-card">
+                  <div className="fin-con-label">Margin Impact</div>
+                  <div className={`fin-con-value ${finCon.expectedMarginImpact >= 0 ? 'fin-con-positive' : 'fin-con-negative'}`}>
+                    {fmtCurrency(finCon.expectedMarginImpact)}
+                  </div>
+                </div>
+              )}
+              {finCon.downsideRisk != null && (
+                <div className="fin-con-card">
+                  <div className="fin-con-label">Downside Risk</div>
+                  <div className="fin-con-value fin-con-negative">{fmtCurrency(finCon.downsideRisk)}</div>
+                </div>
+              )}
+              {finCon.upsidePotential != null && (
+                <div className="fin-con-card">
+                  <div className="fin-con-label">Upside Potential</div>
+                  <div className="fin-con-value fin-con-positive">{fmtCurrency(finCon.upsidePotential)}</div>
+                </div>
+              )}
+              {(finCon.roiEstimateLow != null || finCon.roiEstimateHigh != null) && (
+                <div className="fin-con-card">
+                  <div className="fin-con-label">ROI Estimate</div>
+                  <div className="fin-con-value">{fmtRange(finCon.roiEstimateLow, finCon.roiEstimateHigh)}</div>
+                </div>
+              )}
+              {finCon.confidenceAdjustment != null && (
+                <div className="fin-con-card">
+                  <div className="fin-con-label">Confidence Adj.</div>
+                  <div className="fin-con-value">{pct(finCon.confidenceAdjustment)}</div>
+                </div>
+              )}
+              {finCon.breakEvenEstimate && (
+                <div className="fin-con-card">
+                  <div className="fin-con-label">Break-Even</div>
+                  <div className="fin-con-value">{finCon.breakEvenEstimate}</div>
+                </div>
+              )}
+            </div>
+            {(finCon.expectedCashTimingImpact || finCon.laborImpact) && (
+              <div className="fin-con-details">
+                {finCon.expectedCashTimingImpact && (
+                  <div className="fin-con-detail-row">
+                    <span className="fin-con-detail-label">Cash Timing</span>
+                    <span>{finCon.expectedCashTimingImpact}</span>
+                  </div>
+                )}
+                {finCon.laborImpact && (
+                  <div className="fin-con-detail-row">
+                    <span className="fin-con-detail-label">Labor Impact</span>
+                    <span>{finCon.laborImpact}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {finCon.assumptions.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <div className="fin-con-detail-label" style={{ marginBottom: 6 }}>Assumptions</div>
+                <div className="dec-tags">{finCon.assumptions.map((a, i) => <span key={i} className="dec-tag">{a}</span>)}</div>
+              </div>
+            )}
+            {finCon.notes && (
+              <div style={{ marginTop: 12 }}>
+                <div className="fin-con-detail-label" style={{ marginBottom: 6 }}>Notes</div>
+                <p className="dec-objective">{finCon.notes}</p>
+              </div>
+            )}
           </div>
         )}
 

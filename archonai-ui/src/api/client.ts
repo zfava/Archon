@@ -414,6 +414,54 @@ export const api = {
   getDecisionHistory: (decisionId: string) =>
     request(`/decisions/${decisionId}/history`),
 
+  // ── Financial Consequence ─────────────────────────────
+  getFinancialConsequence: (decisionId: string) =>
+    request(`/decisions/${decisionId}/financial-consequence`),
+
+  attachFinancialConsequence: (decisionId: string, body: {
+    expectedRevenueImpactLow?: number;
+    expectedRevenueImpactHigh?: number;
+    expectedCostImpactLow?: number;
+    expectedCostImpactHigh?: number;
+    expectedMarginImpact?: number;
+    expectedCashTimingImpact?: string;
+    laborImpact?: string;
+    downsideRisk?: number;
+    upsidePotential?: number;
+    confidenceAdjustment?: number;
+    roiEstimateLow?: number;
+    roiEstimateHigh?: number;
+    breakEvenEstimate?: string;
+    assumptions?: string[];
+    notes?: string;
+  }) =>
+    request(`/decisions/${decisionId}/financial-consequence`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  updateFinancialConsequence: (decisionId: string, body: {
+    expectedRevenueImpactLow?: number;
+    expectedRevenueImpactHigh?: number;
+    expectedCostImpactLow?: number;
+    expectedCostImpactHigh?: number;
+    expectedMarginImpact?: number;
+    expectedCashTimingImpact?: string;
+    laborImpact?: string;
+    downsideRisk?: number;
+    upsidePotential?: number;
+    confidenceAdjustment?: number;
+    roiEstimateLow?: number;
+    roiEstimateHigh?: number;
+    breakEvenEstimate?: string;
+    assumptions?: string[];
+    notes?: string;
+  }) =>
+    request(`/decisions/${decisionId}/financial-consequence`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];
