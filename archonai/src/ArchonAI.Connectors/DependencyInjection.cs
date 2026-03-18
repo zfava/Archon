@@ -1,3 +1,4 @@
+using ArchonAI.Connectors.Framework;
 using ArchonAI.Connectors.GoogleWorkspace;
 using ArchonAI.Connectors.HubSpot;
 using ArchonAI.Connectors.Implementations;
@@ -205,6 +206,9 @@ public static class DependencyInjection
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft365Options>>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IMicrosoft365Connector>());
+
+        // Integration control center
+        services.AddSingleton<IIntegrationControlService, IntegrationControlService>();
 
         return services;
     }
