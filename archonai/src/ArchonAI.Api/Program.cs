@@ -53,6 +53,7 @@ using ArchonAI.Core.Models.Explanation;
 using ArchonAI.Core.Models.Identity;
 using ArchonAI.Core.Models.Decisions;
 using ArchonAI.Core.Models.HeroWorkflow;
+using ArchonAI.Core.Models.PolicySimulation;
 using ArchonAI.Identity;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -82,6 +83,7 @@ builder.Services.AddArchonAIOrganizationState();
 builder.Services.AddSingleton<IDecisionService, DecisionService>();
 builder.Services.AddSingleton<IFinancialConsequenceService, FinancialConsequenceService>();
 builder.Services.AddSingleton<IHeroWorkflowService, HeroWorkflowService>();
+builder.Services.AddSingleton<IPolicySimulationService, PolicySimulationService>();
 
 // ── Health Checks ─────────────────────────────────────────────
 builder.Services.AddHealthChecks()
@@ -4594,6 +4596,75 @@ heroWorkflows.MapPost("/{workflowId:guid}/cancel", async (
     return result is null ? Results.NotFound() : Results.Ok(result);
 }).RequireAuthorization("GovernanceWrite");
 
+// ── Policy Simulation / Dry-Run ────────────────────────────────
+var policySimulation = v1.MapGroup("/policy-simulation")
+    .WithTags("PolicySimulation")
+    .RequireRateLimiting("api");
+
+policySimulation.MapPost("/simulate", async (
+    RunSimulationRequest req,
+    IPolicySimulationService simSvc,
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.ActionType) || string.IsNullOrWhiteSpace(req.Title))
+        return Results.BadRequest(new { error = "ActionType and Title are required." });
+
+    var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+    var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : Guid.Empty;
+    var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+
+    var request = new SimulationRequest(
+        TenantId: tenantId,
+        ActionType: req.ActionType,
+        ActionScope: req.ActionScope ?? req.ActionType,
+        Title: req.Title,
+        Domain: req.Domain,
+        Objective: req.Objective,
+        RiskLevel: req.RiskLevel,
+        Reversibility: req.Reversibility,
+        Confidence: req.Confidence,
+        ExpectedValue: req.ExpectedValue,
+        RevenueImpactLow: req.RevenueImpactLow,
+        RevenueImpactHigh: req.RevenueImpactHigh,
+        CostImpactLow: req.CostImpactLow,
+        CostImpactHigh: req.CostImpactHigh,
+        DownsideRisk: req.DownsideRisk,
+        UpsidePotential: req.UpsidePotential,
+        RequestedTier: req.RequestedTier,
+        WorkflowType: req.WorkflowType,
+        RequestedBy: userId);
+
+    var result = await simSvc.SimulateAsync(request, ct);
+    return Results.Ok(result);
+}).RequireAuthorization("GovernanceRead");
+
+policySimulation.MapGet("/{simulationId:guid}", async (
+    Guid simulationId,
+    IPolicySimulationService simSvc,
+    HttpContext httpContext,
+    CancellationToken ct) =>
+{
+    var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+    var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : Guid.Empty;
+
+    var result = await simSvc.GetAsync(simulationId, tenantId, ct);
+    return result is null ? Results.NotFound() : Results.Ok(result);
+}).RequireAuthorization("GovernanceRead");
+
+policySimulation.MapGet("/", async (
+    IPolicySimulationService simSvc,
+    HttpContext httpContext,
+    int? limit,
+    CancellationToken ct) =>
+{
+    var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+    var tenantId = Guid.TryParse(tenantClaim, out var tid) ? tid : Guid.Empty;
+
+    var results = await simSvc.ListAsync(tenantId, limit ?? 50, ct);
+    return Results.Ok(results);
+}).RequireAuthorization("GovernanceRead");
+
 app.Run();
 
 
@@ -4991,3 +5062,23 @@ public sealed record StartHeroWorkflowRequest(
 
 public sealed record AdvanceHeroWorkflowRequest(
     Dictionary<string, string>? Inputs);
+
+// ── Policy Simulation DTOs ──────────────────────────────────
+public sealed record RunSimulationRequest(
+    string ActionType,
+    string? ActionScope,
+    string Title,
+    string? Domain,
+    string? Objective,
+    string? RiskLevel,
+    string? Reversibility,
+    double? Confidence,
+    decimal? ExpectedValue,
+    decimal? RevenueImpactLow,
+    decimal? RevenueImpactHigh,
+    decimal? CostImpactLow,
+    decimal? CostImpactHigh,
+    decimal? DownsideRisk,
+    decimal? UpsidePotential,
+    string? RequestedTier,
+    string? WorkflowType);

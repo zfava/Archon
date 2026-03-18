@@ -695,6 +695,34 @@ export const api = {
   cancelHeroWorkflow: (workflowId: string) =>
     request(`/hero-workflows/${workflowId}/cancel`, { method: 'POST' }),
 
+  // ── Policy Simulation / Dry-Run ────────────────────────────
+  runSimulation: (body: {
+    actionType: string;
+    actionScope?: string;
+    title: string;
+    domain?: string;
+    objective?: string;
+    riskLevel?: string;
+    reversibility?: string;
+    confidence?: number;
+    expectedValue?: number;
+    revenueImpactLow?: number;
+    revenueImpactHigh?: number;
+    costImpactLow?: number;
+    costImpactHigh?: number;
+    downsideRisk?: number;
+    upsidePotential?: number;
+    requestedTier?: string;
+    workflowType?: string;
+  }) =>
+    request('/policy-simulation/simulate', { method: 'POST', body: JSON.stringify(body) }),
+
+  getSimulation: (simulationId: string) =>
+    request(`/policy-simulation/${simulationId}`),
+
+  listSimulations: (limit?: number) =>
+    request(`/policy-simulation${limit ? `?limit=${limit}` : ''}`),
+
   // ── Executive Command ───────────────────────────────────
   getExecutiveCommandSummary: () =>
     request('/executive-command/summary'),
