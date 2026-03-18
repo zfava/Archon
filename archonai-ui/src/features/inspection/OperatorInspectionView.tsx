@@ -73,13 +73,8 @@ export function OperatorInspectionView() {
     <div className="ins-container">
       <header className="ins-header">
         <div className="ins-header-left">
-          <Link to="/" className="sg-back-link">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            Console
-          </Link>
           <h1 className="ins-page-title">Operator Inspection</h1>
+          <p className="ins-subtitle">Deep introspection into decisions, policies, memory context, and workflow diagnostics</p>
         </div>
       </header>
 

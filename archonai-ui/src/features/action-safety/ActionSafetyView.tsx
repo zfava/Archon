@@ -116,6 +116,18 @@ function ActionDetail({ action, onRollback, onBack }: {
           </div>
         </div>
       )}
+
+      {/* Cross-system links */}
+      <div className="as-cross-links">
+        <Link to="/inspection" className="as-cross-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Inspect Decision
+        </Link>
+        <Link to="/proof-analytics" className="as-cross-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Proof Timeline
+        </Link>
+      </div>
     </div>
   );
 }
@@ -152,9 +164,6 @@ export function ActionSafetyView() {
     <div className="as-view">
       <header className="as-header">
         <div className="as-header-left">
-          <Link to="/" className="as-back">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-          </Link>
           <div>
             <h1 className="as-title">Action Safety</h1>
             <p className="as-subtitle">Reversibility classifications, rollback eligibility, and compensation tracking</p>

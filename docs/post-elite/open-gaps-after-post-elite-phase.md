@@ -40,15 +40,13 @@
 
 **Effort**: Medium — requires new repository interface, migration, and retention job.
 
-## Priority 5 — Proof Analytics Drill-Through
+## Priority 5 — Proof Analytics Drill-Through (Partially Resolved)
 
-**Gap**: Proof analytics dashboard shows aggregate metrics but clicking a decision or action does not navigate to its full inspection bundle or proof timeline.
+**Gap**: ~~Proof analytics dashboard shows aggregate metrics but clicking a decision or action does not navigate to its full inspection bundle or proof timeline.~~ **Partially resolved**: Timeline detail view now includes cross-links to Inspection, Action Safety, and Simulation. PvA table rows navigate to decision timeline on click.
 
-**Impact**: Operators must manually copy IDs and navigate between views.
+**Remaining**: Cross-links pass the user to the target feature's root, not to a pre-populated subject ID. Full deep-linking with query parameters (e.g., `/inspection?subjectId=xyz&subjectType=decision`) would eliminate the need for manual ID entry.
 
-**Fix**: Add click-through navigation from proof analytics rows to `/inspection` with pre-populated subject IDs.
-
-**Effort**: Low — frontend-only routing changes.
+**Effort**: Low — frontend-only routing changes with query parameter parsing.
 
 ## Priority 6 — Action Safety Automatic Classification
 
@@ -70,6 +68,16 @@
 
 **Effort**: Low — frontend action button + API call.
 
+## Priority 8 — Executive Command Post-Elite Metrics
+
+**Gap**: Executive Command now links to all post-elite systems via the "Governed Operations" quick-link bar, but does not yet display inline metrics from these systems (e.g., proof accuracy rate, active workflow count, rollback eligibility count, simulation run count).
+
+**Impact**: Executives must navigate to each post-elite feature individually to see operational metrics. The executive summary would be stronger with inline KPIs from these systems.
+
+**Fix**: Extend the `/executive-command/summary` API to include `proofBrief`, `actionSafetyBrief`, and `workflowBrief` sub-objects. Display as additional signal cards or section summaries.
+
+**Effort**: Medium — backend aggregation + frontend cards.
+
 ## Non-Gaps (Verified Complete)
 
 - Tenant isolation across all post-elite systems
@@ -79,3 +87,7 @@
 - CSS isolation between feature modules (no class collisions)
 - API naming consistency (kebab-case URLs, camelCase bodies)
 - Frontend type safety across all inspection, proof, and safety types
+- Sidebar navigation groups post-elite features logically under Operations
+- Executive Command surfaces all governed operations via quick-link bar
+- Policy Simulation clearly labeled as DRY RUN (badge + subtitle)
+- Consistent header patterns across all post-elite views (no orphan back links)

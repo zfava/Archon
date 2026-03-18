@@ -29,10 +29,22 @@
   gap: 16px;
 }
 
+.ins-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .ins-page-title {
   font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--text-secondary);
+  margin: 0;
+}
+
+.ins-subtitle {
+  font-size: 13px;
+  color: var(--text-3);
   margin: 0;
 }
 

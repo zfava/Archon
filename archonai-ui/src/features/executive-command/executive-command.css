@@ -115,4 +115,14 @@ a.exec-section-header:hover { color: var(--text-2); }
 .exec-sev-warning { color: #FFBD2E; border-color: rgba(255,189,46,0.3); }
 .exec-sev-info { color: #60A5FA; border-color: rgba(96,165,250,0.3); }
 
+/* Quick links to governed operations */
+.exec-quick-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.exec-quick-link {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-2);
+  padding: 8px 14px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--navy-card); text-decoration: none; transition: border-color 0.15s, color 0.15s;
+}
+.exec-quick-link:hover { border-color: var(--text-3); color: var(--text-1); }
+
 .exec-loading { padding: 48px; text-align: center; color: var(--text-3); }

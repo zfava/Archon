@@ -233,3 +233,13 @@
   color: var(--text-3);
   min-width: 120px;
 }
+
+/* Cross-system links */
+.as-cross-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.as-cross-link {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-2);
+  padding: 8px 14px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--navy-card); text-decoration: none; transition: border-color 0.15s, color 0.15s;
+}
+.as-cross-link:hover { border-color: var(--text-3); color: var(--text-1); }

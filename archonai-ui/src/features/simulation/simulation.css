@@ -1,7 +1,13 @@
 .sim-view { padding: 32px; max-width: 1200px; }
 
 .sim-header { margin-bottom: 28px; }
+.sim-title-row { display: flex; align-items: center; gap: 12px; }
 .sim-title { font-family: var(--display); font-size: 26px; font-weight: 700; color: var(--text-1); margin: 0; }
+.sim-dryrun-badge {
+  font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  color: #60A5FA; background: rgba(96,165,250,0.1); border: 1px solid rgba(96,165,250,0.3);
+  padding: 3px 10px; border-radius: 3px; text-transform: uppercase;
+}
 .sim-subtitle { font-size: 13px; color: var(--text-3); margin: 4px 0 0; }
 
 /* Tab bar */
@@ -132,6 +138,16 @@
 .sim-verdict-pill--blocked { background: rgba(239,68,68,0.12); color: #ef4444; }
 .sim-verdict-pill--recommendonly { background: rgba(99,102,241,0.12); color: #6366f1; }
 .sim-verdict-pill--observeonly { background: rgba(148,163,184,0.12); color: #94a3b8; }
+
+/* Cross-system links */
+.sim-cross-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.sim-cross-link {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-2);
+  padding: 8px 14px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--navy-card); text-decoration: none; transition: border-color 0.15s, color 0.15s;
+}
+.sim-cross-link:hover { border-color: var(--text-3); color: var(--text-1); }
 
 .sim-empty { padding: 48px; text-align: center; color: var(--text-3); font-size: 13px; }
 .sim-loading { padding: 48px; text-align: center; color: var(--text-3); }

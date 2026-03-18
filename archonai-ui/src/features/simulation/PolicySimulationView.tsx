@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
 import './simulation.css';
 
@@ -194,9 +195,12 @@ export function PolicySimulationView() {
   return (
     <div className="sim-view">
       <header className="sim-header">
-        <h1 className="sim-title">Policy Simulation</h1>
+        <div className="sim-title-row">
+          <h1 className="sim-title">Policy Simulation</h1>
+          <span className="sim-dryrun-badge">DRY RUN</span>
+        </div>
         <p className="sim-subtitle">
-          Dry-run mode — preview what ArchonAI would do without executing any actions
+          Preview what ArchonAI would do without executing any actions. Nothing is created, approved, or executed.
         </p>
       </header>
 
@@ -429,6 +433,22 @@ export function PolicySimulationView() {
                   </ul>
                 </div>
               )}
+
+              {/* Cross-system links */}
+              <div className="sim-cross-links">
+                <Link to="/action-safety" className="sim-cross-link">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9.5 9l5 5m0-5l-5 5"/></svg>
+                  View Safety Classifications
+                </Link>
+                <Link to="/proof-analytics" className="sim-cross-link">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  View Proof Analytics
+                </Link>
+                <Link to="/inspection" className="sim-cross-link">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  Inspect Decisions
+                </Link>
+              </div>
             </>
           )}
         </>

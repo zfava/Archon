@@ -13,25 +13,27 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  // ── Operations ──────────────────────────────────────────
   { to: '/executive', label: 'Executive', icon: 'briefcase', section: 'operations', permission: 'governance:read' },
   { to: '/', label: 'Command', icon: 'terminal', section: 'operations' },
   { to: '/activity', label: 'Activity', icon: 'activity', section: 'operations' },
   { to: '/decisions', label: 'Decisions', icon: 'zap', section: 'operations' },
   { to: '/impact', label: 'Impact', icon: 'bar-chart', section: 'operations' },
-  { to: '/control', label: 'Control', icon: 'settings', section: 'operations', permission: 'policy:read' },
-  { to: '/integrations', label: 'Integrations', icon: 'plug', section: 'operations', permission: 'connectors:read' },
-  { to: '/audit', label: 'Audit Log', icon: 'file-text', section: 'admin', permission: 'monitoring:read' },
-  { to: '/trust-tiers', label: 'Trust Tiers', icon: 'layers', section: 'admin', permission: 'governance:read' },
-  { to: '/memory', label: 'Memory', icon: 'database', section: 'admin', permission: 'governance:read' },
-  { to: '/operational-twin', label: 'Op Twin', icon: 'git-merge', section: 'admin', permission: 'governance:read' },
-  { to: '/proof-analytics', label: 'Proof', icon: 'check-circle', section: 'operations', permission: 'governance:read' },
-  { to: '/action-safety', label: 'Safety', icon: 'shield-off', section: 'operations', permission: 'governance:read' },
   { to: '/hero-workflows', label: 'Workflows', icon: 'play', section: 'operations', permission: 'governance:read' },
   { to: '/simulation', label: 'Simulation', icon: 'eye', section: 'operations', permission: 'governance:read' },
+  { to: '/proof-analytics', label: 'Proof', icon: 'check-circle', section: 'operations', permission: 'governance:read' },
+  { to: '/action-safety', label: 'Safety', icon: 'shield-off', section: 'operations', permission: 'governance:read' },
   { to: '/scenarios', label: 'Scenarios', icon: 'compass', section: 'operations', permission: 'governance:read' },
-  { to: '/inspection', label: 'Inspection', icon: 'search', section: 'operations', permission: 'governance:read' },
   { to: '/exceptions', label: 'Exceptions', icon: 'alert-triangle', section: 'operations', permission: 'governance:read' },
+  { to: '/inspection', label: 'Inspection', icon: 'search', section: 'operations', permission: 'governance:read' },
+  { to: '/integrations', label: 'Integrations', icon: 'plug', section: 'operations', permission: 'connectors:read' },
+  // ── Administration ──────────────────────────────────────
+  { to: '/control', label: 'Control', icon: 'settings', section: 'admin', permission: 'policy:read' },
+  { to: '/trust-tiers', label: 'Trust Tiers', icon: 'layers', section: 'admin', permission: 'governance:read' },
   { to: '/overrides', label: 'Overrides', icon: 'shield', section: 'admin', permission: 'governance:read' },
+  { to: '/audit', label: 'Audit Log', icon: 'file-text', section: 'admin', permission: 'monitoring:read' },
+  { to: '/memory', label: 'Memory', icon: 'database', section: 'admin', permission: 'governance:read' },
+  { to: '/operational-twin', label: 'Op Twin', icon: 'git-merge', section: 'admin', permission: 'governance:read' },
   { to: '/admin/org', label: 'Organization', icon: 'users', section: 'admin', permission: 'admin:read' },
   { to: '/admin/health', label: 'System Health', icon: 'heart', section: 'admin', permission: 'monitoring:read' },
 ];
