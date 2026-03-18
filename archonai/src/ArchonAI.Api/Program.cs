@@ -3358,6 +3358,116 @@ governance.MapGet("/history", async (
     return Results.Ok(history);
 }).RequireAuthorization("GovernanceRead");
 
+// ── Trust-Tiered Autonomy ─────────────────────────────────
+var trustTiers = v1.MapGroup("/trust-tiers")
+    .WithTags("trust-tiers");
+
+trustTiers.MapGet("/policies", async (
+    HttpContext ctx,
+    ITrustTierService trustSvc,
+    CancellationToken ct) =>
+{
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantId is null) return Results.Unauthorized();
+
+    var policies = await trustSvc.ListPoliciesAsync(tenantId, ct);
+    return Results.Ok(policies);
+}).RequireAuthorization("GovernanceRead");
+
+trustTiers.MapPost("/policies", async (
+    SetTrustTierPolicyRequest req,
+    HttpContext ctx,
+    ITrustTierService trustSvc,
+    CancellationToken ct) =>
+{
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    var userId = ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+    if (tenantId is null) return Results.Unauthorized();
+
+    if (string.IsNullOrWhiteSpace(req.ActionScope))
+        return Results.BadRequest(new { error = "ActionScope is required." });
+
+    if (!Enum.TryParse<ExecutionTrustTier>(req.MaxTier, true, out var maxTier))
+        return Results.BadRequest(new { error = $"Invalid tier: {req.MaxTier}." });
+
+    var now = DateTimeOffset.UtcNow;
+    var policy = new TrustTierPolicy(
+        Id: req.Id ?? Guid.NewGuid(),
+        TenantId: tenantId,
+        ActionScope: req.ActionScope,
+        MaxTier: maxTier,
+        ConfidenceThreshold: req.ConfidenceThreshold,
+        ValueCeiling: req.ValueCeiling,
+        RequireReversible: req.RequireReversible ?? false,
+        Description: req.Description,
+        IsEnabled: req.IsEnabled ?? true,
+        CreatedBy: userId,
+        CreatedAtUtc: now,
+        UpdatedAtUtc: now);
+
+    var created = await trustSvc.SetPolicyAsync(policy, ct);
+    return Results.Created($"/api/v1/trust-tiers/policies/{created.Id}", created);
+}).RequireAuthorization("GovernanceWrite");
+
+trustTiers.MapDelete("/policies/{policyId:guid}", async (
+    Guid policyId,
+    HttpContext ctx,
+    ITrustTierService trustSvc,
+    CancellationToken ct) =>
+{
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantId is null) return Results.Unauthorized();
+
+    var deleted = await trustSvc.DeletePolicyAsync(policyId, tenantId, ct);
+    return deleted ? Results.NoContent() : Results.NotFound();
+}).RequireAuthorization("GovernanceWrite");
+
+trustTiers.MapPost("/evaluate", async (
+    EvaluateTrustTierRequest req,
+    HttpContext ctx,
+    ITrustTierService trustSvc,
+    CancellationToken ct) =>
+{
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantId is null) return Results.Unauthorized();
+
+    if (string.IsNullOrWhiteSpace(req.ActionScope))
+        return Results.BadRequest(new { error = "ActionScope is required." });
+
+    if (!Enum.TryParse<ExecutionTrustTier>(req.RequestedTier, true, out var requestedTier))
+        return Results.BadRequest(new { error = $"Invalid tier: {req.RequestedTier}." });
+
+    var evaluation = await trustSvc.EvaluateAsync(
+        tenantId, req.ActionScope, requestedTier,
+        req.Confidence, req.Value, req.Reversible, ct);
+    return Results.Ok(evaluation);
+}).RequireAuthorization("GovernanceRead");
+
+trustTiers.MapGet("/map", async (
+    HttpContext ctx,
+    ITrustTierService trustSvc,
+    CancellationToken ct) =>
+{
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantId is null) return Results.Unauthorized();
+
+    var map = await trustSvc.GetTierMapAsync(tenantId, ct);
+    return Results.Ok(map);
+}).RequireAuthorization("GovernanceRead");
+
+trustTiers.MapGet("/effective/{actionScope}", async (
+    string actionScope,
+    HttpContext ctx,
+    ITrustTierService trustSvc,
+    CancellationToken ct) =>
+{
+    var tenantId = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantId is null) return Results.Unauthorized();
+
+    var tier = await trustSvc.GetEffectiveTierAsync(tenantId, actionScope, ct);
+    return Results.Ok(new { actionScope, effectiveTier = tier.ToString(), tierLevel = (int)tier });
+}).RequireAuthorization("GovernanceRead");
+
 // ── Permissions introspection ─────────────────────────────
 v1.MapGet("/auth/permissions", async (
     HttpContext ctx,
@@ -3863,3 +3973,21 @@ public sealed record AttachFinancialConsequenceRequest(
     string? BreakEvenEstimate,
     IReadOnlyList<string>? Assumptions,
     string? Notes);
+
+// ── Trust Tier DTOs ──────────────────────────────────────
+public sealed record SetTrustTierPolicyRequest(
+    Guid? Id,
+    string ActionScope,
+    string MaxTier,
+    double? ConfidenceThreshold,
+    decimal? ValueCeiling,
+    bool? RequireReversible,
+    string? Description,
+    bool? IsEnabled);
+
+public sealed record EvaluateTrustTierRequest(
+    string ActionScope,
+    string RequestedTier,
+    double? Confidence,
+    decimal? Value,
+    bool? Reversible);

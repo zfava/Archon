@@ -462,6 +462,46 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
+  // ── Trust Tiers ───────────────────────────────────────
+  listTrustTierPolicies: () =>
+    request('/trust-tiers/policies'),
+
+  setTrustTierPolicy: (body: {
+    id?: string;
+    actionScope: string;
+    maxTier: string;
+    confidenceThreshold?: number;
+    valueCeiling?: number;
+    requireReversible?: boolean;
+    description?: string;
+    isEnabled?: boolean;
+  }) =>
+    request('/trust-tiers/policies', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  deleteTrustTierPolicy: (policyId: string) =>
+    request(`/trust-tiers/policies/${policyId}`, { method: 'DELETE' }),
+
+  evaluateTrustTier: (body: {
+    actionScope: string;
+    requestedTier: string;
+    confidence?: number;
+    value?: number;
+    reversible?: boolean;
+  }) =>
+    request('/trust-tiers/evaluate', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  getTrustTierMap: () =>
+    request('/trust-tiers/map'),
+
+  getEffectiveTier: (actionScope: string) =>
+    request(`/trust-tiers/effective/${encodeURIComponent(actionScope)}`),
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];

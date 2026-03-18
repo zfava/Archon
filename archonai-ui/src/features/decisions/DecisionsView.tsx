@@ -112,6 +112,7 @@ export function DecisionsView() {
   const [selected, setSelected] = useState<Decision | null>(null);
   const [history, setHistory] = useState<LifecycleEvent[]>([]);
   const [finCon, setFinCon] = useState<FinancialConsequence | null>(null);
+  const [trustEval, setTrustEval] = useState<{ actionScope: string; requestedTier: string; effectiveTier: string; allowed: boolean; disposition: string; reason: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
 
@@ -145,6 +146,17 @@ export function DecisionsView() {
     } catch {
       setFinCon(null);
     }
+    try {
+      const te = await api.evaluateTrustTier({
+        actionScope: 'decision.execute',
+        requestedTier: d.requiresApproval ? 'DraftApprovalRequired' : 'AutoExecuteReversible',
+        confidence: d.confidence,
+        reversible: d.reversibility !== 'Irreversible',
+      });
+      setTrustEval(te as typeof trustEval);
+    } catch {
+      setTrustEval(null);
+    }
   };
 
   if (selected) {
@@ -164,6 +176,11 @@ export function DecisionsView() {
             <span className="dec-confidence">Confidence: {pct(selected.confidence)}</span>
             {selected.expectedValue != null && (
               <span className="dec-confidence">EV: ${selected.expectedValue.toLocaleString()}</span>
+            )}
+            {trustEval && (
+              <span className={`dec-badge ${trustEval.allowed ? 'approved' : 'rejected'}`}>
+                {trustEval.disposition.replace(/_/g, ' ')}
+              </span>
             )}
           </div>
         </header>

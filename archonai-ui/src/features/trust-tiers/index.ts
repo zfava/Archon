@@ -1,0 +1,1 @@
+export { TrustTiersView } from './TrustTiersView';
