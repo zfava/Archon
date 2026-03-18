@@ -74,7 +74,8 @@ RUN dotnet publish ./src/ArchonAI.Worker.Agents/ArchonAI.Worker.Agents.csproj \
 # ── Stage 3: runtime ──────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
-RUN groupadd --gid 1654 archon && useradd --uid 1654 --gid archon --shell /bin/false --create-home archon
+RUN getent group archon >/dev/null 2>&1 || groupadd archon && \
+    getent passwd archon >/dev/null 2>&1 || useradd --gid archon --shell /bin/false --create-home archon
 
 WORKDIR /app
 

@@ -22,9 +22,6 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1654
-        runAsGroup: 1654
-        fsGroup: 1654
       containers:
         - name: scheduler
           image: "{{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag }}"
