@@ -502,6 +502,40 @@ export const api = {
   getEffectiveTier: (actionScope: string) =>
     request(`/trust-tiers/effective/${encodeURIComponent(actionScope)}`),
 
+  // ── Outcome Learning ──────────────────────────────────
+  recordExpectedOutcome: (body: {
+    decisionId: string;
+    expectedSummary?: string;
+    expectedValue?: number;
+    confidenceAtPrediction: number;
+    expectedTimeframe?: string;
+  }) =>
+    request('/outcomes/expected', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  recordActualOutcome: (body: {
+    decisionId: string;
+    actualSummary?: string;
+    actualValue?: number;
+    rootCause?: string;
+    notes?: string;
+  }) =>
+    request('/outcomes/actual', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  getOutcome: (decisionId: string) =>
+    request(`/outcomes/${decisionId}`),
+
+  listOutcomes: (params?: Record<string, string | number>) =>
+    request('/outcomes/' + (params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '')),
+
+  getCalibrationSummary: (params?: Record<string, string>) =>
+    request('/outcomes/calibration' + (params ? '?' + new URLSearchParams(params).toString() : '')),
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];

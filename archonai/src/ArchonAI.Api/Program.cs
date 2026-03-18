@@ -3701,6 +3701,89 @@ decisions.MapPut("/{decisionId:guid}/financial-consequence", async (
     return result is null ? Results.NotFound() : Results.Ok(result);
 });
 
+// ── Outcome Learning ──────────────────────────────────────
+var outcomes = v1.MapGroup("/outcomes")
+    .WithTags("outcome-learning");
+
+outcomes.MapPost("/expected", async (
+    RecordExpectedOutcomeRequest req,
+    HttpContext ctx,
+    IOutcomeLearningService outcomeSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    var userId = ctx.User?.FindFirst("sub")?.Value ?? "unknown";
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var record = await outcomeSvc.RecordExpectedOutcomeAsync(
+        req.DecisionId, tenantId,
+        req.ExpectedSummary, req.ExpectedValue,
+        req.ConfidenceAtPrediction, req.ExpectedTimeframe,
+        userId, ct);
+    return Results.Created($"/api/v1/outcomes/{req.DecisionId}", record);
+}).RequireAuthorization("OperatorOrAdmin");
+
+outcomes.MapPost("/actual", async (
+    RecordActualOutcomeRequest req,
+    HttpContext ctx,
+    IOutcomeLearningService outcomeSvc,
+    CancellationToken ct) =>
+{
+    var userId = ctx.User?.FindFirst("sub")?.Value ?? "unknown";
+    try
+    {
+        var record = await outcomeSvc.RecordActualOutcomeAsync(
+            req.DecisionId, req.ActualSummary, req.ActualValue,
+            req.RootCause, req.Notes, userId, ct);
+        return Results.Ok(record);
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound(new { error = "No expected outcome found for this decision." });
+    }
+}).RequireAuthorization("OperatorOrAdmin");
+
+outcomes.MapGet("/{decisionId:guid}", async (
+    Guid decisionId,
+    IOutcomeLearningService outcomeSvc,
+    CancellationToken ct) =>
+{
+    var record = await outcomeSvc.GetOutcomeAsync(decisionId, ct);
+    return record is null ? Results.NotFound() : Results.Ok(record);
+}).RequireAuthorization("GovernanceRead");
+
+outcomes.MapGet("/", async (
+    int? limit,
+    HttpContext ctx,
+    IOutcomeLearningService outcomeSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var records = await outcomeSvc.ListOutcomesAsync(tenantId, limit ?? 50, ct);
+    return Results.Ok(records);
+}).RequireAuthorization("GovernanceRead");
+
+outcomes.MapGet("/calibration", async (
+    string? domain,
+    HttpContext ctx,
+    IOutcomeLearningService outcomeSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var summary = await outcomeSvc.GetCalibrationSummaryAsync(tenantId, domain, ct);
+    return Results.Ok(summary);
+}).RequireAuthorization("GovernanceRead");
+
 app.Run();
 
 
@@ -3991,3 +4074,18 @@ public sealed record EvaluateTrustTierRequest(
     double? Confidence,
     decimal? Value,
     bool? Reversible);
+
+// ── Outcome Learning DTOs ────────────────────────────────
+public sealed record RecordExpectedOutcomeRequest(
+    Guid DecisionId,
+    string? ExpectedSummary,
+    decimal? ExpectedValue,
+    double ConfidenceAtPrediction,
+    string? ExpectedTimeframe);
+
+public sealed record RecordActualOutcomeRequest(
+    Guid DecisionId,
+    string? ActualSummary,
+    decimal? ActualValue,
+    string? RootCause,
+    string? Notes);

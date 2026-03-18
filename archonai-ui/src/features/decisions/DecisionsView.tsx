@@ -113,6 +113,14 @@ export function DecisionsView() {
   const [history, setHistory] = useState<LifecycleEvent[]>([]);
   const [finCon, setFinCon] = useState<FinancialConsequence | null>(null);
   const [trustEval, setTrustEval] = useState<{ actionScope: string; requestedTier: string; effectiveTier: string; allowed: boolean; disposition: string; reason: string | null } | null>(null);
+  const [outcome, setOutcome] = useState<{
+    id: string; decisionId: string; expectedOutcomeSummary: string | null;
+    expectedValue: number | null; confidenceAtPrediction: number;
+    actualOutcomeSummary: string | null; actualValue: number | null;
+    valueVariance: number | null; variancePercent: number | null;
+    direction: string; assessment: string; recalibrationSignal: string;
+    rootCause: string | null; notes: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('All');
 
@@ -145,6 +153,12 @@ export function DecisionsView() {
       setFinCon(fc);
     } catch {
       setFinCon(null);
+    }
+    try {
+      const o = await api.getOutcome(d.id);
+      setOutcome(o as typeof outcome);
+    } catch {
+      setOutcome(null);
     }
     try {
       const te = await api.evaluateTrustTier({
@@ -320,6 +334,46 @@ export function DecisionsView() {
               <div style={{ marginTop: 12 }}>
                 <div className="fin-con-detail-label" style={{ marginBottom: 6 }}>Notes</div>
                 <p className="dec-objective">{finCon.notes}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {outcome && outcome.direction !== 'Pending' && (
+          <div className="dec-section">
+            <div className="dec-section-label">Outcome Comparison</div>
+            <div className="outcome-grid">
+              <div className="outcome-card">
+                <div className="outcome-label">Expected Value</div>
+                <div className="outcome-value">{outcome.expectedValue != null ? fmtCurrency(outcome.expectedValue) : '—'}</div>
+              </div>
+              <div className="outcome-card">
+                <div className="outcome-label">Actual Value</div>
+                <div className="outcome-value">{outcome.actualValue != null ? fmtCurrency(outcome.actualValue) : '—'}</div>
+              </div>
+              <div className="outcome-card">
+                <div className="outcome-label">Variance</div>
+                <div className={`outcome-value ${outcome.valueVariance != null && outcome.valueVariance >= 0 ? 'outcome-pos' : 'outcome-neg'}`}>
+                  {outcome.valueVariance != null ? fmtCurrency(outcome.valueVariance) : '—'}
+                  {outcome.variancePercent != null && <span className="outcome-pct"> ({outcome.variancePercent > 0 ? '+' : ''}{outcome.variancePercent.toFixed(1)}%)</span>}
+                </div>
+              </div>
+              <div className="outcome-card">
+                <div className="outcome-label">Confidence at Prediction</div>
+                <div className="outcome-value">{pct(outcome.confidenceAtPrediction)}</div>
+              </div>
+            </div>
+            <div className="outcome-indicators">
+              <span className={`dec-badge ${outcome.direction.toLowerCase()}`}>{outcome.direction}</span>
+              <span className={`dec-badge ${outcome.assessment.toLowerCase().replace(/\s/g, '')}`}>{outcome.assessment.replace(/([A-Z])/g, ' $1').trim()}</span>
+              {outcome.recalibrationSignal !== 'None' && (
+                <span className="dec-badge signal">{outcome.recalibrationSignal.replace(/([A-Z])/g, ' $1').trim()}</span>
+              )}
+            </div>
+            {outcome.rootCause && (
+              <div style={{ marginTop: 12 }}>
+                <div className="fin-con-detail-label" style={{ marginBottom: 6 }}>Root Cause</div>
+                <p className="dec-objective">{outcome.rootCause}</p>
               </div>
             )}
           </div>

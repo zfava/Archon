@@ -115,3 +115,29 @@
 }
 
 .dec-loading { padding: 48px; text-align: center; color: var(--text-3); }
+
+/* ── Outcome Comparison ──────────────────────────── */
+.outcome-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 14px;
+}
+.outcome-card {
+  background: var(--navy-card); border: 1px solid var(--border); border-radius: 4px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 4px;
+}
+.outcome-label { font-family: var(--mono); font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; }
+.outcome-value { font-family: var(--mono); font-size: 16px; color: var(--text-1); font-weight: 600; }
+.outcome-pos { color: #34D399; }
+.outcome-neg { color: #F87171; }
+.outcome-pct { font-size: 12px; font-weight: 400; opacity: 0.8; }
+
+.outcome-indicators { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Direction & assessment badges */
+.dec-badge.ontarget { color: #34D399; border-color: rgba(52,211,153,0.3); }
+.dec-badge.overperformed { color: #60A5FA; border-color: rgba(96,165,250,0.3); }
+.dec-badge.underperformed { color: #F87171; border-color: rgba(248,113,113,0.3); }
+.dec-badge.asexpected { color: #34D399; border-color: rgba(52,211,153,0.3); }
+.dec-badge.betterthanexpected { color: #60A5FA; border-color: rgba(96,165,250,0.3); }
+.dec-badge.worsethanexpected { color: #FFBD2E; border-color: rgba(255,189,46,0.3); }
+.dec-badge.completelymissed { color: #F87171; border-color: rgba(248,113,113,0.3); }
+.dec-badge.signal { color: var(--purple); border-color: var(--border-lit); }
