@@ -214,4 +214,19 @@ public static class Telemetry
     public static readonly Counter<long> ConnectorWriteOps = Meter.CreateCounter<long>("archonai.connector.write.ops");
     public static readonly Counter<long> ConnectorErrors = Meter.CreateCounter<long>("archonai.connector.errors");
     public static readonly Counter<long> ConnectorRetries = Meter.CreateCounter<long>("archonai.connector.retries");
+
+    // Model invocation telemetry
+    public static readonly Counter<long> ModelInvocationsTotal = Meter.CreateCounter<long>("archonai.model.invocations.total");
+    public static readonly Counter<long> ModelInvocationsFailed = Meter.CreateCounter<long>("archonai.model.invocations.failed");
+    public static readonly Counter<long> ModelInvocationsRetried = Meter.CreateCounter<long>("archonai.model.invocations.retried");
+    public static readonly Counter<long> ModelInvocationsTimedOut = Meter.CreateCounter<long>("archonai.model.invocations.timedout");
+    public static readonly Histogram<double> ModelInvocationDurationMs = Meter.CreateHistogram<double>("archonai.model.invocation.duration.ms");
+    public static readonly Histogram<double> ModelInvocationTokensInput = Meter.CreateHistogram<double>("archonai.model.invocation.tokens.input");
+    public static readonly Histogram<double> ModelInvocationTokensOutput = Meter.CreateHistogram<double>("archonai.model.invocation.tokens.output");
+    public static readonly Counter<long> ModelInvocationTokensTotal = Meter.CreateCounter<long>("archonai.model.invocation.tokens.total");
+
+    // Health check telemetry
+    public static readonly Counter<long> HealthChecksPassed = Meter.CreateCounter<long>("archonai.healthchecks.passed");
+    public static readonly Counter<long> HealthChecksFailed = Meter.CreateCounter<long>("archonai.healthchecks.failed");
+    public static readonly Counter<long> HealthChecksDegraded = Meter.CreateCounter<long>("archonai.healthchecks.degraded");
 }

@@ -74,13 +74,43 @@ builder.Services.AddArchonAIMemory(builder.Configuration);
 builder.Services.AddArchonAIPerception();
 builder.Services.AddArchonAIOrganizationState();
 
+// ── Health Checks ─────────────────────────────────────────────
+builder.Services.AddHealthChecks()
+    .AddCheck<ArchonAI.Common.Observability.EventBusHealthCheck>("event_bus", tags: ["live", "ready"])
+    .AddCheck<ArchonAI.Common.Observability.TaskQueueHealthCheck>("task_queue", tags: ["live", "ready"])
+    .AddCheck<ArchonAI.Common.Observability.ConnectorHealthCheck>("connectors", tags: ["ready"])
+    .AddCheck<ArchonAI.Common.Observability.ModelProviderHealthCheck>("model_providers", tags: ["ready"])
+    .AddCheck<ArchonAI.Common.Observability.StartupReadinessCheck>("startup", tags: ["ready"]);
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
+
+// Request correlation — structured logging enrichment with tenant/user/workflow context
+app.UseMiddleware<RequestCorrelationMiddleware>();
+
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<TenantResolutionMiddleware>();
+
+// ── Health probe endpoints (unauthenticated, K8s-compatible) ──
+app.MapHealthChecks("/healthz/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = ArchonAI.Api.Security.HealthCheckResponseWriter.WriteAsync
+}).AllowAnonymous();
+
+app.MapHealthChecks("/healthz/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = ArchonAI.Api.Security.HealthCheckResponseWriter.WriteAsync
+}).AllowAnonymous();
+
+app.MapHealthChecks("/healthz", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = ArchonAI.Api.Security.HealthCheckResponseWriter.WriteAsync
+}).AllowAnonymous();
 
 // WebSocket hub for real-time dashboard updates
 app.MapHub<ControlPlaneDashboardHub>("/hubs/control-plane-dashboard");

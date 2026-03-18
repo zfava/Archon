@@ -135,6 +135,10 @@ builder.Services.AddReverseProxy()
 // Gateway metrics
 builder.Services.AddSingleton<GatewayMetrics>();
 
+// Health checks
+builder.Services.AddHealthChecks()
+    .AddCheck<ArchonAI.Common.Observability.EventBusHealthCheck>("event_bus", tags: new[] { "live" });
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
@@ -156,6 +160,15 @@ app.MapGet("/health", () => Results.Ok(new
     status = "ok",
     timestamp = DateTimeOffset.UtcNow
 })).AllowAnonymous().RequireRateLimiting("health");
+
+// K8s-compatible liveness probe
+app.MapHealthChecks("/healthz/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+}).AllowAnonymous().RequireRateLimiting("health");
+
+// Readiness probe
+app.MapHealthChecks("/healthz/ready").AllowAnonymous().RequireRateLimiting("health");
 
 // Gateway status
 app.MapGet("/gateway/status", (GatewayMetrics metrics) =>
