@@ -15,6 +15,7 @@ import { HumanOverridesView } from './features/overrides';
 import { ExplanationView } from './features/explanations';
 import { DecisionsView } from './features/decisions';
 import { TrustTiersView } from './features/trust-tiers';
+import { MemoryExplorerView } from './features/memory';
 import { OrgAdminView } from './features/admin/OrgAdminView';
 import { SystemHealthView } from './features/admin/SystemHealthView';
 import { PermissionGate, UnauthorizedPage } from './shared/PermissionGate';
@@ -53,6 +54,7 @@ function App() {
           <Route path="/explanations" element={<Protected><ExplanationView /></Protected>} />
           <Route path="/decisions" element={<Protected><DecisionsView /></Protected>} />
           <Route path="/trust-tiers" element={<AdminGated permission="governance:read"><TrustTiersView /></AdminGated>} />
+          <Route path="/memory" element={<AdminGated permission="governance:read"><MemoryExplorerView /></AdminGated>} />
           <Route path="/admin/org" element={<AdminGated permission="admin:read"><OrgAdminView /></AdminGated>} />
           <Route path="/admin/health" element={<AdminGated permission="monitoring:read"><SystemHealthView /></AdminGated>} />
           <Route path="*" element={<Navigate to="/" replace />} />

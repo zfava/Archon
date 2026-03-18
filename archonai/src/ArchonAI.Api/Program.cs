@@ -3784,6 +3784,147 @@ outcomes.MapGet("/calibration", async (
     return Results.Ok(summary);
 }).RequireAuthorization("GovernanceRead");
 
+// ── Enterprise Memory Hierarchy ───────────────────────────
+var enterpriseMemory = v1.MapGroup("/enterprise-memory")
+    .WithTags("enterprise-memory");
+
+enterpriseMemory.MapPost("/", async (
+    StoreEnterpriseMemoryRequest req,
+    HttpContext ctx,
+    IEnterpriseMemoryService memorySvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    var userId = ctx.User?.FindFirst("sub")?.Value ?? "unknown";
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    if (!Enum.TryParse<MemoryLayer>(req.Layer, true, out var layer))
+        return Results.BadRequest(new { error = $"Invalid layer: {req.Layer}." });
+
+    var links = req.LinkedEntities?.Select(e =>
+        new MemoryEntityLink(e.EntityType, e.EntityId, e.Relationship)).ToList()
+        ?? new List<MemoryEntityLink>();
+
+    var record = new EnterpriseMemoryRecord(
+        Id: Guid.NewGuid(),
+        TenantId: tenantId,
+        Layer: layer,
+        Category: req.Category ?? "",
+        Subject: req.Subject,
+        Content: req.Content,
+        Metadata: req.Metadata?.AsReadOnly() ?? new Dictionary<string, string>().AsReadOnly(),
+        LinkedEntities: links,
+        Tags: req.Tags ?? Array.Empty<string>(),
+        Importance: req.Importance ?? 0.5,
+        CreatedBy: userId,
+        CreatedAtUtc: DateTimeOffset.UtcNow,
+        ExpiresAtUtc: req.ExpiresAtUtc);
+
+    var created = await memorySvc.StoreAsync(record, ct);
+    return Results.Created($"/api/v1/enterprise-memory/{created.Id}", created);
+}).RequireAuthorization("OperatorOrAdmin");
+
+enterpriseMemory.MapGet("/{recordId:guid}", async (
+    Guid recordId,
+    HttpContext ctx,
+    IEnterpriseMemoryService memorySvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var record = await memorySvc.GetAsync(recordId, tenantId, ct);
+    return record is null ? Results.NotFound() : Results.Ok(record);
+}).RequireAuthorization("GovernanceRead");
+
+enterpriseMemory.MapGet("/", async (
+    string? layer, string? category, string? tag, int? limit,
+    HttpContext ctx,
+    IEnterpriseMemoryService memorySvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    MemoryLayer? parsedLayer = null;
+    if (layer is not null && Enum.TryParse<MemoryLayer>(layer, true, out var l))
+        parsedLayer = l;
+
+    var result = await memorySvc.QueryAsync(tenantId, parsedLayer, category, tag, limit ?? 50, ct);
+    return Results.Ok(result);
+}).RequireAuthorization("GovernanceRead");
+
+enterpriseMemory.MapGet("/entity/{entityType}/{entityId}", async (
+    string entityType, string entityId,
+    HttpContext ctx,
+    IEnterpriseMemoryService memorySvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var view = await memorySvc.GetEntityMemoryAsync(tenantId, entityType, entityId, ct);
+    return Results.Ok(view);
+}).RequireAuthorization("GovernanceRead");
+
+enterpriseMemory.MapGet("/timeline", async (
+    string? layer, int? limit,
+    HttpContext ctx,
+    IEnterpriseMemoryService memorySvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    MemoryLayer? parsedLayer = null;
+    if (layer is not null && Enum.TryParse<MemoryLayer>(layer, true, out var l))
+        parsedLayer = l;
+
+    var timeline = await memorySvc.GetTimelineAsync(tenantId, parsedLayer, limit ?? 100, ct);
+    return Results.Ok(timeline);
+}).RequireAuthorization("GovernanceRead");
+
+enterpriseMemory.MapDelete("/{recordId:guid}", async (
+    Guid recordId,
+    HttpContext ctx,
+    IEnterpriseMemoryService memorySvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var deleted = await memorySvc.DeleteAsync(recordId, tenantId, ct);
+    return deleted ? Results.NoContent() : Results.NotFound();
+}).RequireAuthorization("GovernanceWrite");
+
+enterpriseMemory.MapPost("/expire-sessions", async (
+    int? maxAgeMinutes,
+    HttpContext ctx,
+    IEnterpriseMemoryService memorySvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var maxAge = TimeSpan.FromMinutes(maxAgeMinutes ?? 240);
+    var expired = await memorySvc.ExpireSessionMemoryAsync(tenantId, maxAge, ct);
+    return Results.Ok(new { expiredCount = expired });
+}).RequireAuthorization("GovernanceWrite");
+
 app.Run();
 
 
@@ -4089,3 +4230,20 @@ public sealed record RecordActualOutcomeRequest(
     decimal? ActualValue,
     string? RootCause,
     string? Notes);
+
+// ── Enterprise Memory DTOs ───────────────────────────────
+public sealed record StoreEnterpriseMemoryRequest(
+    string Layer,
+    string Subject,
+    string Content,
+    string? Category,
+    Dictionary<string, string>? Metadata,
+    IReadOnlyList<MemoryEntityLinkDto>? LinkedEntities,
+    IReadOnlyList<string>? Tags,
+    double? Importance,
+    DateTimeOffset? ExpiresAtUtc);
+
+public sealed record MemoryEntityLinkDto(
+    string EntityType,
+    string EntityId,
+    string Relationship);

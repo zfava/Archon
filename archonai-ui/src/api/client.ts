@@ -536,6 +536,35 @@ export const api = {
   getCalibrationSummary: (params?: Record<string, string>) =>
     request('/outcomes/calibration' + (params ? '?' + new URLSearchParams(params).toString() : '')),
 
+  // ── Enterprise Memory ─────────────────────────────────
+  storeMemory: (body: {
+    layer: string;
+    subject: string;
+    content: string;
+    category?: string;
+    metadata?: Record<string, string>;
+    linkedEntities?: { entityType: string; entityId: string; relationship: string }[];
+    tags?: string[];
+    importance?: number;
+    expiresAtUtc?: string;
+  }) =>
+    request('/enterprise-memory/', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  getMemory: (recordId: string) =>
+    request(`/enterprise-memory/${recordId}`),
+
+  queryMemory: (params?: Record<string, string | number>) =>
+    request('/enterprise-memory/' + (params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '')),
+
+  getEntityMemory: (entityType: string, entityId: string) =>
+    request(`/enterprise-memory/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`),
+
+  getMemoryTimeline: (params?: Record<string, string | number>) =>
+    request('/enterprise-memory/timeline' + (params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '')),
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];

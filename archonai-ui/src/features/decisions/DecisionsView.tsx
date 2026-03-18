@@ -113,6 +113,7 @@ export function DecisionsView() {
   const [history, setHistory] = useState<LifecycleEvent[]>([]);
   const [finCon, setFinCon] = useState<FinancialConsequence | null>(null);
   const [trustEval, setTrustEval] = useState<{ actionScope: string; requestedTier: string; effectiveTier: string; allowed: boolean; disposition: string; reason: string | null } | null>(null);
+  const [linkedMemory, setLinkedMemory] = useState<{ entityType: string; entityId: string; memories: { id: string; layer: string; subject: string; content: string; createdAtUtc: string }[]; layerDistribution: Record<string, number> } | null>(null);
   const [outcome, setOutcome] = useState<{
     id: string; decisionId: string; expectedOutcomeSummary: string | null;
     expectedValue: number | null; confidenceAtPrediction: number;
@@ -170,6 +171,12 @@ export function DecisionsView() {
       setTrustEval(te as typeof trustEval);
     } catch {
       setTrustEval(null);
+    }
+    try {
+      const mem = await api.getEntityMemory('decision', d.id);
+      setLinkedMemory(mem as typeof linkedMemory);
+    } catch {
+      setLinkedMemory(null);
     }
   };
 
@@ -388,6 +395,22 @@ export function DecisionsView() {
                   <span className="dec-link-type">{link.artifactType}</span>
                   <span>{link.artifactId}</span>
                   <span style={{ color: 'var(--text-3)' }}>{link.description}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {linkedMemory && linkedMemory.memories.length > 0 && (
+          <div className="dec-section">
+            <div className="dec-section-label">Linked Memory</div>
+            <div className="dec-history">
+              {linkedMemory.memories.map((m) => (
+                <div key={m.id} className="dec-history-event">
+                  <span className="dec-history-time">{fmtDate(m.createdAtUtc)}</span>
+                  <span className={`dec-badge ${m.layer.toLowerCase()}`}>{m.layer}</span>
+                  <span className="dec-history-type">{m.subject}</span>
+                  <span className="dec-history-detail">{m.content.slice(0, 120)}</span>
                 </div>
               ))}
             </div>
