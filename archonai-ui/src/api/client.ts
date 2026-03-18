@@ -652,6 +652,10 @@ export const api = {
   getExceptionPrioritized: (limit?: number) =>
     request(`/exceptions/prioritized${limit ? `?limit=${limit}` : ''}`),
 
+  // ── Executive Command ───────────────────────────────────
+  getExecutiveCommandSummary: () =>
+    request('/executive-command/summary'),
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];

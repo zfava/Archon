@@ -9,6 +9,7 @@ using ArchonAI.Core.Models.Governance;
 using ArchonAI.Core.Models.OperationalTwin;
 using ArchonAI.Core.Models.Scenario;
 using ArchonAI.Core.Models.ExceptionIntelligence;
+using ArchonAI.Core.Models.ExecutiveCommand;
 using ArchonAI.Core.Models.Planning;
 using ArchonAI.Core.Models.Rbac;
 using ArchonAI.Core.Models.Monitoring;
@@ -4466,6 +4467,27 @@ exceptions.MapGet("/prioritized", async (
 
     var queue = await exSvc.GetPrioritizedQueueAsync(tenantId, limit ?? 20, ct);
     return Results.Ok(queue);
+}).RequireAuthorization("GovernanceRead");
+
+// ══════════════════════════════════════════════════════════════
+//  Executive Command Layer
+// ══════════════════════════════════════════════════════════════
+var execCmd = v1.MapGroup("/executive-command")
+    .WithTags("ExecutiveCommand")
+    .RequireRateLimiting("api");
+
+execCmd.MapGet("/summary", async (
+    HttpContext ctx,
+    IExecutiveCommandService cmdSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var summary = await cmdSvc.GetCommandSummaryAsync(tenantId, ct);
+    return Results.Ok(summary);
 }).RequireAuthorization("GovernanceRead");
 
 app.Run();
