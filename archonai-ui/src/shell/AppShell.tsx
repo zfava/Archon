@@ -25,6 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/memory', label: 'Memory', icon: 'database', section: 'admin', permission: 'governance:read' },
   { to: '/operational-twin', label: 'Op Twin', icon: 'git-merge', section: 'admin', permission: 'governance:read' },
   { to: '/proof-analytics', label: 'Proof', icon: 'check-circle', section: 'operations', permission: 'governance:read' },
+  { to: '/action-safety', label: 'Safety', icon: 'shield-off', section: 'operations', permission: 'governance:read' },
   { to: '/hero-workflows', label: 'Workflows', icon: 'play', section: 'operations', permission: 'governance:read' },
   { to: '/simulation', label: 'Simulation', icon: 'eye', section: 'operations', permission: 'governance:read' },
   { to: '/scenarios', label: 'Scenarios', icon: 'compass', section: 'operations', permission: 'governance:read' },
@@ -53,6 +54,7 @@ const ICONS: Record<string, ReactNode> = {
   compass: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>,
   'alert-triangle': <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
   'check-circle': <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+  'shield-off': <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9.5 9l5 5m0-5l-5 5" /></svg>,
   briefcase: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>,
   logout: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
 };

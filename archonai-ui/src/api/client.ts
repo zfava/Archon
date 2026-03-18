@@ -770,6 +770,45 @@ export const api = {
   }) =>
     request('/proof-analytics/events', { method: 'POST', body: JSON.stringify(body) }),
 
+  // ── Action Safety & Rollback ─────────────────────────────
+  getActionSafetyClassifications: () =>
+    request('/action-safety/classifications'),
+
+  getActionSafetyClassification: (actionType: string) =>
+    request(`/action-safety/classifications/${encodeURIComponent(actionType)}`),
+
+  setActionSafetyClassification: (body: {
+    actionType: string;
+    reversibility: string;
+    rollbackSupported: boolean;
+    rollbackStrategy: string;
+    rollbackWindowMinutes?: number;
+    compensationDescription?: string;
+    operatorNotes?: string;
+  }) =>
+    request('/action-safety/classifications', { method: 'PUT', body: JSON.stringify(body) }),
+
+  getGovernedActions: (limit?: number) =>
+    request(`/action-safety/actions${limit ? `?limit=${limit}` : ''}`),
+
+  getGovernedAction: (actionId: string) =>
+    request(`/action-safety/actions/${actionId}`),
+
+  recordGovernedAction: (body: {
+    actionType: string;
+    description: string;
+    decisionId?: string;
+    workflowId?: string;
+    approvalGateId?: string;
+  }) =>
+    request('/action-safety/actions', { method: 'POST', body: JSON.stringify(body) }),
+
+  triggerRollback: (actionId: string) =>
+    request(`/action-safety/actions/${actionId}/rollback`, { method: 'POST' }),
+
+  getActionSafetySummary: () =>
+    request('/action-safety/summary'),
+
   // ── Executive Command ───────────────────────────────────
   getExecutiveCommandSummary: () =>
     request('/executive-command/summary'),

@@ -23,6 +23,7 @@ import { ExecutiveCommandView } from './features/executive-command';
 import { HeroWorkflowsView } from './features/hero-workflows';
 import { PolicySimulationView } from './features/simulation';
 import { ProofAnalyticsView } from './features/proof-analytics';
+import { ActionSafetyView } from './features/action-safety';
 import { OrgAdminView } from './features/admin/OrgAdminView';
 import { SystemHealthView } from './features/admin/SystemHealthView';
 import { PermissionGate, UnauthorizedPage } from './shared/PermissionGate';
@@ -68,6 +69,7 @@ function App() {
           <Route path="/hero-workflows" element={<AdminGated permission="governance:read"><HeroWorkflowsView /></AdminGated>} />
           <Route path="/simulation" element={<AdminGated permission="governance:read"><PolicySimulationView /></AdminGated>} />
           <Route path="/proof-analytics" element={<AdminGated permission="governance:read"><ProofAnalyticsView /></AdminGated>} />
+          <Route path="/action-safety" element={<AdminGated permission="governance:read"><ActionSafetyView /></AdminGated>} />
           <Route path="/executive" element={<AdminGated permission="governance:read"><ExecutiveCommandView /></AdminGated>} />
           <Route path="/admin/org" element={<AdminGated permission="admin:read"><OrgAdminView /></AdminGated>} />
           <Route path="/admin/health" element={<AdminGated permission="monitoring:read"><SystemHealthView /></AdminGated>} />

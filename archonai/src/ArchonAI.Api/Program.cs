@@ -55,6 +55,7 @@ using ArchonAI.Core.Models.Decisions;
 using ArchonAI.Core.Models.HeroWorkflow;
 using ArchonAI.Core.Models.PolicySimulation;
 using ArchonAI.Core.Models.ProofAnalytics;
+using ArchonAI.Core.Models.ActionSafety;
 using ArchonAI.Identity;
 
 var builder = WebApplication.CreateBuilder(args)
@@ -86,6 +87,7 @@ builder.Services.AddSingleton<IFinancialConsequenceService, FinancialConsequence
 builder.Services.AddSingleton<IHeroWorkflowService, HeroWorkflowService>();
 builder.Services.AddSingleton<IPolicySimulationService, PolicySimulationService>();
 builder.Services.AddSingleton<IProofAnalyticsService, ProofAnalyticsService>();
+builder.Services.AddSingleton<IActionSafetyService, ActionSafetyService>();
 
 // ── Health Checks ─────────────────────────────────────────────
 builder.Services.AddHealthChecks()
@@ -3941,6 +3943,150 @@ proof.MapGet("/dashboard", async (
     return Results.Ok(dashboard);
 }).RequireAuthorization("GovernanceRead");
 
+// ── Action Safety & Rollback ──────────────────────────────
+var actionSafety = v1.MapGroup("/action-safety")
+    .WithTags("action-safety");
+
+actionSafety.MapGet("/classifications", async (
+    IActionSafetyService safetySvc,
+    CancellationToken ct) =>
+{
+    var list = await safetySvc.ListClassificationsAsync(ct);
+    return Results.Ok(list);
+}).RequireAuthorization("GovernanceRead");
+
+actionSafety.MapGet("/classifications/{actionType}", async (
+    string actionType,
+    IActionSafetyService safetySvc,
+    CancellationToken ct) =>
+{
+    var classification = await safetySvc.GetClassificationAsync(actionType, ct);
+    return Results.Ok(classification);
+}).RequireAuthorization("GovernanceRead");
+
+actionSafety.MapPut("/classifications", async (
+    SetSafetyClassificationRequest req,
+    HttpContext ctx,
+    IActionSafetyService safetySvc,
+    CancellationToken ct) =>
+{
+    var userId = ctx.User?.FindFirst("sub")?.Value ?? "unknown";
+
+    if (!Enum.TryParse<ReversibilityLevel>(req.Reversibility, true, out var reversibility))
+        return Results.BadRequest(new { error = $"Invalid reversibility: {req.Reversibility}." });
+    if (!Enum.TryParse<RollbackStrategy>(req.RollbackStrategy, true, out var strategy))
+        return Results.BadRequest(new { error = $"Invalid rollback strategy: {req.RollbackStrategy}." });
+
+    TimeSpan? window = req.RollbackWindowMinutes.HasValue
+        ? TimeSpan.FromMinutes(req.RollbackWindowMinutes.Value)
+        : null;
+
+    var classification = new ActionSafetyClassification(
+        Id: Guid.NewGuid(),
+        ActionType: req.ActionType,
+        Reversibility: reversibility,
+        RollbackSupported: req.RollbackSupported,
+        RollbackStrategy: strategy,
+        RollbackWindow: window,
+        CompensationDescription: req.CompensationDescription,
+        OperatorNotes: req.OperatorNotes,
+        ClassifiedBy: userId,
+        ClassifiedAtUtc: DateTimeOffset.UtcNow);
+
+    var result = await safetySvc.SetClassificationAsync(classification, ct);
+    return Results.Ok(result);
+}).RequireAuthorization("OperatorOrAdmin");
+
+actionSafety.MapPost("/actions", async (
+    RecordGovernedActionRequest req,
+    HttpContext ctx,
+    IActionSafetyService safetySvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    var userId = ctx.User?.FindFirst("sub")?.Value ?? "unknown";
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var classification = await safetySvc.GetClassificationAsync(req.ActionType, ct);
+
+    var action = new GovernedActionRecord(
+        Id: Guid.NewGuid(),
+        TenantId: tenantId,
+        DecisionId: req.DecisionId,
+        WorkflowId: req.WorkflowId,
+        ApprovalGateId: req.ApprovalGateId,
+        ActionType: req.ActionType,
+        Description: req.Description,
+        SafetyClassification: classification,
+        Status: GovernedActionStatus.Executed,
+        ExecutedBy: userId,
+        ExecutedAtUtc: DateTimeOffset.UtcNow,
+        RollbackHistory: Array.Empty<RollbackAttempt>(),
+        CompensationOutcome: null,
+        UpdatedAtUtc: DateTimeOffset.UtcNow);
+
+    var created = await safetySvc.RecordActionAsync(action, ct);
+    return Results.Created($"/api/v1/action-safety/actions/{created.Id}", created);
+}).RequireAuthorization("OperatorOrAdmin");
+
+actionSafety.MapGet("/actions", async (
+    int? limit,
+    HttpContext ctx,
+    IActionSafetyService safetySvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var actions = await safetySvc.ListActionsAsync(tenantId, limit ?? 50, ct);
+    return Results.Ok(actions);
+}).RequireAuthorization("GovernanceRead");
+
+actionSafety.MapGet("/actions/{actionId:guid}", async (
+    Guid actionId,
+    IActionSafetyService safetySvc,
+    CancellationToken ct) =>
+{
+    var action = await safetySvc.GetActionAsync(actionId, ct);
+    return action is null ? Results.NotFound() : Results.Ok(action);
+}).RequireAuthorization("GovernanceRead");
+
+actionSafety.MapPost("/actions/{actionId:guid}/rollback", async (
+    Guid actionId,
+    HttpContext ctx,
+    IActionSafetyService safetySvc,
+    CancellationToken ct) =>
+{
+    var userId = ctx.User?.FindFirst("sub")?.Value ?? "unknown";
+    try
+    {
+        var result = await safetySvc.AttemptRollbackAsync(actionId, userId, ct);
+        return Results.Ok(result);
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound(new { error = "Governed action not found." });
+    }
+}).RequireAuthorization("OperatorOrAdmin");
+
+actionSafety.MapGet("/summary", async (
+    HttpContext ctx,
+    IActionSafetyService safetySvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var summary = await safetySvc.GetRollbackSummaryAsync(tenantId, ct);
+    return Results.Ok(summary);
+}).RequireAuthorization("GovernanceRead");
+
 // ── Enterprise Memory Hierarchy ───────────────────────────
 var enterpriseMemory = v1.MapGroup("/enterprise-memory")
     .WithTags("enterprise-memory");
@@ -5211,6 +5357,23 @@ public sealed record StartHeroWorkflowRequest(
 
 public sealed record AdvanceHeroWorkflowRequest(
     Dictionary<string, string>? Inputs);
+
+// ── Action Safety DTOs ──────────────────────────────────────
+public sealed record SetSafetyClassificationRequest(
+    string ActionType,
+    string Reversibility,
+    bool RollbackSupported,
+    string RollbackStrategy,
+    int? RollbackWindowMinutes,
+    string? CompensationDescription,
+    string? OperatorNotes);
+
+public sealed record RecordGovernedActionRequest(
+    string ActionType,
+    string Description,
+    Guid? DecisionId,
+    Guid? WorkflowId,
+    Guid? ApprovalGateId);
 
 // ── Proof Analytics DTOs ────────────────────────────────────
 public sealed record RecordProofEventRequest(
