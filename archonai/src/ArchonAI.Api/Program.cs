@@ -7,6 +7,7 @@ using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.AuditLog;
 using ArchonAI.Core.Models.Governance;
 using ArchonAI.Core.Models.OperationalTwin;
+using ArchonAI.Core.Models.Scenario;
 using ArchonAI.Core.Models.Planning;
 using ArchonAI.Core.Models.Rbac;
 using ArchonAI.Core.Models.Monitoring;
@@ -4134,6 +4135,164 @@ twin.MapGet("/overview", async (
     return Results.Ok(overview);
 }).RequireAuthorization("GovernanceRead");
 
+// ══════════════════════════════════════════════════════════════
+//  Scenario Engine
+// ══════════════════════════════════════════════════════════════
+var scenarios = v1.MapGroup("/scenarios")
+    .WithTags("Scenarios")
+    .RequireRateLimiting("api");
+
+scenarios.MapPost("/", async (
+    CreateScenarioRequest req,
+    HttpContext ctx,
+    IScenarioService scenarioSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    if (!Enum.TryParse<ScenarioType>(req.Type, true, out var scenarioType))
+        return Results.BadRequest(new { error = $"Invalid scenario type: {req.Type}" });
+
+    var assumptions = req.Assumptions?.Select(a =>
+        new ScenarioAssumption(a.Name, a.CurrentValue, a.ProposedValue, a.Unit, a.Rationale)).ToList()
+        ?? new List<ScenarioAssumption>();
+
+    var linkedKpis = req.LinkedKpiIds?.Select(id =>
+        new ScenarioLink("Kpi", id, null)).ToList()
+        ?? new List<ScenarioLink>();
+
+    var linkedDecisions = req.LinkedDecisionIds?.Select(id =>
+        new ScenarioLink("Decision", id, null)).ToList()
+        ?? new List<ScenarioLink>();
+
+    var linkedEntities = req.LinkedEntityIds?.Select(id =>
+        new ScenarioLink("TwinEntity", id, null)).ToList()
+        ?? new List<ScenarioLink>();
+
+    var now = DateTimeOffset.UtcNow;
+    var user = ctx.User?.Identity?.Name ?? "system";
+
+    var scenario = new Scenario(
+        Id: Guid.NewGuid(),
+        TenantId: tenantId,
+        Title: req.Title,
+        Description: req.Description,
+        Type: scenarioType,
+        Status: ScenarioStatus.Draft,
+        Assumptions: assumptions,
+        ProjectedEffects: Array.Empty<ProjectedEffect>(),
+        LinkedKpis: linkedKpis,
+        LinkedDecisions: linkedDecisions,
+        LinkedEntities: linkedEntities,
+        CreatedBy: user,
+        CreatedAtUtc: now,
+        UpdatedAtUtc: now);
+
+    // Derive initial projected effects from assumptions
+    if (assumptions.Count > 0)
+    {
+        var effects = ArchonAI.Api.Security.ScenarioService.DeriveProjectedEffects(scenario, assumptions);
+        scenario = scenario with { ProjectedEffects = effects, Status = ScenarioStatus.Active };
+    }
+
+    var result = await scenarioSvc.CreateScenarioAsync(scenario, ct);
+    return Results.Created($"/api/v1/scenarios/{result.Id}", result);
+}).RequireAuthorization("GovernanceWrite");
+
+scenarios.MapPut("/{scenarioId:guid}/assumptions", async (
+    Guid scenarioId,
+    UpdateAssumptionsRequest req,
+    HttpContext ctx,
+    IScenarioService scenarioSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var assumptions = req.Assumptions.Select(a =>
+        new ScenarioAssumption(a.Name, a.CurrentValue, a.ProposedValue, a.Unit, a.Rationale)).ToList();
+
+    var updated = await scenarioSvc.UpdateAssumptionsAsync(scenarioId, tenantId, assumptions, ct);
+    return updated is null ? Results.NotFound() : Results.Ok(updated);
+}).RequireAuthorization("GovernanceWrite");
+
+scenarios.MapGet("/{scenarioId:guid}", async (
+    Guid scenarioId,
+    HttpContext ctx,
+    IScenarioService scenarioSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var scenario = await scenarioSvc.GetScenarioAsync(scenarioId, tenantId, ct);
+    return scenario is null ? Results.NotFound() : Results.Ok(scenario);
+}).RequireAuthorization("GovernanceRead");
+
+scenarios.MapGet("/", async (
+    HttpContext ctx,
+    IScenarioService scenarioSvc,
+    string? type,
+    string? status,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    ScenarioType? typeFilter = null;
+    if (type is not null && Enum.TryParse<ScenarioType>(type, true, out var st))
+        typeFilter = st;
+
+    ScenarioStatus? statusFilter = null;
+    if (status is not null && Enum.TryParse<ScenarioStatus>(status, true, out var ss))
+        statusFilter = ss;
+
+    var list = await scenarioSvc.ListScenariosAsync(tenantId, typeFilter, statusFilter, ct);
+    return Results.Ok(list);
+}).RequireAuthorization("GovernanceRead");
+
+scenarios.MapPost("/compare", async (
+    CompareScenarioRequest req,
+    HttpContext ctx,
+    IScenarioService scenarioSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    if (req.ScenarioIds.Count < 2)
+        return Results.BadRequest(new { error = "At least 2 scenario IDs required for comparison." });
+
+    var comparison = await scenarioSvc.CompareScenariosAsync(req.ScenarioIds, tenantId, ct);
+    return Results.Ok(comparison);
+}).RequireAuthorization("GovernanceRead");
+
+scenarios.MapDelete("/{scenarioId:guid}", async (
+    Guid scenarioId,
+    HttpContext ctx,
+    IScenarioService scenarioSvc,
+    CancellationToken ct) =>
+{
+    var tenantClaim = ctx.User?.FindFirst("tenant_id")?.Value;
+    if (tenantClaim is null) return Results.Unauthorized();
+    if (!Guid.TryParse(tenantClaim, out var tenantId))
+        return Results.BadRequest(new { error = "Invalid tenant_id." });
+
+    var deleted = await scenarioSvc.DeleteScenarioAsync(scenarioId, tenantId, ct);
+    return deleted ? Results.NoContent() : Results.NotFound();
+}).RequireAuthorization("GovernanceWrite");
+
 app.Run();
 
 
@@ -4478,3 +4637,21 @@ public sealed record ReportBottleneckRequest(
 
 public sealed record LinkTwinArtifactRequest(
     string ArtifactType, string ArtifactId, string Relationship);
+
+// ── Scenario Engine DTOs ────────────────────────────────────
+public sealed record CreateScenarioRequest(
+    string Title, string? Description, string Type,
+    IReadOnlyList<AssumptionDto>? Assumptions,
+    IReadOnlyList<string>? LinkedKpiIds,
+    IReadOnlyList<string>? LinkedDecisionIds,
+    IReadOnlyList<string>? LinkedEntityIds);
+
+public sealed record AssumptionDto(
+    string Name, string CurrentValue, string ProposedValue,
+    string? Unit, string? Rationale);
+
+public sealed record UpdateAssumptionsRequest(
+    IReadOnlyList<AssumptionDto> Assumptions);
+
+public sealed record CompareScenarioRequest(
+    IReadOnlyList<Guid> ScenarioIds);

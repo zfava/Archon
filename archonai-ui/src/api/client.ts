@@ -584,6 +584,35 @@ export const api = {
   listTwinBottlenecks: (params?: Record<string, string>) =>
     request('/twin/bottlenecks' + (params ? '?' + new URLSearchParams(params).toString() : '')),
 
+  // ── Scenarios ───────────────────────────────────────────
+  createScenario: (body: {
+    title: string;
+    description?: string;
+    type: string;
+    assumptions?: { name: string; currentValue: string; proposedValue: string; unit?: string; rationale?: string }[];
+    linkedKpiIds?: string[];
+    linkedDecisionIds?: string[];
+    linkedEntityIds?: string[];
+  }) =>
+    request('/scenarios/', { method: 'POST', body: JSON.stringify(body) }),
+
+  updateScenarioAssumptions: (scenarioId: string, body: {
+    assumptions: { name: string; currentValue: string; proposedValue: string; unit?: string; rationale?: string }[];
+  }) =>
+    request(`/scenarios/${scenarioId}/assumptions`, { method: 'PUT', body: JSON.stringify(body) }),
+
+  getScenario: (scenarioId: string) =>
+    request(`/scenarios/${scenarioId}`),
+
+  listScenarios: (params?: Record<string, string>) =>
+    request('/scenarios/' + (params ? '?' + new URLSearchParams(params).toString() : '')),
+
+  compareScenarios: (scenarioIds: string[]) =>
+    request('/scenarios/compare', { method: 'POST', body: JSON.stringify({ scenarioIds }) }),
+
+  deleteScenario: (scenarioId: string) =>
+    request(`/scenarios/${scenarioId}`, { method: 'DELETE' }),
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];
