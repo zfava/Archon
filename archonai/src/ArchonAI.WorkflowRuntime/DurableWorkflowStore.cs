@@ -135,5 +135,15 @@ public sealed class DurableWorkflowStore : IWorkflowExecutionStore, IDisposable
         }
     }
 
+    /// <summary>
+    /// Awaits any in-flight flush so callers can guarantee state is persisted.
+    /// Useful for graceful shutdown and deterministic testing.
+    /// </summary>
+    public async Task FlushPendingAsync()
+    {
+        await _writeLock.WaitAsync();
+        _writeLock.Release();
+    }
+
     public void Dispose() => _writeLock.Dispose();
 }

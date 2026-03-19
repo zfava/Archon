@@ -263,10 +263,8 @@ public class DurableWorkflowTests : IDisposable
             InitiatedBy = "user-a",
         };
         await store1.CreateAsync(record);
+        await store1.FlushPendingAsync(); // Deterministically wait for fire-and-forget flush
         store1.Dispose();
-
-        // Give file time to flush
-        await Task.Delay(100);
 
         // Simulate restart: new store instance loads from disk
         var store2 = new DurableWorkflowStore(opts, NullLogger<DurableWorkflowStore>.Instance);
@@ -582,8 +580,7 @@ public class DurableWorkflowTests : IDisposable
         record.Status = WorkflowExecutionStatus.Running;
         record.StartedAtUtc = DateTimeOffset.UtcNow;
         await store1.UpdateAsync(record);
-
-        await Task.Delay(200); // Ensure fire-and-forget flush completes before dispose
+        await store1.FlushPendingAsync(); // Deterministically wait for fire-and-forget flush
         store1.Dispose();
 
         // Second "process lifetime": new store, resume
