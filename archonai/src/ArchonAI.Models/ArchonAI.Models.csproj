@@ -10,11 +10,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0-preview.*" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0-preview.*" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
   </ItemGroup>
 </Project>

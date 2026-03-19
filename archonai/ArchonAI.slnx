@@ -58,6 +58,9 @@
     <Project Path="src/ArchonAI.AgentRegistry/ArchonAI.AgentRegistry.csproj" />
     <Project Path="src/ArchonAI.StrategyLibrary/ArchonAI.StrategyLibrary.csproj" />
     <Project Path="src/ArchonAI.WorkflowSimulation/ArchonAI.WorkflowSimulation.csproj" />
+    <Project Path="src/ArchonAI.Persistence/ArchonAI.Persistence.csproj" />
+    <Project Path="src/ArchonAI.Migrations/ArchonAI.Migrations.csproj" />
+    <Project Path="src/ArchonAI.IntelligenceLoop/ArchonAI.IntelligenceLoop.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ArchonAI.Connectors.Tests/ArchonAI.Connectors.Tests.csproj" />
