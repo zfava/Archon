@@ -83,7 +83,7 @@ RUN getent group archon >/dev/null 2>&1 || groupadd archon && \
 
 WORKDIR /app
 
-LABEL org.opencontainers.image.source="https://github.com/rippleops/archonai"
+LABEL org.opencontainers.image.source="https://github.com/zfava/Archon"
 LABEL org.opencontainers.image.description="ArchonAI Worker Agents"
 
 EXPOSE 8080
