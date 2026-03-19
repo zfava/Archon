@@ -9,11 +9,20 @@ RUN dotnet publish ./src/ArchonAI.Worker.Runtime/ArchonAI.Worker.Runtime.csproj 
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN getent group archon >/dev/null 2>&1 || groupadd archon && \
     getent passwd archon >/dev/null 2>&1 || useradd --gid archon --shell /bin/false --create-home archon
 
 WORKDIR /app
 
+EXPOSE 8080
+
 COPY --from=build --chown=archon:archon /app/publish .
 USER archon
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8080/healthz/live || exit 1
+
 ENTRYPOINT ["dotnet", "ArchonAI.Worker.Runtime.dll"]

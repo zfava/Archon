@@ -15,6 +15,7 @@ env:
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 jobs:
   secret-scan:
@@ -113,6 +114,52 @@ jobs:
           name: test-results
           path: ./test-results/
           retention-days: 30
+
+  security-scan:
+    name: Security scanning
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Scan NuGet dependencies for known CVEs
+        run: |
+          dotnet restore archonai/
+          dotnet list archonai/ package --vulnerable --include-transitive 2>&1 | tee vuln-report.txt
+          if grep -q "has the following vulnerable packages" vuln-report.txt; then
+            echo "::error::Vulnerable NuGet packages found. See vuln-report.txt"
+            cat vuln-report.txt
+            exit 1
+          fi
+
+      - name: Build Docker images for scanning
+        run: |
+          docker build -f archonai/deploy/docker/Dockerfile.api -t archonai-api:scan .
+          docker build -f archonai/deploy/docker/Dockerfile.agents -t archonai-agents:scan .
+
+      - name: Scan Docker images with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: archonai-api:scan
+          format: sarif
+          output: trivy-api.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 1
+          ignore-unfixed: true
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-api.sarif
 
   docker:
     name: Build Docker Images

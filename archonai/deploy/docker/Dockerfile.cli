@@ -16,4 +16,8 @@ WORKDIR /app
 
 COPY --from=build --chown=archon:archon /app/publish .
 USER archon
+
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD pgrep -x dotnet || exit 1
+
 ENTRYPOINT ["dotnet", "ArchonAI.Cli.dll"]
