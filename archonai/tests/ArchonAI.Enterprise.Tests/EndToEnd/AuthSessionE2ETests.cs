@@ -54,15 +54,16 @@ public sealed class AuthSessionE2ETests
         // 2. Login
         var login = await auth.LoginAsync("admin@acme.com", "securePass123!");
         Assert.NotNull(login);
-        Assert.NotEmpty(login.Value.Tokens.AccessToken);
+        Assert.NotNull(login.Tokens);
+        Assert.NotEmpty(login.Tokens.AccessToken);
 
         // 3. Refresh
-        var refreshed = await auth.RefreshAsync(login.Value.Tokens.RefreshToken);
+        var refreshed = await auth.RefreshAsync(login.Tokens.RefreshToken);
         Assert.NotNull(refreshed);
-        Assert.NotEqual(login.Value.Tokens.RefreshToken, refreshed.RefreshToken);
+        Assert.NotEqual(login.Tokens.RefreshToken, refreshed.RefreshToken);
 
         // 4. Old refresh token is revoked (rotation)
-        var reuse = await auth.RefreshAsync(login.Value.Tokens.RefreshToken);
+        var reuse = await auth.RefreshAsync(login.Tokens.RefreshToken);
         Assert.Null(reuse);
 
         // 5. Logout

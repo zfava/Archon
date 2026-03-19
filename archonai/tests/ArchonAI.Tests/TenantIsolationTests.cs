@@ -77,8 +77,8 @@ public class TenantIsolationTests
         var login = await _auth.LoginAsync("admin@acme.com", "password123");
 
         Assert.NotNull(login);
-        Assert.Equal("Admin", login.Value.User.Role);
-        Assert.Contains("acme", login.Value.Org.Slug);
+        Assert.Equal("Admin", login.User!.Role);
+        Assert.Contains("acme", login.Org!.Slug);
     }
 
     [Fact]

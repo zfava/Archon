@@ -191,6 +191,7 @@ auth.MapPost("/register", async (
 
 auth.MapPost("/login", async (
     AuthenticationService authService,
+    ArchonAI.Identity.Mfa.MfaChallengeService mfaChallengeService,
     LoginRequest req,
     CancellationToken ct) =>
 {
@@ -201,10 +202,24 @@ auth.MapPost("/login", async (
     if (result is null)
         return Results.Unauthorized();
 
-    var (tokens, user, org) = result.Value;
-    return Results.Ok(new AuthResponse(tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresAtUtc,
-        new UserInfo(user.Id, user.Email, user.DisplayName, user.Role),
-        new OrgInfo(org.Id, org.Name, org.Slug)));
+    // Check if user has MFA enrolled
+    if (result.User is not null && await mfaChallengeService.HasMfaEnabledAsync(result.User.Id, ct))
+    {
+        var challenge = await mfaChallengeService.CreateChallengeAsync(result.User.Id, ct);
+        if (challenge is not null)
+        {
+            return Results.Ok(new MfaLoginResponse(
+                MfaRequired: true,
+                MfaToken: challenge.Value.MfaToken,
+                Methods: challenge.Value.Methods,
+                User: new UserInfo(result.User.Id, result.User.Email, result.User.DisplayName, result.User.Role)));
+        }
+    }
+
+    // No MFA — issue tokens directly (backward compatible)
+    return Results.Ok(new AuthResponse(result.Tokens!.AccessToken, result.Tokens.RefreshToken, result.Tokens.ExpiresAtUtc,
+        new UserInfo(result.User!.Id, result.User.Email, result.User.DisplayName, result.User.Role),
+        new OrgInfo(result.Org!.Id, result.Org.Name, result.Org.Slug)));
 });
 
 auth.MapPost("/refresh", async (
@@ -291,6 +306,249 @@ auth.MapPost("/accept-invite", async (
 
     return Results.Ok(new { accessToken = result.Value.Tokens.AccessToken, refreshToken = result.Value.Tokens.RefreshToken });
 });
+
+// ── MFA challenge endpoint (unauthenticated — uses MFA token) ─────
+auth.MapPost("/mfa/challenge", async (
+    AuthenticationService authService,
+    ArchonAI.Identity.Mfa.MfaChallengeService mfaChallengeService,
+    ArchonAI.Identity.Mfa.TotpService totpService,
+    MfaChallengeRequest req,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.MfaToken))
+        return Results.BadRequest(new { error = "MFA token is required." });
+
+    var userId = await mfaChallengeService.ValidateChallengeAsync(req.MfaToken, ct);
+    if (userId is null)
+        return Results.Unauthorized();
+
+    bool verified = false;
+    if (req.Method == "totp" && !string.IsNullOrWhiteSpace(req.Code))
+        verified = await totpService.VerifyAsync(userId.Value, req.Code, ct);
+    else if (req.Method == "recovery" && !string.IsNullOrWhiteSpace(req.Code))
+        verified = await mfaChallengeService.VerifyRecoveryCodeAsync(userId.Value, req.Code, ct);
+
+    if (!verified)
+        return Results.Unauthorized();
+
+    var tokens = await authService.IssueTokensForUserAsync(userId.Value, ct);
+    if (tokens is null)
+        return Results.Unauthorized();
+
+    var (t, user, org) = tokens.Value;
+    return Results.Ok(new AuthResponse(t.AccessToken, t.RefreshToken, t.ExpiresAtUtc,
+        new UserInfo(user.Id, user.Email, user.DisplayName, user.Role),
+        new OrgInfo(org.Id, org.Name, org.Slug)));
+});
+
+// ── MFA management endpoints (authenticated) ─────────────────────
+var mfa = app.MapGroup("/api/v1/auth/mfa")
+    .RequireAuthorization()
+    .RequireRateLimiting("api")
+    .WithTags("mfa");
+
+// GET /status — MFA enrollment status
+mfa.MapGet("/status", async (
+    HttpContext ctx,
+    ArchonAI.Identity.Mfa.MfaChallengeService mfaChallengeService,
+    CancellationToken ct) =>
+{
+    var sub = ctx.User?.FindFirst("sub")?.Value;
+    if (sub is null || !Guid.TryParse(sub, out var userId))
+        return Results.Unauthorized();
+    var status = await mfaChallengeService.GetMfaStatusAsync(userId, ct);
+    return Results.Ok(status);
+});
+
+// POST /totp/setup — Begin TOTP enrollment
+mfa.MapPost("/totp/setup", async (
+    HttpContext ctx,
+    ArchonAI.Identity.Mfa.TotpService totpService,
+    CancellationToken ct) =>
+{
+    var sub = ctx.User?.FindFirst("sub")?.Value;
+    var email = ctx.User?.FindFirst("email")?.Value ?? ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+    if (sub is null || !Guid.TryParse(sub, out var userId) || email is null)
+        return Results.Unauthorized();
+
+    var result = await totpService.GenerateSetupAsync(userId, email, ct);
+    if (result is null)
+        return Results.Conflict(new { error = "TOTP is already enabled. Disable it first." });
+
+    return Results.Ok(new TotpSetupResponse(result.Value.OtpAuthUri, result.Value.RecoveryCodes));
+});
+
+// POST /totp/verify — Verify first TOTP code to complete enrollment
+mfa.MapPost("/totp/verify", async (
+    HttpContext ctx,
+    ArchonAI.Identity.Mfa.TotpService totpService,
+    TotpVerifyRequest req,
+    CancellationToken ct) =>
+{
+    var sub = ctx.User?.FindFirst("sub")?.Value;
+    if (sub is null || !Guid.TryParse(sub, out var userId))
+        return Results.Unauthorized();
+
+    if (string.IsNullOrWhiteSpace(req.Code))
+        return Results.BadRequest(new { error = "Code is required." });
+
+    var verified = await totpService.VerifySetupAsync(userId, req.Code, ct);
+    return verified ? Results.Ok(new { enrolled = true }) : Results.BadRequest(new { error = "Invalid code." });
+});
+
+// DELETE /totp — Disable TOTP (requires current valid code)
+mfa.MapDelete("/totp", async (
+    HttpContext ctx,
+    ArchonAI.Identity.Mfa.TotpService totpService,
+    string code,
+    CancellationToken ct) =>
+{
+    var sub = ctx.User?.FindFirst("sub")?.Value;
+    if (sub is null || !Guid.TryParse(sub, out var userId))
+        return Results.Unauthorized();
+
+    var disabled = await totpService.DisableAsync(userId, code, ct);
+    return disabled ? Results.Ok(new { disabled = true }) : Results.BadRequest(new { error = "Invalid code." });
+});
+
+// POST /webauthn/register/begin — Begin WebAuthn credential registration
+mfa.MapPost("/webauthn/register/begin", async (
+    HttpContext ctx,
+    ArchonAI.Identity.Mfa.WebAuthnService webAuthnService,
+    CancellationToken ct) =>
+{
+    var sub = ctx.User?.FindFirst("sub")?.Value;
+    var email = ctx.User?.FindFirst("email")?.Value ?? ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+    var name = ctx.User?.FindFirst("name")?.Value;
+    if (sub is null || !Guid.TryParse(sub, out var userId) || email is null)
+        return Results.Unauthorized();
+
+    var options = await webAuthnService.BeginRegistrationAsync(userId, email, name ?? email, ct);
+    return Results.Ok(options);
+});
+
+// POST /webauthn/register/complete — Complete WebAuthn registration with attestation
+mfa.MapPost("/webauthn/register/complete", async (
+    HttpContext ctx,
+    ArchonAI.Identity.Mfa.WebAuthnService webAuthnService,
+    WebAuthnRegisterCompleteRequest req,
+    CancellationToken ct) =>
+{
+    var sub = ctx.User?.FindFirst("sub")?.Value;
+    if (sub is null || !Guid.TryParse(sub, out var userId))
+        return Results.Unauthorized();
+
+    var success = await webAuthnService.CompleteRegistrationAsync(
+        userId, req.DisplayName ?? "Security Key",
+        Convert.FromBase64String(req.CredentialId),
+        Convert.FromBase64String(req.PublicKey),
+        req.SignCount, ct);
+
+    return success
+        ? Results.Ok(new { registered = true })
+        : Results.BadRequest(new { error = "Registration failed." });
+});
+
+// DELETE /webauthn/{id} — Remove a WebAuthn credential
+mfa.MapDelete("/webauthn/{id:guid}", async (
+    Guid id,
+    HttpContext ctx,
+    ArchonAI.Identity.Mfa.WebAuthnService webAuthnService,
+    CancellationToken ct) =>
+{
+    var sub = ctx.User?.FindFirst("sub")?.Value;
+    if (sub is null || !Guid.TryParse(sub, out var userId))
+        return Results.Unauthorized();
+
+    var deleted = await webAuthnService.DeleteCredentialAsync(userId, id, ct);
+    return deleted ? Results.Ok(new { deleted = true }) : Results.NotFound();
+});
+
+// POST /recovery — Use a recovery code to generate new recovery codes
+mfa.MapPost("/recovery/regenerate", async (
+    HttpContext ctx,
+    ArchonAI.Identity.Mfa.TotpService totpService,
+    TotpVerifyRequest req,
+    CancellationToken ct) =>
+{
+    var sub = ctx.User?.FindFirst("sub")?.Value;
+    var email = ctx.User?.FindFirst("email")?.Value ?? ctx.User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+    if (sub is null || !Guid.TryParse(sub, out var userId) || email is null)
+        return Results.Unauthorized();
+
+    // Must verify current TOTP code to regenerate recovery codes
+    if (string.IsNullOrWhiteSpace(req.Code))
+        return Results.BadRequest(new { error = "Current TOTP code is required." });
+
+    var verified = await totpService.VerifyAsync(userId, req.Code, ct);
+    if (!verified)
+        return Results.BadRequest(new { error = "Invalid code." });
+
+    // Re-setup generates new recovery codes
+    var result = await totpService.GenerateSetupAsync(userId, email, ct);
+    if (result is null)
+        return Results.BadRequest(new { error = "TOTP not enabled." });
+
+    return Results.Ok(new { recoveryCodes = result.Value.RecoveryCodes });
+});
+
+// ── Tenant MFA policy (admin only) ────────────────────────────────
+mfa.MapGet("/policy", async (
+    HttpContext ctx,
+    ArchonAI.Core.Interfaces.IMfaStore mfaStore,
+    CancellationToken ct) =>
+{
+    var orgIdClaim = ctx.User?.FindFirst("org_id")?.Value;
+    if (orgIdClaim is null || !Guid.TryParse(orgIdClaim, out var orgId))
+        return Results.Unauthorized();
+
+    var policy = await mfaStore.GetMfaPolicyAsync(orgId, ct);
+    return Results.Ok(new MfaPolicyResponse(
+        policy?.Mode.ToString().ToLowerInvariant() ?? "disabled"));
+});
+
+mfa.MapPut("/policy", async (
+    HttpContext ctx,
+    ArchonAI.Core.Interfaces.IMfaStore mfaStore,
+    MfaPolicyRequest req,
+    CancellationToken ct) =>
+{
+    var orgIdClaim = ctx.User?.FindFirst("org_id")?.Value;
+    if (orgIdClaim is null || !Guid.TryParse(orgIdClaim, out var orgId))
+        return Results.Unauthorized();
+
+    if (!Enum.TryParse<ArchonAI.Core.Models.Identity.MfaPolicyMode>(req.Mode, true, out var mode))
+        return Results.BadRequest(new { error = "Invalid mode. Use: disabled, optional, or required." });
+
+    await mfaStore.UpsertMfaPolicyAsync(new ArchonAI.Core.Models.Identity.MfaPolicy(
+        orgId, mode, DateTimeOffset.UtcNow), ct);
+
+    return Results.Ok(new MfaPolicyResponse(mode.ToString().ToLowerInvariant()));
+}).RequireAuthorization("AdminOnly");
+
+// ── Admin MFA reset (audit logged) ────────────────────────────────
+mfa.MapPost("/admin-reset/{targetUserId:guid}", async (
+    Guid targetUserId,
+    HttpContext ctx,
+    ArchonAI.Identity.Mfa.TotpService totpService,
+    ArchonAI.Core.Interfaces.IMfaStore mfaStore,
+    Microsoft.Extensions.Logging.ILogger<Program> logger,
+    CancellationToken ct) =>
+{
+    var adminSub = ctx.User?.FindFirst("sub")?.Value;
+    if (adminSub is null || !Guid.TryParse(adminSub, out var adminId))
+        return Results.Unauthorized();
+
+    // Delete all MFA credentials
+    await mfaStore.DeleteTotpCredentialAsync(targetUserId, ct);
+    await mfaStore.DeleteAllRecoveryCodesAsync(targetUserId, ct);
+    var webAuthnCreds = await mfaStore.GetWebAuthnCredentialsAsync(targetUserId, ct);
+    foreach (var cred in webAuthnCreds)
+        await mfaStore.DeleteWebAuthnCredentialAsync(cred.Id, ct);
+
+    logger.LogWarning("MFA reset by admin {AdminId} for user {TargetUserId}", adminId, targetUserId);
+    return Results.Ok(new { reset = true, targetUserId });
+}).RequireAuthorization("AdminOnly");
 
 var v1 = app.MapGroup("/api/v1")
     .RequireAuthorization()
@@ -5811,3 +6069,31 @@ public sealed record RunSimulationRequest(
     decimal? UpsidePotential,
     string? RequestedTier,
     string? WorkflowType);
+
+// ── MFA DTOs ──────────────────────────────────────────────────
+
+public sealed record MfaLoginResponse(
+    bool MfaRequired,
+    string MfaToken,
+    string[] Methods,
+    UserInfo User);
+
+public sealed record MfaChallengeRequest(
+    string MfaToken,
+    string Method,
+    string? Code);
+
+public sealed record TotpSetupResponse(
+    string OtpAuthUri,
+    string[] RecoveryCodes);
+
+public sealed record TotpVerifyRequest(string Code);
+
+public sealed record WebAuthnRegisterCompleteRequest(
+    string CredentialId,
+    string PublicKey,
+    uint SignCount,
+    string? DisplayName);
+
+public sealed record MfaPolicyRequest(string Mode);
+public sealed record MfaPolicyResponse(string Mode);

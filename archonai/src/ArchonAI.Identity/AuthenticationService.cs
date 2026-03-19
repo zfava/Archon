@@ -16,6 +16,24 @@ public sealed class AuthenticationOptions
     public int InviteTokenLifetimeDays { get; set; } = 7;
 }
 
+/// <summary>Result of a login attempt when MFA is required.</summary>
+public sealed record MfaRequiredResult(
+    Guid UserId,
+    string MfaToken,
+    string[] Methods,
+    UserIdentity User,
+    Organization Org);
+
+/// <summary>Combined login result: either tokens (no MFA) or MFA challenge.</summary>
+public sealed record LoginResult
+{
+    public AuthTokens? Tokens { get; init; }
+    public UserIdentity? User { get; init; }
+    public Organization? Org { get; init; }
+    public MfaRequiredResult? MfaRequired { get; init; }
+    public bool IsMfaRequired => MfaRequired is not null;
+}
+
 public sealed class AuthenticationService
 {
     private readonly IUserStore _users;
@@ -47,7 +65,11 @@ public sealed class AuthenticationService
         _logger = logger;
     }
 
-    public async Task<(AuthTokens Tokens, UserIdentity User, Organization Org)?> LoginAsync(
+    /// <summary>
+    /// Primary login. Returns tokens directly if no MFA, otherwise returns MFA challenge.
+    /// Backward compatible: no MFA enrolled = direct token issuance.
+    /// </summary>
+    public async Task<LoginResult?> LoginAsync(
         string email, string password, CancellationToken ct = default)
     {
         var user = await _users.GetByEmailAsync(email, ct);
@@ -76,9 +98,29 @@ public sealed class AuthenticationService
         var updatedUser = user with { LastLoginAtUtc = DateTimeOffset.UtcNow };
         await _users.UpdateAsync(updatedUser, ct);
 
+        // No MFA by default — callers can check and create MFA challenge separately
         var tokens = await IssueTokensAsync(updatedUser, org, role, ct);
         _logger.LogInformation("Login succeeded for {Email} in org {OrgSlug}", email, org.Slug);
-        return (tokens, updatedUser, org);
+        return new LoginResult { Tokens = tokens, User = updatedUser, Org = org };
+    }
+
+    /// <summary>
+    /// Issues tokens for a user after MFA verification succeeds.
+    /// </summary>
+    public async Task<(AuthTokens Tokens, UserIdentity User, Organization Org)?> IssueTokensForUserAsync(
+        Guid userId, CancellationToken ct = default)
+    {
+        var user = await _users.GetByIdAsync(userId, ct);
+        if (user is null || !user.IsActive) return null;
+
+        var org = await _orgs.GetByIdAsync(user.OrganizationId, ct);
+        if (org is null || !org.IsActive) return null;
+
+        var membership = await _memberships.GetAsync(user.Id, org.Id, ct);
+        string role = membership?.Role ?? user.Role;
+
+        var tokens = await IssueTokensAsync(user, org, role, ct);
+        return (tokens, user, org);
     }
 
     public async Task<(Organization Org, UserIdentity User, AuthTokens Tokens)?> RegisterAsync(

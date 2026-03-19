@@ -61,7 +61,7 @@ public sealed class CrossTenantAccessTests
         var login = await auth.LoginAsync("admin@acme.com", "pass123!");
 
         Assert.NotNull(login);
-        Assert.Contains("acme", login.Value.Org.Slug, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("acme", login.Org!.Slug, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

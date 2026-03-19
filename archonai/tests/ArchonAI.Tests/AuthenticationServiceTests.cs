@@ -75,7 +75,8 @@ public class AuthenticationServiceTests
         var result = await _auth.LoginAsync("user@acme.com", "correctpass");
 
         Assert.NotNull(result);
-        Assert.NotEmpty(result.Value.Tokens.AccessToken);
+        Assert.NotNull(result.Tokens);
+        Assert.NotEmpty(result.Tokens.AccessToken);
     }
 
     [Fact]

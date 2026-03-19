@@ -1,4 +1,5 @@
 using ArchonAI.Core.Interfaces;
+using ArchonAI.Identity.Mfa;
 using ArchonAI.Identity.Stores;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,9 +25,17 @@ public static class DependencyInjection
         services.AddSingleton<IRefreshTokenStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
         services.AddSingleton<IInviteTokenStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
 
+        // MFA store
+        services.AddSingleton<IMfaStore, InMemoryMfaStore>();
+
         // Auth services
         services.AddSingleton<TokenService>();
         services.AddSingleton<AuthenticationService>();
+
+        // MFA services
+        services.AddSingleton<TotpService>();
+        services.AddSingleton<WebAuthnService>();
+        services.AddSingleton<MfaChallengeService>();
 
         // OIDC federation stores
         services.AddSingleton<ITenantAuthConfigStore, InMemoryTenantAuthConfigStore>();

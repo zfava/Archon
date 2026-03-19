@@ -501,7 +501,7 @@ public sealed class OidcFederationTests
         // Password user can still log in
         var login = await authService.LoginAsync("admin@coexist.com", "password123!");
         Assert.NotNull(login);
-        Assert.Equal("Admin", login.Value.User.Role);
+        Assert.Equal("Admin", login.User!.Role);
 
         // OIDC user exists in the same org
         var oidcLookup = await _users.GetByEmailAsync("oidc-user@coexist.com");
