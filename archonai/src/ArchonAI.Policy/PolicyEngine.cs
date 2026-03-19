@@ -137,10 +137,18 @@ public sealed class PolicyEngine : IPolicyEngine
         }
         else if (manualOverrideState == "allow")
         {
-            isAllowed = true;
-            requiresApproval = false;
-            approvalState = "overridden-approved";
-            reason = "Execution allowed by manual human override.";
+            // Manual override cannot bypass forbidden capability violations
+            if (violations.Contains("forbidden-capability"))
+            {
+                reason = "Forbidden capability cannot be overridden by manual override.";
+            }
+            else
+            {
+                isAllowed = true;
+                requiresApproval = false;
+                approvalState = "overridden-approved";
+                reason = "Execution allowed by manual human override.";
+            }
         }
 
         return global::System.Threading.Tasks.Task.FromResult(new PolicyDecision(
