@@ -118,6 +118,15 @@ export function useDashboardHub() {
       setState((s) => ({ ...s, connectionStatus: 'disconnected' }));
     });
 
+    // Listen for auth expiry events — disconnect the hub when session is invalid
+    const handleAuthExpired = () => {
+      if (connection.state !== HubConnectionState.Disconnected) {
+        connection.stop();
+      }
+      setState((s) => ({ ...s, connectionStatus: 'disconnected' }));
+    };
+    window.addEventListener('auth:expired', handleAuthExpired);
+
     queueMicrotask(() => setState((s) => ({ ...s, connectionStatus: 'connecting' })));
 
     connection
@@ -137,6 +146,7 @@ export function useDashboardHub() {
       });
 
     return () => {
+      window.removeEventListener('auth:expired', handleAuthExpired);
       if (connection.state !== HubConnectionState.Disconnected) {
         connection.stop();
       }

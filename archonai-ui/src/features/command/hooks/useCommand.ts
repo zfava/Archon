@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { api } from '../../../api/client';
+import { ApiError } from '../../../api/errors';
 import type {
   CommandPhase,
   CommandResult,
@@ -34,6 +35,16 @@ function parseIntent(input: string): {
   return { title: cleaned, description: cleaned, strategies };
 }
 
+/** Extract a user-friendly message from any error, with ApiError awareness. */
+function errorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    // For cancellation, don't surface as an error
+    if (err.code === 'CANCELLED') return 'Request was cancelled.';
+    return err.message;
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
 export function useCommand() {
   const [history, setHistory] = useState<CommandResult[]>([]);
   const [phase, setPhase] = useState<CommandPhase>('idle');
@@ -56,6 +67,7 @@ export function useCommand() {
       abortRef.current?.abort();
       const ac = new AbortController();
       abortRef.current = ac;
+      const signal = ac.signal;
 
       const id = makeId();
       const entry: CommandResult = {
@@ -81,7 +93,7 @@ export function useCommand() {
         setPhase('planning');
         updateCurrent({ phase: 'planning' });
 
-        const genResult = await api.generateGoals() as {
+        const genResult = await api.generateGoals(signal) as {
           generatedGoals: OperationalGoal[];
         };
 
@@ -93,11 +105,11 @@ export function useCommand() {
         ) ?? genResult.generatedGoals[0] ?? null;
 
         if (!goal) {
-          throw new Error('No goals generated from current business signals.');
+          throw new ApiError('VALIDATION_ERROR', 'No goals generated from current business signals.');
         }
 
         // Approve goal
-        await api.approveGoal(goal.goalId);
+        await api.approveGoal(goal.goalId, signal);
         goal = { ...goal, status: 'Approved' };
 
         updateCurrent({ goal, phase: 'simulating' });
@@ -107,6 +119,7 @@ export function useCommand() {
         const plan = (await api.getGuidedPlan(
           goal.goalId,
           intent.strategies,
+          signal,
         )) as SimulationGuidedPlan;
 
         const comparison = plan.comparisonResult;
@@ -114,7 +127,10 @@ export function useCommand() {
         updateCurrent({ plan, comparison, phase: 'ready' });
         setPhase('ready');
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
+        // Silently ignore if this command was cancelled/aborted
+        if (signal.aborted) return;
+
+        const message = errorMessage(err);
         updateCurrent({ phase: 'error', error: message });
         setPhase('error');
       }
@@ -127,18 +143,25 @@ export function useCommand() {
     const last = history[history.length - 1];
     if (!last?.plan) return;
 
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+
     setPhase('executing');
     updateCurrent({ phase: 'executing' });
 
     try {
       const dispatch = (await api.dispatchGraph(
         last.plan.selectedTaskGraph.graphId,
+        ac.signal,
       )) as TaskGraphDispatchResult;
 
       updateCurrent({ dispatch, phase: 'complete' });
       setPhase('complete');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
+      if (ac.signal.aborted) return;
+
+      const message = errorMessage(err);
       updateCurrent({ phase: 'error', error: message });
       setPhase('error');
     }
@@ -150,6 +173,10 @@ export function useCommand() {
       const last = history[history.length - 1];
       if (!last?.goal) return;
 
+      abortRef.current?.abort();
+      const ac = new AbortController();
+      abortRef.current = ac;
+
       setPhase('simulating');
       updateCurrent({ phase: 'simulating' });
 
@@ -157,6 +184,7 @@ export function useCommand() {
         const plan = (await api.getGuidedPlan(
           last.goal.goalId,
           strategies,
+          ac.signal,
         )) as SimulationGuidedPlan;
 
         updateCurrent({
@@ -166,7 +194,9 @@ export function useCommand() {
         });
         setPhase('ready');
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
+        if (ac.signal.aborted) return;
+
+        const message = errorMessage(err);
         updateCurrent({ phase: 'error', error: message });
         setPhase('error');
       }

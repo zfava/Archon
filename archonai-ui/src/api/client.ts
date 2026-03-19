@@ -1,4 +1,7 @@
+import { ApiError, mapHttpError } from './errors';
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 let _getAccessToken: (() => Promise<string | null>) | null = null;
 let _onUnauthorized: (() => void) | null = null;
@@ -12,6 +15,13 @@ export function configureApiAuth(
   _onUnauthorized = onUnauthorized;
 }
 
+/**
+ * Core fetch wrapper.
+ * - Attaches auth header automatically.
+ * - Enforces a 30-second default timeout (overridable via options.signal).
+ * - Normalizes all errors into ApiError instances.
+ * - Dispatches 'auth:expired' CustomEvent on 401 responses.
+ */
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 
@@ -20,89 +30,136 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { ...headers, ...(options?.headers as Record<string, string> | undefined) },
-  });
+  // Combine caller signal (if any) with a default timeout signal
+  const timeoutSignal = AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
+  const callerSignal = options?.signal;
+  const signal = callerSignal
+    ? AbortSignal.any([callerSignal, timeoutSignal])
+    : timeoutSignal;
 
-  if (res.status === 401) {
-    _onUnauthorized?.();
-    throw new Error('Unauthorized');
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: { ...headers, ...(options?.headers as Record<string, string> | undefined) },
+      signal,
+    });
+  } catch (err: unknown) {
+    // Distinguish cancellation from timeout from network failure
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      if (callerSignal?.aborted) {
+        throw new ApiError('CANCELLED', 'Request was cancelled');
+      }
+      throw new ApiError('TIMEOUT', `Request timed out after ${DEFAULT_TIMEOUT_MS}ms`);
+    }
+    if (err instanceof Error && err.name === 'TimeoutError') {
+      throw new ApiError('TIMEOUT', `Request timed out after ${DEFAULT_TIMEOUT_MS}ms`);
+    }
+    throw new ApiError(
+      'NETWORK_ERROR',
+      err instanceof Error ? err.message : 'Network request failed',
+    );
   }
 
+  // 401 — dispatch auth expiry event and invoke callback
+  if (res.status === 401) {
+    window.dispatchEvent(new CustomEvent('auth:expired'));
+    _onUnauthorized?.();
+    throw new ApiError('UNAUTHORIZED', 'Authentication required', 401);
+  }
+
+  // 403 — never silently fail
+  if (res.status === 403) {
+    const body = await res.text().catch(() => '');
+    throw new ApiError(
+      'FORBIDDEN',
+      'You do not have permission to perform this action',
+      403,
+      body,
+    );
+  }
+
+  // Other non-OK responses
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`API ${res.status}: ${body || res.statusText}`);
+    throw mapHttpError(res, body);
   }
+
   return res.json();
 }
 
 export const api = {
   // Goals
-  generateGoals: () =>
-    request('/goals/generate', { method: 'POST' }),
+  generateGoals: (signal?: AbortSignal) =>
+    request('/goals/generate', { method: 'POST', signal }),
 
-  getGoalDashboard: () =>
-    request('/goals/dashboard'),
+  getGoalDashboard: (signal?: AbortSignal) =>
+    request('/goals/dashboard', { signal }),
 
-  getGoal: (goalId: string) =>
-    request(`/goals/${goalId}`),
+  getGoal: (goalId: string, signal?: AbortSignal) =>
+    request(`/goals/${goalId}`, { signal }),
 
-  getGoalsByStatus: (status: string) =>
-    request(`/goals/by-status/${status}`),
+  getGoalsByStatus: (status: string, signal?: AbortSignal) =>
+    request(`/goals/by-status/${status}`, { signal }),
 
-  approveGoal: (goalId: string) =>
-    request(`/goals/${goalId}/approve`, { method: 'POST' }),
+  approveGoal: (goalId: string, signal?: AbortSignal) =>
+    request(`/goals/${goalId}/approve`, { method: 'POST', signal }),
 
-  cancelGoal: (goalId: string, reason: string) =>
+  cancelGoal: (goalId: string, reason: string, signal?: AbortSignal) =>
     request(`/goals/${goalId}/cancel`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
+      signal,
     }),
 
   // Strategy Simulation
-  simulateStrategy: (graphId: string, strategy: string) =>
+  simulateStrategy: (graphId: string, strategy: string, signal?: AbortSignal) =>
     request('/strategy-simulation/simulate', {
       method: 'POST',
       body: JSON.stringify({ graphId, strategy }),
+      signal,
     }),
 
-  compareStrategies: (graphId: string, strategies: string[]) =>
+  compareStrategies: (graphId: string, strategies: string[], signal?: AbortSignal) =>
     request('/strategy-simulation/compare', {
       method: 'POST',
       body: JSON.stringify({ graphId, strategies }),
+      signal,
     }),
 
-  simulateGoalStrategies: (goalId: string, strategies?: string[]) =>
+  simulateGoalStrategies: (goalId: string, strategies?: string[], signal?: AbortSignal) =>
     request('/strategy-simulation/simulate-goal', {
       method: 'POST',
       body: JSON.stringify({ goalId, strategies }),
+      signal,
     }),
 
-  getGuidedPlan: (goalId: string, strategies?: string[]) =>
+  getGuidedPlan: (goalId: string, strategies?: string[], signal?: AbortSignal) =>
     request('/strategy-simulation/guided-plan', {
       method: 'POST',
       body: JSON.stringify({ goalId, strategies }),
+      signal,
     }),
 
   // Task Graphs
-  buildTaskGraph: (goalId: string, strategy?: string) =>
+  buildTaskGraph: (goalId: string, strategy?: string, signal?: AbortSignal) =>
     request('/task-graphs/build', {
       method: 'POST',
       body: JSON.stringify({ goalId, strategy }),
+      signal,
     }),
 
-  dispatchGraph: (graphId: string) =>
-    request(`/task-graphs/${graphId}/dispatch`, { method: 'POST' }),
+  dispatchGraph: (graphId: string, signal?: AbortSignal) =>
+    request(`/task-graphs/${graphId}/dispatch`, { method: 'POST', signal }),
 
-  getGraph: (graphId: string) =>
-    request(`/task-graphs/${graphId}`),
+  getGraph: (graphId: string, signal?: AbortSignal) =>
+    request(`/task-graphs/${graphId}`, { signal }),
 
-  getGraphsByGoal: (goalId: string) =>
-    request(`/task-graphs/by-goal/${goalId}`),
+  getGraphsByGoal: (goalId: string, signal?: AbortSignal) =>
+    request(`/task-graphs/by-goal/${goalId}`, { signal }),
 
-  getGraphLayers: (graphId: string) =>
-    request(`/task-graphs/${graphId}/layers`),
+  getGraphLayers: (graphId: string, signal?: AbortSignal) =>
+    request(`/task-graphs/${graphId}/layers`, { signal }),
 
   // Economics
   evaluateEconomics: (body: {
@@ -111,26 +168,28 @@ export const api = {
     candidateStrategies?: string[];
     constraints?: Record<string, string>;
     deadline?: string;
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/economics/evaluate', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
   // Outcome
-  evaluateOutcome: (body: unknown) =>
+  evaluateOutcome: (body: unknown, signal?: AbortSignal) =>
     request('/outcome-evaluation/evaluate', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
   // ── Reasoner / Outcome Evaluation ──────────────────────────
 
-  getOutcomeEvaluationsForGoal: (goalId: string) =>
-    request(`/outcome-evaluation/goal/${goalId}`),
+  getOutcomeEvaluationsForGoal: (goalId: string, signal?: AbortSignal) =>
+    request(`/outcome-evaluation/goal/${goalId}`, { signal }),
 
-  getOutcomeEvaluationsForStrategy: (strategy: string) =>
-    request(`/outcome-evaluation/strategy/${encodeURIComponent(strategy)}`),
+  getOutcomeEvaluationsForStrategy: (strategy: string, signal?: AbortSignal) =>
+    request(`/outcome-evaluation/strategy/${encodeURIComponent(strategy)}`, { signal }),
 
   evaluateEconomicsSingle: (body: {
     objectiveTitle: string;
@@ -138,21 +197,22 @@ export const api = {
     strategy: string;
     constraints?: Record<string, string>;
     deadline?: string;
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/economics/evaluate-single', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
   // ── Control Plane ──────────────────────────────────────────
 
   // Policies
-  listPolicies: (tenantId?: string, policyType?: string) => {
+  listPolicies: (tenantId?: string, policyType?: string, signal?: AbortSignal) => {
     const params = new URLSearchParams();
     if (tenantId) params.set('tenantId', tenantId);
     if (policyType) params.set('policyType', policyType);
     const qs = params.toString();
-    return request(`/control-plane/policies${qs ? `?${qs}` : ''}`);
+    return request(`/control-plane/policies${qs ? `?${qs}` : ''}`, { signal });
   },
 
   createPolicy: (body: {
@@ -163,28 +223,30 @@ export const api = {
     targetResource: string;
     rules: Record<string, string>;
     priority: number;
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/control-plane/policies', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
   updatePolicy: (policyId: string, body: {
     isEnabled: boolean;
     rules?: Record<string, string>;
     priority?: number;
-  }) =>
+  }, signal?: AbortSignal) =>
     request(`/control-plane/policies/${policyId}`, {
       method: 'PUT',
       body: JSON.stringify(body),
+      signal,
     }),
 
-  deletePolicy: (policyId: string) =>
-    request(`/control-plane/policies/${policyId}`, { method: 'DELETE' }),
+  deletePolicy: (policyId: string, signal?: AbortSignal) =>
+    request(`/control-plane/policies/${policyId}`, { method: 'DELETE', signal }),
 
   // Configuration (for persisting settings per tenant)
-  getConfig: (tenantId: string, scope: string, key: string) =>
-    request(`/control-plane/config/${tenantId}/${scope}/${key}`),
+  getConfig: (tenantId: string, scope: string, key: string, signal?: AbortSignal) =>
+    request(`/control-plane/config/${tenantId}/${scope}/${key}`, { signal }),
 
   setConfig: (body: {
     tenantId: string;
@@ -192,37 +254,38 @@ export const api = {
     key: string;
     value: string;
     description?: string;
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/control-plane/config', {
       method: 'PUT',
       body: JSON.stringify(body),
+      signal,
     }),
 
-  listConfigs: (tenantId?: string, scope?: string) => {
+  listConfigs: (tenantId?: string, scope?: string, signal?: AbortSignal) => {
     const params = new URLSearchParams();
     if (tenantId) params.set('tenantId', tenantId);
     if (scope) params.set('scope', scope);
     const qs = params.toString();
-    return request(`/control-plane/config${qs ? `?${qs}` : ''}`);
+    return request(`/control-plane/config${qs ? `?${qs}` : ''}`, { signal });
   },
 
   // Tenants
-  listTenants: () =>
-    request('/control-plane/tenants'),
+  listTenants: (signal?: AbortSignal) =>
+    request('/control-plane/tenants', { signal }),
 
   // Security metrics
-  getSecurityMetrics: () =>
-    request('/admin/security/metrics'),
+  getSecurityMetrics: (signal?: AbortSignal) =>
+    request('/admin/security/metrics', { signal }),
 
-  listSecurityPolicies: (category?: string) => {
+  listSecurityPolicies: (category?: string, signal?: AbortSignal) => {
     const qs = category ? `?category=${encodeURIComponent(category)}` : '';
-    return request(`/admin/security/policies${qs}`);
+    return request(`/admin/security/policies${qs}`, { signal });
   },
 
   // ── Audit Log ────────────────────────────────────────────
 
-  getAuditStatus: () =>
-    request('/audit/status'),
+  getAuditStatus: (signal?: AbortSignal) =>
+    request('/audit/status', { signal }),
 
   queryAuditEntries: (params: {
     category?: string;
@@ -232,7 +295,7 @@ export const api = {
     toUtc?: string;
     offset?: number;
     limit?: number;
-  }) => {
+  }, signal?: AbortSignal) => {
     const qs = new URLSearchParams();
     if (params.category) qs.set('category', params.category);
     if (params.subjectId) qs.set('subjectId', params.subjectId);
@@ -242,73 +305,78 @@ export const api = {
     if (params.offset !== undefined) qs.set('offset', String(params.offset));
     if (params.limit !== undefined) qs.set('limit', String(params.limit));
     const q = qs.toString();
-    return request(`/audit/entries${q ? `?${q}` : ''}`);
+    return request(`/audit/entries${q ? `?${q}` : ''}`, { signal });
   },
 
-  getAuditEntry: (entryId: string) =>
-    request(`/audit/entries/${entryId}`),
+  getAuditEntry: (entryId: string, signal?: AbortSignal) =>
+    request(`/audit/entries/${entryId}`, { signal }),
 
-  verifyAuditIntegrity: (fromEntryId?: string) =>
+  verifyAuditIntegrity: (fromEntryId?: string, signal?: AbortSignal) =>
     request('/audit/verify', {
       method: 'POST',
       body: JSON.stringify(fromEntryId ? { fromEntryId } : {}),
+      signal,
     }),
 
   // ── Observability ────────────────────────────────────────
 
-  getUnifiedDashboard: () =>
-    request('/control-plane/observability/unified'),
+  getUnifiedDashboard: (signal?: AbortSignal) =>
+    request('/control-plane/observability/unified', { signal }),
 
-  getTaskPerformance: () =>
-    request('/control-plane/observability/task-performance'),
+  getTaskPerformance: (signal?: AbortSignal) =>
+    request('/control-plane/observability/task-performance', { signal }),
 
-  getAgentActivity: () =>
-    request('/control-plane/observability/agent-activity'),
+  getAgentActivity: (signal?: AbortSignal) =>
+    request('/control-plane/observability/agent-activity', { signal }),
 
-  getModelUsage: () =>
-    request('/control-plane/observability/model-usage'),
+  getModelUsage: (signal?: AbortSignal) =>
+    request('/control-plane/observability/model-usage', { signal }),
 
-  getSystemHealth: () =>
-    request('/control-plane/observability/system-health'),
+  getSystemHealth: (signal?: AbortSignal) =>
+    request('/control-plane/observability/system-health', { signal }),
 
   // ── Integrations / Connectors ─────────────────────────
-  getConnectorStatus: (path: string) =>
-    request(path),
 
-  connectIntegration: (connectorId: string) =>
-    request(`/integrations/${connectorId}/connect`, { method: 'POST' }),
+  getConnectorStatus: (path: string, signal?: AbortSignal) =>
+    request(path, { signal }),
 
-  disconnectIntegration: (connectorId: string) =>
-    request(`/integrations/${connectorId}/disconnect`, { method: 'POST' }),
+  connectIntegration: (connectorId: string, signal?: AbortSignal) =>
+    request(`/integrations/${connectorId}/connect`, { method: 'POST', signal }),
 
-  listIntegrations: () =>
-    request('/integrations'),
+  disconnectIntegration: (connectorId: string, signal?: AbortSignal) =>
+    request(`/integrations/${connectorId}/disconnect`, { method: 'POST', signal }),
+
+  listIntegrations: (signal?: AbortSignal) =>
+    request('/integrations', { signal }),
 
   // ── Onboarding ─────────────────────────────────────────
+
   deployOnboarding: (body: {
     connectedSystems: string[];
     businessType: string;
     automationLevel: string;
     departments: { name: string; level: string }[];
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/onboarding/deploy', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
   // ── Explanations ─────────────────────────────────────
+
   explainStrategy: (body: {
     goalId: string;
     goalTitle: string;
     candidateStrategies: string[];
-  }) =>
-    request('/explanations/strategy', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/explanations/strategy', { method: 'POST', body: JSON.stringify(body), signal }),
 
   explainAgent: (body: {
     requiredCapability: string;
     taskType: string | null;
-  }) =>
-    request('/explanations/agent', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/explanations/agent', { method: 'POST', body: JSON.stringify(body), signal }),
 
   explainDecision: (body: {
     goalId: string;
@@ -316,23 +384,24 @@ export const api = {
     candidateStrategies: string[];
     requiredCapability: string;
     taskType: string | null;
-  }) =>
-    request('/explanations/decision', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/explanations/decision', { method: 'POST', body: JSON.stringify(body), signal }),
 
   // ── Human Overrides ──────────────────────────────────
-  pauseWorkflow: (body: { workflowId: string; reason: string; performedBy: string }) =>
-    request('/overrides/pause', { method: 'POST', body: JSON.stringify(body) }),
 
-  resumeWorkflow: (body: { workflowId: string; reason: string; performedBy: string }) =>
-    request('/overrides/resume', { method: 'POST', body: JSON.stringify(body) }),
+  pauseWorkflow: (body: { workflowId: string; reason: string; performedBy: string }, signal?: AbortSignal) =>
+    request('/overrides/pause', { method: 'POST', body: JSON.stringify(body), signal }),
+
+  resumeWorkflow: (body: { workflowId: string; reason: string; performedBy: string }, signal?: AbortSignal) =>
+    request('/overrides/resume', { method: 'POST', body: JSON.stringify(body), signal }),
 
   cancelOverrideAction: (body: {
     workflowId: string;
     taskId: string | null;
     reason: string;
     performedBy: string;
-  }) =>
-    request('/overrides/cancel', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/overrides/cancel', { method: 'POST', body: JSON.stringify(body), signal }),
 
   modifyStrategy: (body: {
     workflowId: string;
@@ -340,37 +409,38 @@ export const api = {
     newStrategy: string;
     reason: string;
     performedBy: string;
-  }) =>
-    request('/overrides/modify-strategy', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/overrides/modify-strategy', { method: 'POST', body: JSON.stringify(body), signal }),
 
   rollbackOverride: (body: {
     workflowId: string;
     overrideId: string;
     reason: string;
     performedBy: string;
-  }) =>
-    request('/overrides/rollback', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/overrides/rollback', { method: 'POST', body: JSON.stringify(body), signal }),
 
-  getOverrideLog: (workflowId?: string, limit?: number) => {
+  getOverrideLog: (workflowId?: string, limit?: number, signal?: AbortSignal) => {
     const params = new URLSearchParams();
     if (workflowId) params.set('workflowId', workflowId);
     if (limit !== undefined) params.set('limit', String(limit));
     const qs = params.toString();
-    return request(`/overrides/log${qs ? `?${qs}` : ''}`);
+    return request(`/overrides/log${qs ? `?${qs}` : ''}`, { signal });
   },
 
   // ── Decisions ──────────────────────────────────────────
-  listDecisions: (params?: { domain?: string; status?: string; limit?: number }) => {
+
+  listDecisions: (params?: { domain?: string; status?: string; limit?: number }, signal?: AbortSignal) => {
     const qs = new URLSearchParams();
     if (params?.domain) qs.set('domain', params.domain);
     if (params?.status) qs.set('status', params.status);
     if (params?.limit !== undefined) qs.set('limit', String(params.limit));
     const q = qs.toString();
-    return request(`/decisions${q ? `?${q}` : ''}`);
+    return request(`/decisions${q ? `?${q}` : ''}`, { signal });
   },
 
-  getDecision: (decisionId: string) =>
-    request(`/decisions/${decisionId}`),
+  getDecision: (decisionId: string, signal?: AbortSignal) =>
+    request(`/decisions/${decisionId}`, { signal }),
 
   createDecision: (body: {
     title: string;
@@ -392,31 +462,34 @@ export const api = {
     riskLevel?: string;
     expectedValue?: number;
     requiresApproval?: boolean;
-  }) =>
-    request('/decisions', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/decisions', { method: 'POST', body: JSON.stringify(body), signal }),
 
-  updateDecisionStatus: (decisionId: string, status: string, detail?: string) =>
+  updateDecisionStatus: (decisionId: string, status: string, detail?: string, signal?: AbortSignal) =>
     request(`/decisions/${decisionId}/status`, {
       method: 'PUT',
       body: JSON.stringify({ status, detail }),
+      signal,
     }),
 
   linkDecisionArtifact: (decisionId: string, body: {
     artifactType: string;
     artifactId: string;
     description?: string;
-  }) =>
+  }, signal?: AbortSignal) =>
     request(`/decisions/${decisionId}/links`, {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
-  getDecisionHistory: (decisionId: string) =>
-    request(`/decisions/${decisionId}/history`),
+  getDecisionHistory: (decisionId: string, signal?: AbortSignal) =>
+    request(`/decisions/${decisionId}/history`, { signal }),
 
   // ── Financial Consequence ─────────────────────────────
-  getFinancialConsequence: (decisionId: string) =>
-    request(`/decisions/${decisionId}/financial-consequence`),
+
+  getFinancialConsequence: (decisionId: string, signal?: AbortSignal) =>
+    request(`/decisions/${decisionId}/financial-consequence`, { signal }),
 
   attachFinancialConsequence: (decisionId: string, body: {
     expectedRevenueImpactLow?: number;
@@ -434,10 +507,11 @@ export const api = {
     breakEvenEstimate?: string;
     assumptions?: string[];
     notes?: string;
-  }) =>
+  }, signal?: AbortSignal) =>
     request(`/decisions/${decisionId}/financial-consequence`, {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
   updateFinancialConsequence: (decisionId: string, body: {
@@ -456,15 +530,17 @@ export const api = {
     breakEvenEstimate?: string;
     assumptions?: string[];
     notes?: string;
-  }) =>
+  }, signal?: AbortSignal) =>
     request(`/decisions/${decisionId}/financial-consequence`, {
       method: 'PUT',
       body: JSON.stringify(body),
+      signal,
     }),
 
   // ── Trust Tiers ───────────────────────────────────────
-  listTrustTierPolicies: () =>
-    request('/trust-tiers/policies'),
+
+  listTrustTierPolicies: (signal?: AbortSignal) =>
+    request('/trust-tiers/policies', { signal }),
 
   setTrustTierPolicy: (body: {
     id?: string;
@@ -475,14 +551,15 @@ export const api = {
     requireReversible?: boolean;
     description?: string;
     isEnabled?: boolean;
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/trust-tiers/policies', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
-  deleteTrustTierPolicy: (policyId: string) =>
-    request(`/trust-tiers/policies/${policyId}`, { method: 'DELETE' }),
+  deleteTrustTierPolicy: (policyId: string, signal?: AbortSignal) =>
+    request(`/trust-tiers/policies/${policyId}`, { method: 'DELETE', signal }),
 
   evaluateTrustTier: (body: {
     actionScope: string;
@@ -490,29 +567,32 @@ export const api = {
     confidence?: number;
     value?: number;
     reversible?: boolean;
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/trust-tiers/evaluate', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
-  getTrustTierMap: () =>
-    request('/trust-tiers/map'),
+  getTrustTierMap: (signal?: AbortSignal) =>
+    request('/trust-tiers/map', { signal }),
 
-  getEffectiveTier: (actionScope: string) =>
-    request(`/trust-tiers/effective/${encodeURIComponent(actionScope)}`),
+  getEffectiveTier: (actionScope: string, signal?: AbortSignal) =>
+    request(`/trust-tiers/effective/${encodeURIComponent(actionScope)}`, { signal }),
 
   // ── Outcome Learning ──────────────────────────────────
+
   recordExpectedOutcome: (body: {
     decisionId: string;
     expectedSummary?: string;
     expectedValue?: number;
     confidenceAtPrediction: number;
     expectedTimeframe?: string;
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/outcomes/expected', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
   recordActualOutcome: (body: {
@@ -521,24 +601,26 @@ export const api = {
     actualValue?: number;
     rootCause?: string;
     notes?: string;
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/outcomes/actual', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
-  getOutcome: (decisionId: string) =>
-    request(`/outcomes/${decisionId}`),
+  getOutcome: (decisionId: string, signal?: AbortSignal) =>
+    request(`/outcomes/${decisionId}`, { signal }),
 
-  listOutcomes: (params?: Record<string, string | number>) => {
+  listOutcomes: (params?: Record<string, string | number>, signal?: AbortSignal) => {
     const qs = params ? new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '';
-    return request(`/outcomes${qs ? `?${qs}` : ''}`);
+    return request(`/outcomes${qs ? `?${qs}` : ''}`, { signal });
   },
 
-  getCalibrationSummary: (params?: Record<string, string>) =>
-    request('/outcomes/calibration' + (params ? '?' + new URLSearchParams(params).toString() : '')),
+  getCalibrationSummary: (params?: Record<string, string>, signal?: AbortSignal) =>
+    request('/outcomes/calibration' + (params ? '?' + new URLSearchParams(params).toString() : ''), { signal }),
 
   // ── Enterprise Memory ─────────────────────────────────
+
   storeMemory: (body: {
     layer: string;
     subject: string;
@@ -549,46 +631,49 @@ export const api = {
     tags?: string[];
     importance?: number;
     expiresAtUtc?: string;
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/enterprise-memory', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 
-  getMemory: (recordId: string) =>
-    request(`/enterprise-memory/${recordId}`),
+  getMemory: (recordId: string, signal?: AbortSignal) =>
+    request(`/enterprise-memory/${recordId}`, { signal }),
 
-  queryMemory: (params?: Record<string, string | number>) => {
+  queryMemory: (params?: Record<string, string | number>, signal?: AbortSignal) => {
     const qs = params ? new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '';
-    return request(`/enterprise-memory${qs ? `?${qs}` : ''}`);
+    return request(`/enterprise-memory${qs ? `?${qs}` : ''}`, { signal });
   },
 
-  getEntityMemory: (entityType: string, entityId: string) =>
-    request(`/enterprise-memory/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`),
+  getEntityMemory: (entityType: string, entityId: string, signal?: AbortSignal) =>
+    request(`/enterprise-memory/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}`, { signal }),
 
-  getMemoryTimeline: (params?: Record<string, string | number>) =>
-    request('/enterprise-memory/timeline' + (params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : '')),
+  getMemoryTimeline: (params?: Record<string, string | number>, signal?: AbortSignal) =>
+    request('/enterprise-memory/timeline' + (params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : ''), { signal }),
 
   // ── Operational Twin ──────────────────────────────────
-  listTwinEntities: (params?: Record<string, string>) =>
-    request('/twin/entities' + (params ? '?' + new URLSearchParams(params).toString() : '')),
 
-  getTwinOverview: () =>
-    request('/twin/overview'),
+  listTwinEntities: (params?: Record<string, string>, signal?: AbortSignal) =>
+    request('/twin/entities' + (params ? '?' + new URLSearchParams(params).toString() : ''), { signal }),
 
-  getTwinEntityDeps: (entityId: string) =>
-    request(`/twin/entities/${entityId}/dependencies`),
+  getTwinOverview: (signal?: AbortSignal) =>
+    request('/twin/overview', { signal }),
 
-  getTwinEntityKpis: (entityId: string) =>
-    request(`/twin/entities/${entityId}/kpis`),
+  getTwinEntityDeps: (entityId: string, signal?: AbortSignal) =>
+    request(`/twin/entities/${entityId}/dependencies`, { signal }),
 
-  getTwinEntityLinks: (entityId: string) =>
-    request(`/twin/entities/${entityId}/links`),
+  getTwinEntityKpis: (entityId: string, signal?: AbortSignal) =>
+    request(`/twin/entities/${entityId}/kpis`, { signal }),
 
-  listTwinBottlenecks: (params?: Record<string, string>) =>
-    request('/twin/bottlenecks' + (params ? '?' + new URLSearchParams(params).toString() : '')),
+  getTwinEntityLinks: (entityId: string, signal?: AbortSignal) =>
+    request(`/twin/entities/${entityId}/links`, { signal }),
+
+  listTwinBottlenecks: (params?: Record<string, string>, signal?: AbortSignal) =>
+    request('/twin/bottlenecks' + (params ? '?' + new URLSearchParams(params).toString() : ''), { signal }),
 
   // ── Scenarios ───────────────────────────────────────────
+
   createScenario: (body: {
     title: string;
     description?: string;
@@ -597,29 +682,30 @@ export const api = {
     linkedKpiIds?: string[];
     linkedDecisionIds?: string[];
     linkedEntityIds?: string[];
-  }) =>
-    request('/scenarios', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/scenarios', { method: 'POST', body: JSON.stringify(body), signal }),
 
   updateScenarioAssumptions: (scenarioId: string, body: {
     assumptions: { name: string; currentValue: string; proposedValue: string; unit?: string; rationale?: string }[];
-  }) =>
-    request(`/scenarios/${scenarioId}/assumptions`, { method: 'PUT', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request(`/scenarios/${scenarioId}/assumptions`, { method: 'PUT', body: JSON.stringify(body), signal }),
 
-  getScenario: (scenarioId: string) =>
-    request(`/scenarios/${scenarioId}`),
+  getScenario: (scenarioId: string, signal?: AbortSignal) =>
+    request(`/scenarios/${scenarioId}`, { signal }),
 
-  listScenarios: (params?: Record<string, string>) => {
+  listScenarios: (params?: Record<string, string>, signal?: AbortSignal) => {
     const qs = params ? new URLSearchParams(params).toString() : '';
-    return request(`/scenarios${qs ? `?${qs}` : ''}`);
+    return request(`/scenarios${qs ? `?${qs}` : ''}`, { signal });
   },
 
-  compareScenarios: (scenarioIds: string[]) =>
-    request('/scenarios/compare', { method: 'POST', body: JSON.stringify({ scenarioIds }) }),
+  compareScenarios: (scenarioIds: string[], signal?: AbortSignal) =>
+    request('/scenarios/compare', { method: 'POST', body: JSON.stringify({ scenarioIds }), signal }),
 
-  deleteScenario: (scenarioId: string) =>
-    request(`/scenarios/${scenarioId}`, { method: 'DELETE' }),
+  deleteScenario: (scenarioId: string, signal?: AbortSignal) =>
+    request(`/scenarios/${scenarioId}`, { method: 'DELETE', signal }),
 
   // ── Exception Intelligence ──────────────────────────────
+
   raiseException: (body: {
     category: string;
     severity: string;
@@ -634,68 +720,71 @@ export const api = {
     escalationPath?: string;
     linkedArtifacts?: { artifactType: string; artifactId: string; label?: string }[];
     recommendedAction?: { actionType: string; description: string; targetArtifactType?: string; targetArtifactId?: string; confidence?: string };
-  }) =>
-    request('/exceptions', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/exceptions', { method: 'POST', body: JSON.stringify(body), signal }),
 
-  listExceptions: (params?: Record<string, string>) => {
+  listExceptions: (params?: Record<string, string>, signal?: AbortSignal) => {
     const qs = params ? new URLSearchParams(params).toString() : '';
-    return request(`/exceptions${qs ? `?${qs}` : ''}`);
+    return request(`/exceptions${qs ? `?${qs}` : ''}`, { signal });
   },
 
-  getException: (exceptionId: string) =>
-    request(`/exceptions/${exceptionId}`),
+  getException: (exceptionId: string, signal?: AbortSignal) =>
+    request(`/exceptions/${exceptionId}`, { signal }),
 
-  updateExceptionStatus: (exceptionId: string, body: { status: string; assignedTo?: string }) =>
-    request(`/exceptions/${exceptionId}/status`, { method: 'PUT', body: JSON.stringify(body) }),
+  updateExceptionStatus: (exceptionId: string, body: { status: string; assignedTo?: string }, signal?: AbortSignal) =>
+    request(`/exceptions/${exceptionId}/status`, { method: 'PUT', body: JSON.stringify(body), signal }),
 
   setRecommendedAction: (exceptionId: string, body: {
     actionType: string; description: string;
     targetArtifactType?: string; targetArtifactId?: string; confidence?: string;
-  }) =>
-    request(`/exceptions/${exceptionId}/recommended-action`, { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request(`/exceptions/${exceptionId}/recommended-action`, { method: 'POST', body: JSON.stringify(body), signal }),
 
-  getExceptionSummary: () =>
-    request('/exceptions/summary'),
+  getExceptionSummary: (signal?: AbortSignal) =>
+    request('/exceptions/summary', { signal }),
 
-  getExceptionPrioritized: (limit?: number) =>
-    request(`/exceptions/prioritized${limit ? `?limit=${limit}` : ''}`),
+  getExceptionPrioritized: (limit?: number, signal?: AbortSignal) =>
+    request(`/exceptions/prioritized${limit ? `?limit=${limit}` : ''}`, { signal }),
 
   // ── Hero Workflows ──────────────────────────────────────
-  getHeroWorkflowCatalog: () =>
-    request('/hero-workflows/catalog'),
 
-  getHeroWorkflowDefinition: (workflowType: string) =>
-    request(`/hero-workflows/catalog/${encodeURIComponent(workflowType)}`),
+  getHeroWorkflowCatalog: (signal?: AbortSignal) =>
+    request('/hero-workflows/catalog', { signal }),
+
+  getHeroWorkflowDefinition: (workflowType: string, signal?: AbortSignal) =>
+    request(`/hero-workflows/catalog/${encodeURIComponent(workflowType)}`, { signal }),
 
   startHeroWorkflow: (body: {
     workflowType: string;
     title: string;
     inputs?: Record<string, string>;
-  }) =>
-    request('/hero-workflows', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/hero-workflows', { method: 'POST', body: JSON.stringify(body), signal }),
 
-  advanceHeroWorkflow: (workflowId: string, inputs?: Record<string, string>) =>
+  advanceHeroWorkflow: (workflowId: string, inputs?: Record<string, string>, signal?: AbortSignal) =>
     request(`/hero-workflows/${workflowId}/advance`, {
       method: 'POST',
       body: JSON.stringify({ inputs }),
+      signal,
     }),
 
-  getHeroWorkflow: (workflowId: string) =>
-    request(`/hero-workflows/${workflowId}`),
+  getHeroWorkflow: (workflowId: string, signal?: AbortSignal) =>
+    request(`/hero-workflows/${workflowId}`, { signal }),
 
-  listHeroWorkflows: (params?: { workflowType?: string; status?: string; limit?: number }) => {
+  listHeroWorkflows: (params?: { workflowType?: string; status?: string; limit?: number }, signal?: AbortSignal) => {
     const qs = new URLSearchParams();
     if (params?.workflowType) qs.set('workflowType', params.workflowType);
     if (params?.status) qs.set('status', params.status);
     if (params?.limit !== undefined) qs.set('limit', String(params.limit));
     const q = qs.toString();
-    return request(`/hero-workflows${q ? `?${q}` : ''}`);
+    return request(`/hero-workflows${q ? `?${q}` : ''}`, { signal });
   },
 
-  cancelHeroWorkflow: (workflowId: string) =>
-    request(`/hero-workflows/${workflowId}/cancel`, { method: 'POST' }),
+  cancelHeroWorkflow: (workflowId: string, signal?: AbortSignal) =>
+    request(`/hero-workflows/${workflowId}/cancel`, { method: 'POST', signal }),
 
   // ── Policy Simulation / Dry-Run ────────────────────────────
+
   runSimulation: (body: {
     actionType: string;
     actionScope?: string;
@@ -714,44 +803,45 @@ export const api = {
     upsidePotential?: number;
     requestedTier?: string;
     workflowType?: string;
-  }) =>
-    request('/policy-simulation/simulate', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/policy-simulation/simulate', { method: 'POST', body: JSON.stringify(body), signal }),
 
-  getSimulation: (simulationId: string) =>
-    request(`/policy-simulation/${simulationId}`),
+  getSimulation: (simulationId: string, signal?: AbortSignal) =>
+    request(`/policy-simulation/${simulationId}`, { signal }),
 
-  listSimulations: (limit?: number) =>
-    request(`/policy-simulation${limit ? `?limit=${limit}` : ''}`),
+  listSimulations: (limit?: number, signal?: AbortSignal) =>
+    request(`/policy-simulation${limit ? `?limit=${limit}` : ''}`, { signal }),
 
   // ── Proof Analytics ──────────────────────────────────────
-  getProofDashboard: (domain?: string) =>
-    request(`/proof-analytics/dashboard${domain ? `?domain=${encodeURIComponent(domain)}` : ''}`),
 
-  getProofTimeline: (decisionId: string) =>
-    request(`/proof-analytics/timeline/${decisionId}`),
+  getProofDashboard: (domain?: string, signal?: AbortSignal) =>
+    request(`/proof-analytics/dashboard${domain ? `?domain=${encodeURIComponent(domain)}` : ''}`, { signal }),
 
-  getProofWorkflowTimelines: (workflowId: string) =>
-    request(`/proof-analytics/workflow/${workflowId}/timelines`),
+  getProofTimeline: (decisionId: string, signal?: AbortSignal) =>
+    request(`/proof-analytics/timeline/${decisionId}`, { signal }),
 
-  getProofPredictedVsActual: (params?: { domain?: string; limit?: number }) => {
+  getProofWorkflowTimelines: (workflowId: string, signal?: AbortSignal) =>
+    request(`/proof-analytics/workflow/${workflowId}/timelines`, { signal }),
+
+  getProofPredictedVsActual: (params?: { domain?: string; limit?: number }, signal?: AbortSignal) => {
     const qs = new URLSearchParams();
     if (params?.domain) qs.set('domain', params.domain);
     if (params?.limit !== undefined) qs.set('limit', String(params.limit));
     const q = qs.toString();
-    return request(`/proof-analytics/predicted-vs-actual${q ? `?${q}` : ''}`);
+    return request(`/proof-analytics/predicted-vs-actual${q ? `?${q}` : ''}`, { signal });
   },
 
-  getProofApprovalConversion: () =>
-    request('/proof-analytics/approval-conversion'),
+  getProofApprovalConversion: (signal?: AbortSignal) =>
+    request('/proof-analytics/approval-conversion', { signal }),
 
-  getProofExecutionTrends: (buckets?: number) =>
-    request(`/proof-analytics/execution-trends${buckets ? `?buckets=${buckets}` : ''}`),
+  getProofExecutionTrends: (buckets?: number, signal?: AbortSignal) =>
+    request(`/proof-analytics/execution-trends${buckets ? `?buckets=${buckets}` : ''}`, { signal }),
 
-  getProofOverrideRates: () =>
-    request('/proof-analytics/override-rates'),
+  getProofOverrideRates: (signal?: AbortSignal) =>
+    request('/proof-analytics/override-rates', { signal }),
 
-  getProofTrustAnalytics: () =>
-    request('/proof-analytics/trust-analytics'),
+  getProofTrustAnalytics: (signal?: AbortSignal) =>
+    request('/proof-analytics/trust-analytics', { signal }),
 
   recordProofEvent: (body: {
     decisionId: string;
@@ -767,15 +857,16 @@ export const api = {
     overrideReason?: string;
     economicImpact?: number;
     impactAttribution?: string;
-  }) =>
-    request('/proof-analytics/events', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/proof-analytics/events', { method: 'POST', body: JSON.stringify(body), signal }),
 
   // ── Action Safety & Rollback ─────────────────────────────
-  getActionSafetyClassifications: () =>
-    request('/action-safety/classifications'),
 
-  getActionSafetyClassification: (actionType: string) =>
-    request(`/action-safety/classifications/${encodeURIComponent(actionType)}`),
+  getActionSafetyClassifications: (signal?: AbortSignal) =>
+    request('/action-safety/classifications', { signal }),
+
+  getActionSafetyClassification: (actionType: string, signal?: AbortSignal) =>
+    request(`/action-safety/classifications/${encodeURIComponent(actionType)}`, { signal }),
 
   setActionSafetyClassification: (body: {
     actionType: string;
@@ -785,14 +876,14 @@ export const api = {
     rollbackWindowMinutes?: number;
     compensationDescription?: string;
     operatorNotes?: string;
-  }) =>
-    request('/action-safety/classifications', { method: 'PUT', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/action-safety/classifications', { method: 'PUT', body: JSON.stringify(body), signal }),
 
-  getGovernedActions: (limit?: number) =>
-    request(`/action-safety/actions${limit ? `?limit=${limit}` : ''}`),
+  getGovernedActions: (limit?: number, signal?: AbortSignal) =>
+    request(`/action-safety/actions${limit ? `?limit=${limit}` : ''}`, { signal }),
 
-  getGovernedAction: (actionId: string) =>
-    request(`/action-safety/actions/${actionId}`),
+  getGovernedAction: (actionId: string, signal?: AbortSignal) =>
+    request(`/action-safety/actions/${actionId}`, { signal }),
 
   recordGovernedAction: (body: {
     actionType: string;
@@ -800,40 +891,42 @@ export const api = {
     decisionId?: string;
     workflowId?: string;
     approvalGateId?: string;
-  }) =>
-    request('/action-safety/actions', { method: 'POST', body: JSON.stringify(body) }),
+  }, signal?: AbortSignal) =>
+    request('/action-safety/actions', { method: 'POST', body: JSON.stringify(body), signal }),
 
-  triggerRollback: (actionId: string) =>
-    request(`/action-safety/actions/${actionId}/rollback`, { method: 'POST' }),
+  triggerRollback: (actionId: string, signal?: AbortSignal) =>
+    request(`/action-safety/actions/${actionId}/rollback`, { method: 'POST', signal }),
 
-  getActionSafetySummary: () =>
-    request('/action-safety/summary'),
+  getActionSafetySummary: (signal?: AbortSignal) =>
+    request('/action-safety/summary', { signal }),
 
   // ── Operator Inspection & Diagnostics ──────────────────
-  getInspectionSummaries: (subjectType?: string, domain?: string, limit?: number) => {
+
+  getInspectionSummaries: (subjectType?: string, domain?: string, limit?: number, signal?: AbortSignal) => {
     const params = new URLSearchParams();
     if (subjectType) params.set('subjectType', subjectType);
     if (domain) params.set('domain', domain);
     if (limit) params.set('limit', limit.toString());
     const qs = params.toString();
-    return request(`/inspection/summaries${qs ? `?${qs}` : ''}`);
+    return request(`/inspection/summaries${qs ? `?${qs}` : ''}`, { signal });
   },
 
-  inspectDecisionRationale: (decisionId: string) =>
-    request(`/inspection/decisions/${decisionId}/rationale`),
+  inspectDecisionRationale: (decisionId: string, signal?: AbortSignal) =>
+    request(`/inspection/decisions/${decisionId}/rationale`, { signal }),
 
-  inspectPolicyEvaluation: (subjectType: string, subjectId: string) =>
-    request(`/inspection/policy/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}`),
+  inspectPolicyEvaluation: (subjectType: string, subjectId: string, signal?: AbortSignal) =>
+    request(`/inspection/policy/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}`, { signal }),
 
-  inspectMemoryReferences: (subjectType: string, subjectId: string) =>
-    request(`/inspection/memory/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}`),
+  inspectMemoryReferences: (subjectType: string, subjectId: string, signal?: AbortSignal) =>
+    request(`/inspection/memory/${encodeURIComponent(subjectType)}/${encodeURIComponent(subjectId)}`, { signal }),
 
-  inspectWorkflowDiagnostics: (workflowId: string) =>
-    request(`/inspection/workflows/${workflowId}/diagnostics`),
+  inspectWorkflowDiagnostics: (workflowId: string, signal?: AbortSignal) =>
+    request(`/inspection/workflows/${workflowId}/diagnostics`, { signal }),
 
   // ── Executive Command ───────────────────────────────────
-  getExecutiveCommandSummary: () =>
-    request('/executive-command/summary'),
+
+  getExecutiveCommandSummary: (signal?: AbortSignal) =>
+    request('/executive-command/summary', { signal }),
 
   deployOnboardingTemplate: (body: {
     templateId: string;
@@ -844,9 +937,10 @@ export const api = {
     agents: string[];
     workflows: { name: string; steps: string[] }[];
     strategies: string[];
-  }) =>
+  }, signal?: AbortSignal) =>
     request('/onboarding/deploy-template', {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     }),
 };

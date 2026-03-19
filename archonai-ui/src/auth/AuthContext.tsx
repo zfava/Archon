@@ -124,6 +124,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
+  // Listen for auth:expired events dispatched by the API client on 401 responses
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      clearAuth();
+    };
+    window.addEventListener('auth:expired', handleAuthExpired);
+    return () => window.removeEventListener('auth:expired', handleAuthExpired);
+  }, [clearAuth]);
+
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     try {
       const data = await authRequest<AuthResponse>('/login', { email, password });

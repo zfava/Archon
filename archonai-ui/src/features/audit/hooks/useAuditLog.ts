@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { api } from '../../../api/client';
+import { ApiError } from '../../../api/errors';
+import { useApiCall } from '../../../shared/useApiCall';
 import type {
   AuditEntry,
   AuditFilters,
@@ -10,19 +12,6 @@ import type {
 
 const PAGE_SIZE = 50;
 
-interface AuditLogState {
-  loading: boolean;
-  entries: AuditEntry[];
-  totalCount: number;
-  hasMore: boolean;
-  status: AuditLogStatus | null;
-  integrity: AuditIntegrityResult | null;
-  verifying: boolean;
-  error: string | null;
-  filters: AuditFilters;
-  page: number;
-}
-
 const emptyFilters: AuditFilters = {
   category: '',
   subjectId: '',
@@ -31,119 +20,96 @@ const emptyFilters: AuditFilters = {
 };
 
 export function useAuditLog() {
-  const [state, setState] = useState<AuditLogState>({
-    loading: true,
-    entries: [],
-    totalCount: 0,
-    hasMore: false,
-    status: null,
-    integrity: null,
-    verifying: false,
-    error: null,
-    filters: emptyFilters,
-    page: 0,
-  });
+  const [filters, setFiltersState] = useState<AuditFilters>(emptyFilters);
+  const [page, setPageState] = useState(0);
+  const [integrity, setIntegrity] = useState<AuditIntegrityResult | null>(null);
+  const [verifying, setVerifying] = useState(false);
 
-  const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
-
-  const fetchEntries = useCallback(async (filters: AuditFilters, page: number) => {
-    setState((s) => ({ ...s, loading: true, error: null }));
-    try {
-      const result = (await api.queryAuditEntries({
-        category: filters.category || undefined,
-        subjectId: filters.subjectId || undefined,
-        resourceType: filters.resourceType || undefined,
-        offset: page * PAGE_SIZE,
-        limit: PAGE_SIZE,
-      })) as AuditQueryResult;
-
-      if (!mountedRef.current) return;
-
-      // Client-side text search across description, eventType, action
-      let filtered = result.entries;
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
-        filtered = filtered.filter(
-          (e) =>
-            e.description.toLowerCase().includes(q) ||
-            e.eventType.toLowerCase().includes(q) ||
-            e.action.toLowerCase().includes(q) ||
-            e.subjectId.toLowerCase().includes(q) ||
-            e.resourceId.toLowerCase().includes(q),
-        );
-      }
-
-      setState((s) => ({
-        ...s,
-        loading: false,
-        entries: filtered,
-        totalCount: result.totalCount,
-        hasMore: result.hasMore,
-      }));
-    } catch (err: unknown) {
-      if (!mountedRef.current) return;
-      const msg = err instanceof Error ? err.message : String(err);
-      setState((s) => ({ ...s, loading: false, error: msg }));
-    }
-  }, []);
-
-  const fetchStatus = useCallback(async () => {
-    try {
-      const status = (await api.getAuditStatus()) as AuditLogStatus;
-      if (mountedRef.current) {
-        setState((s) => ({ ...s, status }));
-      }
-    } catch {
-      // non-critical
-    }
-  }, []);
-
-  // Initial load
-  useEffect(() => {
-    queueMicrotask(() => {
-      fetchEntries(emptyFilters, 0);
-      fetchStatus();
-    });
-  }, [fetchEntries, fetchStatus]);
-
-  const setFilters = useCallback(
-    (filters: AuditFilters) => {
-      setState((s) => ({ ...s, filters, page: 0 }));
-      fetchEntries(filters, 0);
-    },
-    [fetchEntries],
+  // Main entries fetch — automatically re-fetches on filter/page changes, aborts stale requests
+  const {
+    data: queryResult,
+    loading,
+    error: queryError,
+    refresh: refreshEntries,
+  } = useApiCall<AuditQueryResult>(
+    (signal) =>
+      api.queryAuditEntries(
+        {
+          category: filters.category || undefined,
+          subjectId: filters.subjectId || undefined,
+          resourceType: filters.resourceType || undefined,
+          offset: page * PAGE_SIZE,
+          limit: PAGE_SIZE,
+        },
+        signal,
+      ) as Promise<AuditQueryResult>,
+    [filters.category, filters.subjectId, filters.resourceType, page],
   );
 
-  const setPage = useCallback(
-    (page: number) => {
-      setState((s) => ({ ...s, page }));
-      fetchEntries(state.filters, page);
-    },
-    [fetchEntries, state.filters],
+  // Status fetch — separate lifecycle
+  const {
+    data: status,
+    refresh: refreshStatus,
+  } = useApiCall<AuditLogStatus>(
+    (signal) => api.getAuditStatus(signal) as Promise<AuditLogStatus>,
+    [],
   );
+
+  // Client-side text search across description, eventType, action
+  let entries: AuditEntry[] = queryResult?.entries ?? [];
+  if (filters.search && entries.length > 0) {
+    const q = filters.search.toLowerCase();
+    entries = entries.filter(
+      (e) =>
+        e.description.toLowerCase().includes(q) ||
+        e.eventType.toLowerCase().includes(q) ||
+        e.action.toLowerCase().includes(q) ||
+        e.subjectId.toLowerCase().includes(q) ||
+        e.resourceId.toLowerCase().includes(q),
+    );
+  }
+
+  const setFilters = useCallback((f: AuditFilters) => {
+    setFiltersState(f);
+    setPageState(0);
+  }, []);
+
+  const setPage = useCallback((p: number) => {
+    setPageState(p);
+  }, []);
 
   const verifyIntegrity = useCallback(async () => {
-    setState((s) => ({ ...s, verifying: true }));
+    setVerifying(true);
     try {
       const result = (await api.verifyAuditIntegrity()) as AuditIntegrityResult;
-      if (mountedRef.current) {
-        setState((s) => ({ ...s, verifying: false, integrity: result }));
-      }
+      setIntegrity(result);
     } catch (err: unknown) {
-      if (!mountedRef.current) return;
-      const msg = err instanceof Error ? err.message : String(err);
-      setState((s) => ({ ...s, verifying: false, error: msg }));
+      // Integrity verification errors — rethrow ApiError for upstream handling
+      if (err instanceof ApiError) throw err;
+    } finally {
+      setVerifying(false);
     }
   }, []);
 
   const refresh = useCallback(() => {
-    fetchEntries(state.filters, state.page);
-    fetchStatus();
-  }, [fetchEntries, fetchStatus, state.filters, state.page]);
+    refreshEntries();
+    refreshStatus();
+  }, [refreshEntries, refreshStatus]);
+
+  // Backward-compatible error: expose as string | null for existing consumers
+  const error = queryError ? queryError.message : null;
 
   return {
-    ...state,
+    loading,
+    entries,
+    totalCount: queryResult?.totalCount ?? 0,
+    hasMore: queryResult?.hasMore ?? false,
+    status,
+    integrity,
+    verifying,
+    error,
+    filters,
+    page,
     setFilters,
     setPage,
     verifyIntegrity,
