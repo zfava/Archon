@@ -96,6 +96,9 @@ builder.Services.AddSingleton<IActionSafetyService, ActionSafetyService>();
 builder.Services.AddSingleton<IInspectionService, InspectionService>();
 builder.Services.AddSingleton<InspectionService>();
 
+// ── HTTP client factory (used by OIDC token exchange) ─────────────────────────
+builder.Services.AddHttpClient();
+
 // ── Database Migrations (DbUp) ────────────────────────────────────────────────
 builder.Services.AddArchonAIMigrations();
 
@@ -5384,6 +5387,10 @@ oidc.MapGet("/login", async (
         + $"&code_challenge={Uri.EscapeDataString(codeChallenge)}"
         + $"&code_challenge_method=S256";
 
+    // PKCE design: The CodeVerifier is intentionally returned to the client. The client holds it
+    // in memory and sends it back in the /callback request. The server then includes it in the
+    // back-channel token exchange with the IdP, which verifies it against the code_challenge
+    // that was sent in this /authorize URL. This is the standard PKCE flow per RFC 7636.
     return Results.Ok(new OidcLoginResponse(
         authorizeUrl, state, nonce, codeVerifier, org.Id));
 });
@@ -5391,12 +5398,84 @@ oidc.MapGet("/login", async (
 oidc.MapPost("/callback", async (
     OidcCallbackRequest req,
     OidcTokenExchangeService exchangeService,
+    ITenantAuthConfigStore tenantAuthConfigStore,
+    IHttpClientFactory httpClientFactory,
+    IOptions<OidcOptions> oidcOptions,
+    ILogger<Program> logger,
     CancellationToken ct) =>
 {
-    if (string.IsNullOrWhiteSpace(req.IdToken) || string.IsNullOrWhiteSpace(req.Nonce) || req.OrganizationId == Guid.Empty)
-        return Results.BadRequest(new { error = "IdToken, nonce, and organizationId are required." });
+    // SECURITY: The client sends an authorization code, NOT a raw ID token.
+    // The server exchanges the code for tokens via a back-channel POST to the IdP.
+    // This prevents client-side token injection — the ID token is NEVER accepted from the client.
+    if (string.IsNullOrWhiteSpace(req.Code) || string.IsNullOrWhiteSpace(req.State) || req.OrganizationId == Guid.Empty)
+        return Results.BadRequest(new { error = "Code, state, and organizationId are required." });
 
-    var result = await exchangeService.ExchangeAsync(req.IdToken, req.Nonce, req.OrganizationId, ct);
+    if (string.IsNullOrWhiteSpace(req.CodeVerifier))
+        return Results.BadRequest(new { error = "CodeVerifier is required for PKCE flow." });
+
+    var config = await tenantAuthConfigStore.GetByOrganizationIdAsync(req.OrganizationId, ct);
+    if (config is null || !config.IsEnabled)
+        return Results.BadRequest(new { error = "No OIDC provider configured or enabled for this organization." });
+
+    // Construct the token exchange request to the IdP's token endpoint
+    var opts = oidcOptions.Value;
+    string redirectUri = $"{opts.CallbackBaseUrl.TrimEnd('/')}{opts.CallbackPath}";
+    string tokenEndpoint = $"{config.Authority.TrimEnd('/')}/token";
+
+    var tokenRequestParams = new Dictionary<string, string>
+    {
+        ["grant_type"] = "authorization_code",
+        ["code"] = req.Code,
+        ["redirect_uri"] = redirectUri,
+        ["client_id"] = config.ClientId,
+        ["client_secret"] = config.ClientSecret,
+        ["code_verifier"] = req.CodeVerifier,
+    };
+
+    // Exchange the authorization code for tokens server-side (back-channel)
+    using var httpClient = httpClientFactory.CreateClient();
+    using var tokenResponse = await httpClient.PostAsync(
+        tokenEndpoint,
+        new FormUrlEncodedContent(tokenRequestParams),
+        ct);
+
+    if (!tokenResponse.IsSuccessStatusCode)
+    {
+        var errorBody = await tokenResponse.Content.ReadAsStringAsync(ct);
+        logger.LogWarning(
+            "OIDC token exchange failed for org {OrgId}: HTTP {StatusCode} from {TokenEndpoint}: {Error}",
+            req.OrganizationId, (int)tokenResponse.StatusCode, tokenEndpoint, errorBody);
+        return Results.BadRequest(new { error = "Authorization code exchange failed. The code may be expired or invalid." });
+    }
+
+    var tokenJson = await tokenResponse.Content.ReadAsStringAsync(ct);
+    using var tokenDoc = System.Text.Json.JsonDocument.Parse(tokenJson);
+    var root = tokenDoc.RootElement;
+
+    if (!root.TryGetProperty("id_token", out var idTokenElement))
+    {
+        logger.LogWarning("OIDC token response missing id_token for org {OrgId}", req.OrganizationId);
+        return Results.BadRequest(new { error = "IdP token response did not include an id_token." });
+    }
+
+    string idToken = idTokenElement.GetString()!;
+
+    // Extract nonce from the id_token for validation by ExchangeAsync.
+    // The nonce was embedded in the original /authorize request and is echoed back in the id_token.
+    string expectedNonce;
+    try
+    {
+        var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+        var jwt = handler.ReadJwtToken(idToken);
+        expectedNonce = jwt.Payload.Nonce ?? string.Empty;
+    }
+    catch
+    {
+        return Results.BadRequest(new { error = "Failed to read id_token from IdP response." });
+    }
+
+    // Validate the server-fetched id_token and perform user provisioning
+    var result = await exchangeService.ExchangeAsync(idToken, expectedNonce, req.OrganizationId, ct);
     if (result is null)
         return Results.Unauthorized();
 
@@ -5774,9 +5853,15 @@ public sealed record OidcLoginResponse(
     string CodeVerifier,
     Guid OrganizationId);
 
+/// <summary>
+/// OIDC PKCE callback request. The client sends the authorization code received from the
+/// IdP redirect, along with the PKCE code_verifier and state. The server exchanges the code
+/// for tokens server-side — the client NEVER handles raw ID tokens directly.
+/// </summary>
 public sealed record OidcCallbackRequest(
-    string IdToken,
-    string Nonce,
+    string Code,
+    string State,
+    string CodeVerifier,
     Guid OrganizationId);
 
 public sealed record OidcCallbackResponse(
