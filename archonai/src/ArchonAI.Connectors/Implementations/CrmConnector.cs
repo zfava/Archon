@@ -4,10 +4,14 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
+using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
+using ArchonAI.Connectors.Framework;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Perception;
+using ArchonAI.Infrastructure.Resilience;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 
 namespace ArchonAI.Connectors.Implementations;
 
@@ -16,6 +20,7 @@ public sealed class CrmConnector : ICrmConnector, IDisposable
     private readonly HttpClient _httpClient;
     private readonly IEventBus _eventBus;
     private readonly ILogger<CrmConnector> _logger;
+    private readonly ConnectorResilienceRegistry? _resilienceRegistry;
 
     private long _totalRequests;
     private long _failedRequests;
@@ -24,11 +29,13 @@ public sealed class CrmConnector : ICrmConnector, IDisposable
     public CrmConnector(
         HttpClient httpClient,
         IEventBus eventBus,
-        ILogger<CrmConnector> logger)
+        ILogger<CrmConnector> logger,
+        ConnectorResilienceRegistry? resilienceRegistry = null)
     {
         _httpClient = httpClient;
         _eventBus = eventBus;
         _logger = logger;
+        _resilienceRegistry = resilienceRegistry;
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
     }
 
@@ -37,7 +44,7 @@ public sealed class CrmConnector : ICrmConnector, IDisposable
     public async global::System.Threading.Tasks.Task<string> UpsertCustomerAsync(
         string customerId, string payload, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("CRM.UpsertCustomer");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("CRM.UpsertCustomer");
         activity?.SetTag("crm.customer_id", customerId);
 
         Interlocked.Increment(ref _totalRequests);
@@ -60,12 +67,12 @@ public sealed class CrmConnector : ICrmConnector, IDisposable
         else
         {
             Interlocked.Increment(ref _failedRequests);
-            Telemetry.ConnectorErrors.Add(1, new KeyValuePair<string, object?>("connector", "crm"));
+            ObsTelemetry.ConnectorErrors.Add(1, new KeyValuePair<string, object?>("connector", "crm"));
             resultId = $"crm-upsert:{customerId}";
         }
 
         _logger.LogInformation("CRM upsert for customer {CustomerId} completed", customerId);
-        Telemetry.ConnectorWriteOps.Add(1,
+        ObsTelemetry.ConnectorWriteOps.Add(1,
             new KeyValuePair<string, object?>("connector", "crm"),
             new KeyValuePair<string, object?>("operation", "upsert"));
 
@@ -96,6 +103,30 @@ public sealed class CrmConnector : ICrmConnector, IDisposable
         Func<global::System.Threading.Tasks.Task<HttpResponseMessage>> operation,
         CancellationToken cancellationToken)
     {
+        if (_resilienceRegistry is not null)
+        {
+            var pipeline = _resilienceRegistry.GetOrCreatePipeline(SystemName);
+            try
+            {
+                return await pipeline.ExecuteAsync(async ct =>
+                {
+                    return await ExecuteWithRetryCoreAsync(operation, ct);
+                }, cancellationToken);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning("CRM circuit breaker is open. Request rejected.");
+                throw new ConnectorCircuitOpenException(SystemName, ex);
+            }
+        }
+
+        return await ExecuteWithRetryCoreAsync(operation, cancellationToken);
+    }
+
+    private async global::System.Threading.Tasks.Task<HttpResponseMessage> ExecuteWithRetryCoreAsync(
+        Func<global::System.Threading.Tasks.Task<HttpResponseMessage>> operation,
+        CancellationToken cancellationToken)
+    {
         int attempt = 0;
         const int maxRetries = 3;
         const int baseDelayMs = 500;
@@ -119,7 +150,7 @@ public sealed class CrmConnector : ICrmConnector, IDisposable
             int delayMs = baseDelayMs * (1 << (attempt - 1));
             _logger.LogWarning("CRM request failed with {StatusCode}, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                 response.StatusCode, delayMs, attempt, maxRetries);
-            Telemetry.ConnectorRetries.Add(1, new KeyValuePair<string, object?>("connector", "crm"));
+            ObsTelemetry.ConnectorRetries.Add(1, new KeyValuePair<string, object?>("connector", "crm"));
 
             await global::System.Threading.Tasks.Task.Delay(delayMs, cancellationToken);
         }

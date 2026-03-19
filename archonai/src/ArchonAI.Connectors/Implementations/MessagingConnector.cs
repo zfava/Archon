@@ -4,10 +4,14 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
+using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
+using ArchonAI.Connectors.Framework;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Perception;
+using ArchonAI.Infrastructure.Resilience;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 
 namespace ArchonAI.Connectors.Implementations;
 
@@ -16,6 +20,7 @@ public sealed class MessagingConnector : IMessagingConnector, IDisposable
     private readonly HttpClient _httpClient;
     private readonly IEventBus _eventBus;
     private readonly ILogger<MessagingConnector> _logger;
+    private readonly ConnectorResilienceRegistry? _resilienceRegistry;
 
     private long _totalRequests;
     private long _failedRequests;
@@ -24,11 +29,13 @@ public sealed class MessagingConnector : IMessagingConnector, IDisposable
     public MessagingConnector(
         HttpClient httpClient,
         IEventBus eventBus,
-        ILogger<MessagingConnector> logger)
+        ILogger<MessagingConnector> logger,
+        ConnectorResilienceRegistry? resilienceRegistry = null)
     {
         _httpClient = httpClient;
         _eventBus = eventBus;
         _logger = logger;
+        _resilienceRegistry = resilienceRegistry;
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
     }
 
@@ -37,7 +44,7 @@ public sealed class MessagingConnector : IMessagingConnector, IDisposable
     public async global::System.Threading.Tasks.Task<string> SendMessageAsync(
         string channel, string message, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Messaging.SendMessage");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Messaging.SendMessage");
         activity?.SetTag("messaging.channel", channel);
 
         Interlocked.Increment(ref _totalRequests);
@@ -68,12 +75,12 @@ public sealed class MessagingConnector : IMessagingConnector, IDisposable
         else
         {
             Interlocked.Increment(ref _failedRequests);
-            Telemetry.ConnectorErrors.Add(1, new KeyValuePair<string, object?>("connector", "messaging"));
+            ObsTelemetry.ConnectorErrors.Add(1, new KeyValuePair<string, object?>("connector", "messaging"));
             messageId = $"message-sent:{channel}";
         }
 
         _logger.LogInformation("Messaging connector sent message to {Channel}", channel);
-        Telemetry.ConnectorWriteOps.Add(1,
+        ObsTelemetry.ConnectorWriteOps.Add(1,
             new KeyValuePair<string, object?>("connector", "messaging"),
             new KeyValuePair<string, object?>("operation", "send_message"));
 
@@ -108,6 +115,27 @@ public sealed class MessagingConnector : IMessagingConnector, IDisposable
         Func<global::System.Threading.Tasks.Task<HttpResponseMessage>> operation,
         CancellationToken cancellationToken)
     {
+        if (_resilienceRegistry is not null)
+        {
+            var pipeline = _resilienceRegistry.GetOrCreatePipeline(SystemName);
+            try
+            {
+                return await pipeline.ExecuteAsync(
+                    ct => ExecuteWithRetryCoreAsync(operation, ct), cancellationToken);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning("Messaging circuit breaker is open. Request rejected.");
+                throw new ConnectorCircuitOpenException(SystemName, ex);
+            }
+        }
+        return await ExecuteWithRetryCoreAsync(operation, cancellationToken);
+    }
+
+    private async global::System.Threading.Tasks.Task<HttpResponseMessage> ExecuteWithRetryCoreAsync(
+        Func<global::System.Threading.Tasks.Task<HttpResponseMessage>> operation,
+        CancellationToken cancellationToken)
+    {
         int attempt = 0;
         const int maxRetries = 3;
         const int baseDelayMs = 500;
@@ -131,7 +159,7 @@ public sealed class MessagingConnector : IMessagingConnector, IDisposable
             int delayMs = baseDelayMs * (1 << (attempt - 1));
             _logger.LogWarning("Messaging request failed with {StatusCode}, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                 response.StatusCode, delayMs, attempt, maxRetries);
-            Telemetry.ConnectorRetries.Add(1, new KeyValuePair<string, object?>("connector", "messaging"));
+            ObsTelemetry.ConnectorRetries.Add(1, new KeyValuePair<string, object?>("connector", "messaging"));
 
             await global::System.Threading.Tasks.Task.Delay(delayMs, cancellationToken);
         }

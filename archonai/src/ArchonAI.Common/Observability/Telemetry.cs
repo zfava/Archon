@@ -229,4 +229,11 @@ public static class Telemetry
     public static readonly Counter<long> HealthChecksPassed = Meter.CreateCounter<long>("archonai.healthchecks.passed");
     public static readonly Counter<long> HealthChecksFailed = Meter.CreateCounter<long>("archonai.healthchecks.failed");
     public static readonly Counter<long> HealthChecksDegraded = Meter.CreateCounter<long>("archonai.healthchecks.degraded");
+
+    // Circuit breaker metrics
+    public static readonly Counter<long> CircuitBreakerTransitions = Meter.CreateCounter<long>("archonai.circuit_breaker.transitions");
+    public static readonly Histogram<int> CircuitBreakerState = Meter.CreateHistogram<int>("archonai.circuit_breaker.state");
+    public static readonly Counter<long> BulkheadRejections = Meter.CreateCounter<long>("archonai.bulkhead.rejections");
+    public static readonly Counter<long> ModelProviderFallbacks = Meter.CreateCounter<long>("archonai.model.provider.fallbacks");
+    public static readonly Counter<long> ModelProviderAllCircuitsOpen = Meter.CreateCounter<long>("archonai.model.provider.all_circuits_open");
 }

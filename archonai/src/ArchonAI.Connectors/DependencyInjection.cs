@@ -7,6 +7,7 @@ using ArchonAI.Connectors.QuickBooks;
 using ArchonAI.Connectors.Salesforce;
 using ArchonAI.Connectors.Slack;
 using ArchonAI.Core.Interfaces;
+using ArchonAI.Infrastructure.Resilience;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -209,6 +210,9 @@ public static class DependencyInjection
 
         // Integration control center
         services.AddSingleton<IIntegrationControlService, IntegrationControlService>();
+
+        // Register connector resilience pipelines (one per named connector)
+        services.AddSingleton<ConnectorResilienceRegistry>();
 
         return services;
     }

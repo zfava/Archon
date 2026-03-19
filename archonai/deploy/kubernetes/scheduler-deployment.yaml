@@ -20,6 +20,10 @@ spec:
       containers:
         - name: scheduler
           image: archonai/scheduler:latest
+          ports:
+            - name: health
+              containerPort: 8081
+              protocol: TCP
           envFrom:
             - configMapRef:
                 name: archonai-config
@@ -30,6 +34,22 @@ spec:
               value: "4"
             - name: Scheduler__MaxParallelTasks
               value: "128"
+          livenessProbe:
+            httpGet:
+              path: /healthz/live
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz/ready
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
           resources:
             requests:
               cpu: 250m

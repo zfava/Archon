@@ -4,10 +4,14 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
+using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
+using ArchonAI.Connectors.Framework;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Perception;
+using ArchonAI.Infrastructure.Resilience;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 
 namespace ArchonAI.Connectors.Implementations;
 
@@ -16,6 +20,7 @@ public sealed class FinancialConnector : IFinancialConnector, IDisposable
     private readonly HttpClient _httpClient;
     private readonly IEventBus _eventBus;
     private readonly ILogger<FinancialConnector> _logger;
+    private readonly ConnectorResilienceRegistry? _resilienceRegistry;
 
     private long _totalRequests;
     private long _failedRequests;
@@ -24,11 +29,13 @@ public sealed class FinancialConnector : IFinancialConnector, IDisposable
     public FinancialConnector(
         HttpClient httpClient,
         IEventBus eventBus,
-        ILogger<FinancialConnector> logger)
+        ILogger<FinancialConnector> logger,
+        ConnectorResilienceRegistry? resilienceRegistry = null)
     {
         _httpClient = httpClient;
         _eventBus = eventBus;
         _logger = logger;
+        _resilienceRegistry = resilienceRegistry;
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
     }
 
@@ -38,7 +45,7 @@ public sealed class FinancialConnector : IFinancialConnector, IDisposable
         string accountId, decimal amount, string currency, string description,
         CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Financial.PostTransaction");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Financial.PostTransaction");
         activity?.SetTag("financial.account_id", accountId);
         activity?.SetTag("financial.currency", currency);
 
@@ -72,13 +79,13 @@ public sealed class FinancialConnector : IFinancialConnector, IDisposable
         else
         {
             Interlocked.Increment(ref _failedRequests);
-            Telemetry.ConnectorErrors.Add(1, new KeyValuePair<string, object?>("connector", "financial"));
+            ObsTelemetry.ConnectorErrors.Add(1, new KeyValuePair<string, object?>("connector", "financial"));
             transactionId = $"financial-post:{accountId}:{amount}";
         }
 
         _logger.LogInformation("Financial post transaction to account {AccountId} amount {Amount} {Currency} completed",
             accountId, amount, currency);
-        Telemetry.ConnectorWriteOps.Add(1,
+        ObsTelemetry.ConnectorWriteOps.Add(1,
             new KeyValuePair<string, object?>("connector", "financial"),
             new KeyValuePair<string, object?>("operation", "post_transaction"));
 
@@ -115,6 +122,27 @@ public sealed class FinancialConnector : IFinancialConnector, IDisposable
         Func<global::System.Threading.Tasks.Task<HttpResponseMessage>> operation,
         CancellationToken cancellationToken)
     {
+        if (_resilienceRegistry is not null)
+        {
+            var pipeline = _resilienceRegistry.GetOrCreatePipeline(SystemName);
+            try
+            {
+                return await pipeline.ExecuteAsync(
+                    ct => ExecuteWithRetryCoreAsync(operation, ct), cancellationToken);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning("Financial circuit breaker is open. Request rejected.");
+                throw new ConnectorCircuitOpenException(SystemName, ex);
+            }
+        }
+        return await ExecuteWithRetryCoreAsync(operation, cancellationToken);
+    }
+
+    private async global::System.Threading.Tasks.Task<HttpResponseMessage> ExecuteWithRetryCoreAsync(
+        Func<global::System.Threading.Tasks.Task<HttpResponseMessage>> operation,
+        CancellationToken cancellationToken)
+    {
         int attempt = 0;
         const int maxRetries = 3;
         const int baseDelayMs = 500;
@@ -138,7 +166,7 @@ public sealed class FinancialConnector : IFinancialConnector, IDisposable
             int delayMs = baseDelayMs * (1 << (attempt - 1));
             _logger.LogWarning("Financial request failed with {StatusCode}, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                 response.StatusCode, delayMs, attempt, maxRetries);
-            Telemetry.ConnectorRetries.Add(1, new KeyValuePair<string, object?>("connector", "financial"));
+            ObsTelemetry.ConnectorRetries.Add(1, new KeyValuePair<string, object?>("connector", "financial"));
 
             await global::System.Threading.Tasks.Task.Delay(delayMs, cancellationToken);
         }

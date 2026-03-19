@@ -4,10 +4,14 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
+using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
+using ArchonAI.Connectors.Framework;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Perception;
+using ArchonAI.Infrastructure.Resilience;
 using Microsoft.Extensions.Logging;
+using Polly.CircuitBreaker;
 
 namespace ArchonAI.Connectors.Implementations;
 
@@ -16,6 +20,7 @@ public sealed class ErpConnector : IErpConnector, IDisposable
     private readonly HttpClient _httpClient;
     private readonly IEventBus _eventBus;
     private readonly ILogger<ErpConnector> _logger;
+    private readonly ConnectorResilienceRegistry? _resilienceRegistry;
 
     private long _totalRequests;
     private long _failedRequests;
@@ -24,11 +29,13 @@ public sealed class ErpConnector : IErpConnector, IDisposable
     public ErpConnector(
         HttpClient httpClient,
         IEventBus eventBus,
-        ILogger<ErpConnector> logger)
+        ILogger<ErpConnector> logger,
+        ConnectorResilienceRegistry? resilienceRegistry = null)
     {
         _httpClient = httpClient;
         _eventBus = eventBus;
         _logger = logger;
+        _resilienceRegistry = resilienceRegistry;
         _httpClient.Timeout = TimeSpan.FromSeconds(30);
     }
 
@@ -37,7 +44,7 @@ public sealed class ErpConnector : IErpConnector, IDisposable
     public async global::System.Threading.Tasks.Task<string> SyncOrderAsync(
         string orderId, string payload, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("ERP.SyncOrder");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("ERP.SyncOrder");
         activity?.SetTag("erp.order_id", orderId);
 
         Interlocked.Increment(ref _totalRequests);
@@ -60,12 +67,12 @@ public sealed class ErpConnector : IErpConnector, IDisposable
         else
         {
             Interlocked.Increment(ref _failedRequests);
-            Telemetry.ConnectorErrors.Add(1, new KeyValuePair<string, object?>("connector", "erp"));
+            ObsTelemetry.ConnectorErrors.Add(1, new KeyValuePair<string, object?>("connector", "erp"));
             resultId = $"erp-sync:{orderId}";
         }
 
         _logger.LogInformation("ERP sync for order {OrderId} completed", orderId);
-        Telemetry.ConnectorWriteOps.Add(1,
+        ObsTelemetry.ConnectorWriteOps.Add(1,
             new KeyValuePair<string, object?>("connector", "erp"),
             new KeyValuePair<string, object?>("operation", "sync_order"));
 
@@ -96,6 +103,27 @@ public sealed class ErpConnector : IErpConnector, IDisposable
         Func<global::System.Threading.Tasks.Task<HttpResponseMessage>> operation,
         CancellationToken cancellationToken)
     {
+        if (_resilienceRegistry is not null)
+        {
+            var pipeline = _resilienceRegistry.GetOrCreatePipeline(SystemName);
+            try
+            {
+                return await pipeline.ExecuteAsync(
+                    ct => ExecuteWithRetryCoreAsync(operation, ct), cancellationToken);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning("ERP circuit breaker is open. Request rejected.");
+                throw new ConnectorCircuitOpenException(SystemName, ex);
+            }
+        }
+        return await ExecuteWithRetryCoreAsync(operation, cancellationToken);
+    }
+
+    private async global::System.Threading.Tasks.Task<HttpResponseMessage> ExecuteWithRetryCoreAsync(
+        Func<global::System.Threading.Tasks.Task<HttpResponseMessage>> operation,
+        CancellationToken cancellationToken)
+    {
         int attempt = 0;
         const int maxRetries = 3;
         const int baseDelayMs = 500;
@@ -119,7 +147,7 @@ public sealed class ErpConnector : IErpConnector, IDisposable
             int delayMs = baseDelayMs * (1 << (attempt - 1));
             _logger.LogWarning("ERP request failed with {StatusCode}, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                 response.StatusCode, delayMs, attempt, maxRetries);
-            Telemetry.ConnectorRetries.Add(1, new KeyValuePair<string, object?>("connector", "erp"));
+            ObsTelemetry.ConnectorRetries.Add(1, new KeyValuePair<string, object?>("connector", "erp"));
 
             await global::System.Threading.Tasks.Task.Delay(delayMs, cancellationToken);
         }

@@ -37,6 +37,10 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          ports:
+            - name: health
+              containerPort: {{ .Values.agents.healthPort | default 8081 }}
+              protocol: TCP
           envFrom:
             - configMapRef:
                 name: archonai-agents-config
@@ -46,6 +50,14 @@ spec:
             {{- end }}
           env:
             {{- include "archonai.vaultEnv" . | nindent 12 }}
+          {{- with .Values.agents.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.agents.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.agents.resources }}
           resources:
             {{- toYaml . | nindent 12 }}

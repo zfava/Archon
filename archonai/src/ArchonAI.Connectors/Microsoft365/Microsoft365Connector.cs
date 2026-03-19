@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
+using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -68,7 +69,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<OutlookMessage>> GetEmailsAsync(
         string? filter, int top = 20, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("M365.GetEmails");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("M365.GetEmails");
 
         await EnsureAuthenticatedAsync(cancellationToken);
 
@@ -91,7 +92,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
             }
         }
 
-        Telemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "outlook"));
+        ObsTelemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "outlook"));
         _logger.LogInformation("Outlook query returned {Count} messages", messages.Count);
 
         return messages;
@@ -100,7 +101,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
     public async global::System.Threading.Tasks.Task<OutlookSendResult> SendEmailAsync(
         string to, string subject, string body, bool isHtml = false, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("M365.SendEmail");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("M365.SendEmail");
 
         if (string.IsNullOrWhiteSpace(to))
             throw new ArgumentException("Recipient email is required.", nameof(to));
@@ -136,7 +137,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
         if (response.StatusCode is HttpStatusCode.Accepted or HttpStatusCode.OK or HttpStatusCode.NoContent)
         {
             Interlocked.Increment(ref _emailsSent);
-            Telemetry.M365WriteOps.Add(1,
+            ObsTelemetry.M365WriteOps.Add(1,
                 new KeyValuePair<string, object?>("service", "outlook"),
                 new KeyValuePair<string, object?>("operation", "send_email"));
 
@@ -166,7 +167,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<TeamsChannelInfo>> GetTeamsChannelsAsync(
         string teamId, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("M365.GetTeamsChannels");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("M365.GetTeamsChannels");
         activity?.SetTag("m365.team_id", teamId);
 
         if (string.IsNullOrWhiteSpace(teamId))
@@ -195,7 +196,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
             }
         }
 
-        Telemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "teams"));
+        ObsTelemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "teams"));
         _logger.LogInformation("Teams channels for {TeamId}: {Count}", teamId, channels.Count);
 
         return channels;
@@ -204,7 +205,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
     public async global::System.Threading.Tasks.Task<TeamsMessageResult> SendTeamsMessageAsync(
         string teamId, string channelId, string content, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("M365.SendTeamsMessage");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("M365.SendTeamsMessage");
 
         if (string.IsNullOrWhiteSpace(teamId))
             throw new ArgumentException("Team ID is required.", nameof(teamId));
@@ -233,7 +234,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
         string? messageId = responseBody.TryGetProperty("id", out var msgIdP) ? msgIdP.GetString() : null;
 
         Interlocked.Increment(ref _teamsMessagesSent);
-        Telemetry.M365WriteOps.Add(1,
+        ObsTelemetry.M365WriteOps.Add(1,
             new KeyValuePair<string, object?>("service", "teams"),
             new KeyValuePair<string, object?>("operation", "send_message"));
 
@@ -246,7 +247,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<TeamsMessage>> GetTeamsMessagesAsync(
         string teamId, string channelId, int top = 20, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("M365.GetTeamsMessages");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("M365.GetTeamsMessages");
 
         if (string.IsNullOrWhiteSpace(teamId))
             throw new ArgumentException("Team ID is required.", nameof(teamId));
@@ -291,7 +292,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
             }
         }
 
-        Telemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "teams"));
+        ObsTelemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "teams"));
         _logger.LogInformation("Teams messages for {TeamId}/{ChannelId}: {Count}", teamId, channelId, messages.Count);
 
         return messages;
@@ -302,7 +303,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<SharePointItem>> GetSharePointItemsAsync(
         string siteId, string? listId, int top = 50, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("M365.GetSharePointItems");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("M365.GetSharePointItems");
 
         if (string.IsNullOrWhiteSpace(siteId))
             throw new ArgumentException("Site ID is required.", nameof(siteId));
@@ -335,7 +336,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
         }
 
         Interlocked.Increment(ref _sharePointOps);
-        Telemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "sharepoint"));
+        ObsTelemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "sharepoint"));
         _logger.LogInformation("SharePoint items for site {SiteId}: {Count}", siteId, items.Count);
 
         return items;
@@ -344,7 +345,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
     public async global::System.Threading.Tasks.Task<SharePointItem> GetSharePointItemAsync(
         string siteId, string driveId, string itemId, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("M365.GetSharePointItem");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("M365.GetSharePointItem");
 
         if (string.IsNullOrWhiteSpace(siteId))
             throw new ArgumentException("Site ID is required.", nameof(siteId));
@@ -364,7 +365,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         Interlocked.Increment(ref _sharePointOps);
-        Telemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "sharepoint"));
+        ObsTelemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "sharepoint"));
 
         return ParseSharePointItem(body);
     }
@@ -374,7 +375,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<OneDriveItem>> ListOneDriveFilesAsync(
         string? folderId, int top = 50, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("M365.ListOneDriveFiles");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("M365.ListOneDriveFiles");
 
         await EnsureAuthenticatedAsync(cancellationToken);
 
@@ -400,7 +401,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
         }
 
         Interlocked.Increment(ref _oneDriveOps);
-        Telemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "onedrive"));
+        ObsTelemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "onedrive"));
         _logger.LogInformation("OneDrive listed {Count} items", items.Count);
 
         return items;
@@ -409,7 +410,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
     public async global::System.Threading.Tasks.Task<OneDriveItem> GetOneDriveItemAsync(
         string itemId, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("M365.GetOneDriveItem");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("M365.GetOneDriveItem");
 
         if (string.IsNullOrWhiteSpace(itemId))
             throw new ArgumentException("Item ID is required.", nameof(itemId));
@@ -425,7 +426,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         Interlocked.Increment(ref _oneDriveOps);
-        Telemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "onedrive"));
+        ObsTelemetry.M365QueryOps.Add(1, new KeyValuePair<string, object?>("service", "onedrive"));
 
         return ParseOneDriveItem(body);
     }
@@ -467,11 +468,11 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
 
     private async global::System.Threading.Tasks.Task<M365AuthResult> AuthenticateCoreAsync(CancellationToken cancellationToken)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("M365.Authenticate");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("M365.Authenticate");
 
         try
         {
-            Telemetry.M365AuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "attempt"));
+            ObsTelemetry.M365AuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "attempt"));
 
             string tokenUrl = _options.OAuthTokenUrl.Replace("{TenantId}", _options.TenantId);
 
@@ -500,7 +501,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
                         : "Authentication failed";
 
                 _logger.LogError("Azure AD OAuth failed: {Error}", error);
-                Telemetry.M365AuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
+                ObsTelemetry.M365AuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
                 Interlocked.Increment(ref _failedRequests);
                 return new M365AuthResult(false, null, null, null, error);
             }
@@ -519,14 +520,14 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
             }
 
             _logger.LogInformation("Azure AD OAuth succeeded for tenant {TenantId}", _tenantId);
-            Telemetry.M365AuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
+            ObsTelemetry.M365AuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
 
             return new M365AuthResult(true, _tenantId, _userPrincipalName, _tokenExpiresAtUtc, null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Azure AD OAuth failed with exception");
-            Telemetry.M365AuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
+            ObsTelemetry.M365AuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
             Interlocked.Increment(ref _failedRequests);
             return new M365AuthResult(false, null, null, null, ex.Message);
         }
@@ -660,7 +661,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
         if (!response.IsSuccessStatusCode)
         {
             Interlocked.Increment(ref _failedRequests);
-            Telemetry.M365Errors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
+            ObsTelemetry.M365Errors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
 
             string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             _logger.LogWarning("Microsoft Graph API returned {StatusCode}: {Body}", response.StatusCode, errorBody);
@@ -707,7 +708,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
                 "Microsoft Graph request failed with {StatusCode}, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                 response.StatusCode, delayMs, attempt, _options.MaxRetries);
 
-            Telemetry.M365Retries.Add(1);
+            ObsTelemetry.M365Retries.Add(1);
 
             await global::System.Threading.Tasks.Task.Delay(delayMs, cancellationToken);
         }
@@ -721,7 +722,7 @@ public sealed class Microsoft365Connector : IMicrosoft365Connector, IDisposable
             if (header is not null && int.TryParse(header, out int remaining))
             {
                 _rateLimitRemaining = remaining;
-                Telemetry.M365RateLimitRemaining.Record(remaining);
+                ObsTelemetry.M365RateLimitRemaining.Record(remaining);
 
                 if (remaining < 50)
                 {

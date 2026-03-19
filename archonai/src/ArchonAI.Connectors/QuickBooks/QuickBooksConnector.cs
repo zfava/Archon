@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
+using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -59,7 +60,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<QuickBooksRecord>> GetFinancialReportsAsync(
         string reportType, string? startDate, string? endDate, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("QuickBooks.GetFinancialReports");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("QuickBooks.GetFinancialReports");
         activity?.SetTag("qb.report_type", reportType);
 
         await EnsureAuthenticatedAsync(cancellationToken);
@@ -77,7 +78,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
         var records = await ParseReportResponseAsync(reportType, response, cancellationToken);
 
         _logger.LogInformation("QuickBooks report {ReportType} returned {Count} rows", reportType, records.Count);
-        Telemetry.QuickBooksQueryOps.Add(1, new KeyValuePair<string, object?>("object_type", reportType));
+        ObsTelemetry.QuickBooksQueryOps.Add(1, new KeyValuePair<string, object?>("object_type", reportType));
 
         return records;
     }
@@ -85,7 +86,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
     public async global::System.Threading.Tasks.Task<string> CreateInvoiceAsync(
         string customerId, IReadOnlyList<QuickBooksLineItem> lineItems, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("QuickBooks.CreateInvoice");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("QuickBooks.CreateInvoice");
         activity?.SetTag("qb.customer_id", customerId);
 
         ValidateInvoiceData(customerId, lineItems);
@@ -120,7 +121,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
             : string.Empty;
 
         _logger.LogInformation("Created QuickBooks invoice {InvoiceId} for customer {CustomerId}", invoiceId, customerId);
-        Telemetry.QuickBooksWriteOps.Add(1,
+        ObsTelemetry.QuickBooksWriteOps.Add(1,
             new KeyValuePair<string, object?>("operation", "create_invoice"),
             new KeyValuePair<string, object?>("object_type", "Invoice"));
 
@@ -132,7 +133,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
     public async global::System.Threading.Tasks.Task<string> UpdateCustomerAsync(
         string customerId, IReadOnlyDictionary<string, string> fields, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("QuickBooks.UpdateCustomer");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("QuickBooks.UpdateCustomer");
         activity?.SetTag("qb.customer_id", customerId);
 
         if (string.IsNullOrWhiteSpace(customerId))
@@ -168,7 +169,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
             cancellationToken);
 
         _logger.LogInformation("Updated QuickBooks customer {CustomerId}", customerId);
-        Telemetry.QuickBooksWriteOps.Add(1,
+        ObsTelemetry.QuickBooksWriteOps.Add(1,
             new KeyValuePair<string, object?>("operation", "update_customer"),
             new KeyValuePair<string, object?>("object_type", "Customer"));
 
@@ -181,7 +182,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
         string? accountId, string? startDate, string? endDate, int limit = 100,
         CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("QuickBooks.GetTransactionHistory");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("QuickBooks.GetTransactionHistory");
 
         await EnsureAuthenticatedAsync(cancellationToken);
 
@@ -209,7 +210,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
         var records = await ParseQueryResponseAsync("Purchase", response, cancellationToken);
 
         _logger.LogInformation("QuickBooks transaction query returned {Count} records", records.Count);
-        Telemetry.QuickBooksQueryOps.Add(1, new KeyValuePair<string, object?>("object_type", "Purchase"));
+        ObsTelemetry.QuickBooksQueryOps.Add(1, new KeyValuePair<string, object?>("object_type", "Purchase"));
 
         return records;
     }
@@ -264,7 +265,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
 
     private async global::System.Threading.Tasks.Task<QuickBooksAuthResult> AuthenticateCoreAsync(CancellationToken cancellationToken)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("QuickBooks.Authenticate");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("QuickBooks.Authenticate");
 
         try
         {
@@ -315,14 +316,14 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
             }
 
             _logger.LogInformation("QuickBooks OAuth succeeded for company {CompanyId}", _companyId);
-            Telemetry.QuickBooksAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
+            ObsTelemetry.QuickBooksAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
 
             return new QuickBooksAuthResult(true, _companyId, _tokenExpiresAtUtc, null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "QuickBooks OAuth failed with exception");
-            Telemetry.QuickBooksAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
+            ObsTelemetry.QuickBooksAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
             Interlocked.Increment(ref _failedRequests);
             return new QuickBooksAuthResult(false, null, null, ex.Message);
         }
@@ -441,7 +442,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
         if (!response.IsSuccessStatusCode)
         {
             Interlocked.Increment(ref _failedRequests);
-            Telemetry.QuickBooksErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
+            ObsTelemetry.QuickBooksErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
 
             string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             _logger.LogWarning("QuickBooks API returned {StatusCode}: {Body}", response.StatusCode, errorBody);
@@ -487,7 +488,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
                 "QuickBooks request failed with {StatusCode}, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                 response.StatusCode, delayMs, attempt, _options.MaxRetries);
 
-            Telemetry.QuickBooksRetries.Add(1);
+            ObsTelemetry.QuickBooksRetries.Add(1);
 
             await global::System.Threading.Tasks.Task.Delay(delayMs, cancellationToken);
 
@@ -507,7 +508,7 @@ public sealed class QuickBooksConnector : IQuickBooksConnector, IDisposable
             if (header is not null && int.TryParse(header, out int remaining))
             {
                 _rateLimitRemaining = remaining;
-                Telemetry.QuickBooksRateLimitRemaining.Record(remaining);
+                ObsTelemetry.QuickBooksRateLimitRemaining.Record(remaining);
 
                 if (remaining < 50)
                 {

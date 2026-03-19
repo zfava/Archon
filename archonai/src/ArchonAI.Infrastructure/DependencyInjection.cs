@@ -3,6 +3,7 @@ using ArchonAI.Evaluation;
 using ArchonAI.Infrastructure.Eventing;
 using ArchonAI.Infrastructure.Connectors;
 using ArchonAI.Infrastructure.Memory;
+using ArchonAI.Infrastructure.Resilience;
 using ArchonAI.Infrastructure.Services;
 using ArchonAI.Knowledge;
 using ArchonAI.KnowledgeGraph;
@@ -31,6 +32,7 @@ using ArchonAI.Context;
 using ArchonAI.Perception;
 using ArchonAI.Infrastructure.Cluster;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace ArchonAI.Infrastructure;
@@ -44,6 +46,9 @@ public static class DependencyInjection
 
         services.AddOptions<EventBusOptions>()
             .BindConfiguration("EventBus");
+
+        // Resilience: circuit breakers, bulkheads, timeouts
+        services.AddArchonAIResilience();
 
         services.AddArchonAIKnowledge();
         services.AddArchonAIKnowledgeGraph();
@@ -108,9 +113,15 @@ public static class DependencyInjection
         services.AddSingleton<IEventBus>(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<EventBusOptions>>().Value;
-            return options.UseNats
+            IEventBus inner = options.UseNats
                 ? serviceProvider.GetRequiredService<NatsEventBus>()
                 : serviceProvider.GetRequiredService<InMemoryEventBus>();
+
+            // Wrap with circuit breaker and timeout
+            var pipelineFactory = serviceProvider.GetRequiredService<ResiliencePipelineFactory>();
+            var pipeline = pipelineFactory.CreateEventBusPipeline();
+            var logger = serviceProvider.GetRequiredService<ILogger<ResilientEventBus>>();
+            return new ResilientEventBus(inner, pipeline, logger);
         });
 
         return services;

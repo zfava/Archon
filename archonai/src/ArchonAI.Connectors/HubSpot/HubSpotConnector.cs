@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
+using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -58,7 +59,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<HubSpotRecord>> GetContactsAsync(
         string? filter, int limit = 100, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("HubSpot.GetContacts");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("HubSpot.GetContacts");
 
         await EnsureAuthenticatedAsync(cancellationToken);
 
@@ -75,7 +76,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
         var records = await ParseCrmResponseAsync("Contact", response, cancellationToken);
 
         _logger.LogInformation("HubSpot query returned {Count} contacts", records.Count);
-        Telemetry.HubSpotQueryOps.Add(1, new KeyValuePair<string, object?>("object_type", "Contact"));
+        ObsTelemetry.HubSpotQueryOps.Add(1, new KeyValuePair<string, object?>("object_type", "Contact"));
 
         return records;
     }
@@ -83,7 +84,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<HubSpotRecord>> GetDealsAsync(
         string? filter, int limit = 100, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("HubSpot.GetDeals");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("HubSpot.GetDeals");
 
         await EnsureAuthenticatedAsync(cancellationToken);
 
@@ -100,7 +101,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
         var records = await ParseCrmResponseAsync("Deal", response, cancellationToken);
 
         _logger.LogInformation("HubSpot query returned {Count} deals", records.Count);
-        Telemetry.HubSpotQueryOps.Add(1, new KeyValuePair<string, object?>("object_type", "Deal"));
+        ObsTelemetry.HubSpotQueryOps.Add(1, new KeyValuePair<string, object?>("object_type", "Deal"));
 
         return records;
     }
@@ -109,7 +110,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
         string objectType, string recordId, IReadOnlyDictionary<string, string> properties,
         CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("HubSpot.UpdatePipelineRecord");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("HubSpot.UpdatePipelineRecord");
         activity?.SetTag("hs.object_type", objectType);
         activity?.SetTag("hs.record_id", recordId);
 
@@ -125,7 +126,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
             cancellationToken);
 
         _logger.LogInformation("Updated HubSpot {ObjectType} record {RecordId}", objectType, recordId);
-        Telemetry.HubSpotWriteOps.Add(1,
+        ObsTelemetry.HubSpotWriteOps.Add(1,
             new KeyValuePair<string, object?>("operation", "update"),
             new KeyValuePair<string, object?>("object_type", objectType));
 
@@ -138,7 +139,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
         string objectType, IReadOnlyDictionary<string, string> properties,
         CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("HubSpot.CreateRecord");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("HubSpot.CreateRecord");
         activity?.SetTag("hs.object_type", objectType);
 
         await EnsureAuthenticatedAsync(cancellationToken);
@@ -156,7 +157,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
         string recordId = body.GetProperty("id").GetString() ?? string.Empty;
 
         _logger.LogInformation("Created HubSpot {ObjectType} record {RecordId}", objectType, recordId);
-        Telemetry.HubSpotWriteOps.Add(1,
+        ObsTelemetry.HubSpotWriteOps.Add(1,
             new KeyValuePair<string, object?>("operation", "create"),
             new KeyValuePair<string, object?>("object_type", objectType));
 
@@ -195,7 +196,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
 
     private async global::System.Threading.Tasks.Task<HubSpotAuthResult> AuthenticateCoreAsync(CancellationToken cancellationToken)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("HubSpot.Authenticate");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("HubSpot.Authenticate");
 
         try
         {
@@ -236,14 +237,14 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
             }
 
             _logger.LogInformation("HubSpot OAuth succeeded for portal {PortalId}", _portalId);
-            Telemetry.HubSpotAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
+            ObsTelemetry.HubSpotAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
 
             return new HubSpotAuthResult(true, _portalId, _tokenExpiresAtUtc, null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "HubSpot OAuth failed with exception");
-            Telemetry.HubSpotAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
+            ObsTelemetry.HubSpotAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
             Interlocked.Increment(ref _failedRequests);
             return new HubSpotAuthResult(false, null, null, ex.Message);
         }
@@ -315,7 +316,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
         if (!response.IsSuccessStatusCode)
         {
             Interlocked.Increment(ref _failedRequests);
-            Telemetry.HubSpotErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
+            ObsTelemetry.HubSpotErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
 
             string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             _logger.LogWarning("HubSpot API returned {StatusCode}: {Body}", response.StatusCode, errorBody);
@@ -362,7 +363,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
                 "HubSpot request failed with {StatusCode}, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                 response.StatusCode, delayMs, attempt, _options.MaxRetries);
 
-            Telemetry.HubSpotRetries.Add(1);
+            ObsTelemetry.HubSpotRetries.Add(1);
 
             await global::System.Threading.Tasks.Task.Delay(delayMs, cancellationToken);
 
@@ -383,7 +384,7 @@ public sealed class HubSpotConnector : IHubSpotConnector, IDisposable
             if (header is not null && int.TryParse(header, out int remaining))
             {
                 _dailyRateLimitRemaining = remaining;
-                Telemetry.HubSpotRateLimitRemaining.Record(remaining);
+                ObsTelemetry.HubSpotRateLimitRemaining.Record(remaining);
 
                 if (remaining < 1000)
                 {

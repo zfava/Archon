@@ -6,10 +6,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using ArchonAI.Common.Observability;
+using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
+using ArchonAI.Connectors.Framework;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
+using ArchonAI.Infrastructure.Resilience;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Polly.CircuitBreaker;
 
 namespace ArchonAI.Connectors.Salesforce;
 
@@ -19,6 +23,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
     private readonly IEventBus _eventBus;
     private readonly ILogger<SalesforceConnector> _logger;
     private readonly SalesforceOptions _options;
+    private readonly ConnectorResilienceRegistry? _resilienceRegistry;
 
     private string? _accessToken;
     private string? _instanceUrl;
@@ -34,12 +39,14 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
         HttpClient httpClient,
         IEventBus eventBus,
         ILogger<SalesforceConnector> logger,
-        IOptions<SalesforceOptions> options)
+        IOptions<SalesforceOptions> options,
+        ConnectorResilienceRegistry? resilienceRegistry = null)
     {
         _httpClient = httpClient;
         _eventBus = eventBus;
         _logger = logger;
         _options = options.Value;
+        _resilienceRegistry = resilienceRegistry;
         _httpClient.Timeout = TimeSpan.FromSeconds(_options.HttpTimeoutSeconds);
     }
 
@@ -91,7 +98,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
     public async global::System.Threading.Tasks.Task<string> CreateRecordAsync(
         string objectType, IReadOnlyDictionary<string, string> fields, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Salesforce.CreateRecord");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Salesforce.CreateRecord");
         activity?.SetTag("sf.object_type", objectType);
 
         await EnsureAuthenticatedAsync(cancellationToken);
@@ -106,7 +113,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
         string recordId = body.GetProperty("id").GetString() ?? string.Empty;
 
         _logger.LogInformation("Created Salesforce {ObjectType} record {RecordId}", objectType, recordId);
-        Telemetry.SalesforceWriteOps.Add(1, new KeyValuePair<string, object?>("operation", "create"), new KeyValuePair<string, object?>("object_type", objectType));
+        ObsTelemetry.SalesforceWriteOps.Add(1, new KeyValuePair<string, object?>("operation", "create"), new KeyValuePair<string, object?>("object_type", objectType));
 
         await EmitAuditEventAsync("salesforce.record.created", objectType, recordId, cancellationToken);
 
@@ -116,7 +123,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
     public async global::System.Threading.Tasks.Task<string> UpdateRecordAsync(
         string objectType, string recordId, IReadOnlyDictionary<string, string> fields, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Salesforce.UpdateRecord");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Salesforce.UpdateRecord");
         activity?.SetTag("sf.object_type", objectType);
         activity?.SetTag("sf.record_id", recordId);
 
@@ -129,7 +136,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
             cancellationToken);
 
         _logger.LogInformation("Updated Salesforce {ObjectType} record {RecordId}", objectType, recordId);
-        Telemetry.SalesforceWriteOps.Add(1, new KeyValuePair<string, object?>("operation", "update"), new KeyValuePair<string, object?>("object_type", objectType));
+        ObsTelemetry.SalesforceWriteOps.Add(1, new KeyValuePair<string, object?>("operation", "update"), new KeyValuePair<string, object?>("object_type", objectType));
 
         await EmitAuditEventAsync("salesforce.record.updated", objectType, recordId, cancellationToken);
 
@@ -166,7 +173,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
 
     private async global::System.Threading.Tasks.Task<SalesforceAuthResult> AuthenticateCoreAsync(CancellationToken cancellationToken)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Salesforce.Authenticate");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Salesforce.Authenticate");
 
         try
         {
@@ -199,14 +206,14 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
             _tokenExpiresAtUtc = _lastAuthenticatedAtUtc.Value.AddHours(2);
 
             _logger.LogInformation("Salesforce OAuth succeeded for instance {InstanceUrl}", _instanceUrl);
-            Telemetry.SalesforceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
+            ObsTelemetry.SalesforceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
 
             return new SalesforceAuthResult(true, _instanceUrl, _tokenExpiresAtUtc, null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Salesforce OAuth failed with exception");
-            Telemetry.SalesforceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
+            ObsTelemetry.SalesforceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
             Interlocked.Increment(ref _failedRequests);
             return new SalesforceAuthResult(false, null, null, ex.Message);
         }
@@ -229,7 +236,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
     private async global::System.Threading.Tasks.Task<IReadOnlyList<SalesforceRecord>> ExecuteQueryAsync(
         string objectType, string soql, CancellationToken cancellationToken)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Salesforce.Query");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Salesforce.Query");
         activity?.SetTag("sf.object_type", objectType);
 
         await EnsureAuthenticatedAsync(cancellationToken);
@@ -270,7 +277,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
         }
 
         _logger.LogInformation("Salesforce query returned {Count} {ObjectType} records", records.Count, objectType);
-        Telemetry.SalesforceQueryOps.Add(1, new KeyValuePair<string, object?>("object_type", objectType));
+        ObsTelemetry.SalesforceQueryOps.Add(1, new KeyValuePair<string, object?>("object_type", objectType));
 
         return records;
     }
@@ -294,7 +301,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
         if (!response.IsSuccessStatusCode)
         {
             Interlocked.Increment(ref _failedRequests);
-            Telemetry.SalesforceErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
+            ObsTelemetry.SalesforceErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
 
             string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             _logger.LogWarning("Salesforce API returned {StatusCode}: {Body}", response.StatusCode, errorBody);
@@ -304,6 +311,31 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
     }
 
     private async global::System.Threading.Tasks.Task<HttpResponseMessage> ExecuteWithRetryAsync(
+        Func<global::System.Threading.Tasks.Task<HttpResponseMessage>> operation,
+        CancellationToken cancellationToken)
+    {
+        // Wrap the retry loop with circuit breaker if available
+        if (_resilienceRegistry is not null)
+        {
+            var pipeline = _resilienceRegistry.GetOrCreatePipeline(SystemName);
+            try
+            {
+                return await pipeline.ExecuteAsync(async ct =>
+                {
+                    return await ExecuteWithRetryCoreAsync(operation, ct);
+                }, cancellationToken);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.LogWarning("Salesforce circuit breaker is open. Request rejected.");
+                throw new ConnectorCircuitOpenException(SystemName, ex);
+            }
+        }
+
+        return await ExecuteWithRetryCoreAsync(operation, cancellationToken);
+    }
+
+    private async global::System.Threading.Tasks.Task<HttpResponseMessage> ExecuteWithRetryCoreAsync(
         Func<global::System.Threading.Tasks.Task<HttpResponseMessage>> operation,
         CancellationToken cancellationToken)
     {
@@ -340,7 +372,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
                 "Salesforce request failed with {StatusCode}, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                 response.StatusCode, delayMs, attempt, _options.MaxRetries);
 
-            Telemetry.SalesforceRetries.Add(1);
+            ObsTelemetry.SalesforceRetries.Add(1);
 
             await global::System.Threading.Tasks.Task.Delay(delayMs, cancellationToken);
 
@@ -366,7 +398,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
                     int.TryParse(parts[2], out int limit))
                 {
                     _rateLimitRemaining = limit - used;
-                    Telemetry.SalesforceRateLimitRemaining.Record(_rateLimitRemaining);
+                    ObsTelemetry.SalesforceRateLimitRemaining.Record(_rateLimitRemaining);
 
                     if (_rateLimitRemaining < limit * _options.RateLimitBufferPercent / 100)
                     {

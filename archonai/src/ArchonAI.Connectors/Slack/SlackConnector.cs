@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
+using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -48,11 +49,11 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
 
     public async global::System.Threading.Tasks.Task<SlackAuthResult> AuthenticateAsync(CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Slack.Authenticate");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Slack.Authenticate");
 
         try
         {
-            Telemetry.SlackAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "attempt"));
+            ObsTelemetry.SlackAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "attempt"));
 
             var response = await ExecuteWithRetryAsync(
                 () => SendAuthorizedRequestAsync(HttpMethod.Get, $"{_options.BaseUrl}/auth.test", null, cancellationToken),
@@ -67,7 +68,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
                     : "Authentication failed";
 
                 _logger.LogError("Slack auth.test failed: {Error}", error);
-                Telemetry.SlackAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
+                ObsTelemetry.SlackAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
                 return new SlackAuthResult(false, null, null, null, null, error);
             }
 
@@ -78,14 +79,14 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
             _isAuthenticated = true;
 
             _logger.LogInformation("Slack authenticated for team {TeamName} ({TeamId})", _teamName, _teamId);
-            Telemetry.SlackAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
+            ObsTelemetry.SlackAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
 
             return new SlackAuthResult(true, _teamId, _teamName, _botUserId, _lastAuthenticatedAtUtc, null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Slack authentication failed with exception");
-            Telemetry.SlackAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
+            ObsTelemetry.SlackAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
             Interlocked.Increment(ref _failedRequests);
             return new SlackAuthResult(false, null, null, null, null, ex.Message);
         }
@@ -94,7 +95,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
     public async global::System.Threading.Tasks.Task<SlackMessageResult> SendMessageAsync(
         string channel, string text, string? threadTs = null, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Slack.SendMessage");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Slack.SendMessage");
         activity?.SetTag("slack.channel", channel);
 
         if (string.IsNullOrWhiteSpace(channel))
@@ -135,7 +136,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
         string? ts = body.TryGetProperty("ts", out var tsProp) ? tsProp.GetString() : null;
 
         Interlocked.Increment(ref _totalMessagesSent);
-        Telemetry.SlackMessagesSent.Add(1, new KeyValuePair<string, object?>("channel", channel));
+        ObsTelemetry.SlackMessagesSent.Add(1, new KeyValuePair<string, object?>("channel", channel));
 
         _logger.LogInformation("Slack message sent to {Channel}, ts={Ts}", channel, ts);
         await EmitAuditEventAsync("slack.message.sent", "Message", ts ?? string.Empty, cancellationToken);
@@ -146,7 +147,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<SlackChannelInfo>> GetChannelsAsync(
         int limit = 100, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Slack.GetChannels");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Slack.GetChannels");
 
         await EnsureAuthenticatedAsync(cancellationToken);
 
@@ -183,7 +184,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
             }
         }
 
-        Telemetry.SlackQueryOps.Add(1, new KeyValuePair<string, object?>("operation", "get_channels"));
+        ObsTelemetry.SlackQueryOps.Add(1, new KeyValuePair<string, object?>("operation", "get_channels"));
         _logger.LogInformation("Slack conversations.list returned {Count} channels", channels.Count);
 
         return channels;
@@ -193,7 +194,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
         string channel, int limit = 50, string? oldest = null, string? latest = null,
         CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Slack.ReadChannelHistory");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Slack.ReadChannelHistory");
         activity?.SetTag("slack.channel", channel);
 
         if (string.IsNullOrWhiteSpace(channel))
@@ -237,7 +238,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
         }
 
         Interlocked.Add(ref _totalMessagesRead, messages.Count);
-        Telemetry.SlackQueryOps.Add(1, new KeyValuePair<string, object?>("operation", "read_history"));
+        ObsTelemetry.SlackQueryOps.Add(1, new KeyValuePair<string, object?>("operation", "read_history"));
 
         _logger.LogInformation("Slack conversations.history for {Channel} returned {Count} messages", channel, messages.Count);
 
@@ -248,7 +249,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
         string channel, string alertLevel, string title, string details,
         CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Slack.PostAlert");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Slack.PostAlert");
         activity?.SetTag("slack.alert_level", alertLevel);
 
         if (string.IsNullOrWhiteSpace(channel))
@@ -271,7 +272,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
 
         if (result.IsSuccess)
         {
-            Telemetry.SlackAlertsSent.Add(1,
+            ObsTelemetry.SlackAlertsSent.Add(1,
                 new KeyValuePair<string, object?>("level", alertLevel),
                 new KeyValuePair<string, object?>("channel", channel));
 
@@ -285,12 +286,12 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
         string requestBody, string signature, string timestamp,
         CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("Slack.ProcessWebhookEvent");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("Slack.ProcessWebhookEvent");
 
         if (!VerifySlackSignature(requestBody, signature, timestamp))
         {
             _logger.LogWarning("Slack webhook signature verification failed");
-            Telemetry.SlackErrors.Add(1, new KeyValuePair<string, object?>("reason", "invalid_signature"));
+            ObsTelemetry.SlackErrors.Add(1, new KeyValuePair<string, object?>("reason", "invalid_signature"));
             return false;
         }
 
@@ -332,7 +333,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
                 await EmitAuditEventAsync($"slack.event.{eventType}", "WebhookEvent", timestamp, cancellationToken);
 
                 Interlocked.Increment(ref _webhookEventsProcessed);
-                Telemetry.SlackWebhookEvents.Add(1, new KeyValuePair<string, object?>("event_type", eventType));
+                ObsTelemetry.SlackWebhookEvents.Add(1, new KeyValuePair<string, object?>("event_type", eventType));
 
                 return true;
             }
@@ -343,7 +344,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
         catch (JsonException ex)
         {
             _logger.LogError(ex, "Failed to parse Slack webhook payload");
-            Telemetry.SlackErrors.Add(1, new KeyValuePair<string, object?>("reason", "parse_error"));
+            ObsTelemetry.SlackErrors.Add(1, new KeyValuePair<string, object?>("reason", "parse_error"));
             return false;
         }
     }
@@ -440,7 +441,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
         if (!response.IsSuccessStatusCode)
         {
             Interlocked.Increment(ref _failedRequests);
-            Telemetry.SlackErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
+            ObsTelemetry.SlackErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
 
             string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             _logger.LogWarning("Slack API returned {StatusCode}: {Body}", response.StatusCode, errorBody);
@@ -487,7 +488,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
                 "Slack request failed with {StatusCode}, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                 response.StatusCode, delayMs, attempt, _options.MaxRetries);
 
-            Telemetry.SlackRetries.Add(1);
+            ObsTelemetry.SlackRetries.Add(1);
 
             await global::System.Threading.Tasks.Task.Delay(delayMs, cancellationToken);
         }
@@ -502,7 +503,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
             if (header is not null && int.TryParse(header, out int remaining))
             {
                 _rateLimitRemaining = remaining;
-                Telemetry.SlackRateLimitRemaining.Record(remaining);
+                ObsTelemetry.SlackRateLimitRemaining.Record(remaining);
 
                 if (remaining < 20)
                 {

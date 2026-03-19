@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
+using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -67,7 +68,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
     public async global::System.Threading.Tasks.Task<IReadOnlyList<GmailMessage>> GetEmailsAsync(
         string? query, int maxResults = 20, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("GoogleWorkspace.GetEmails");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("GoogleWorkspace.GetEmails");
 
         await EnsureAuthenticatedAsync(cancellationToken);
 
@@ -102,7 +103,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
             }
         }
 
-        Telemetry.GoogleWorkspaceQueryOps.Add(1, new KeyValuePair<string, object?>("service", "gmail"));
+        ObsTelemetry.GoogleWorkspaceQueryOps.Add(1, new KeyValuePair<string, object?>("service", "gmail"));
         _logger.LogInformation("Gmail query returned {Count} messages", messages.Count);
 
         return messages;
@@ -111,7 +112,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
     public async global::System.Threading.Tasks.Task<GmailSendResult> SendEmailAsync(
         string to, string subject, string body, bool isHtml = false, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("GoogleWorkspace.SendEmail");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("GoogleWorkspace.SendEmail");
 
         if (string.IsNullOrWhiteSpace(to))
             throw new ArgumentException("Recipient email is required.", nameof(to));
@@ -140,7 +141,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
         string? threadId = responseBody.TryGetProperty("threadId", out var tidProp) ? tidProp.GetString() : null;
 
         Interlocked.Increment(ref _emailsSent);
-        Telemetry.GoogleWorkspaceWriteOps.Add(1,
+        ObsTelemetry.GoogleWorkspaceWriteOps.Add(1,
             new KeyValuePair<string, object?>("service", "gmail"),
             new KeyValuePair<string, object?>("operation", "send"));
 
@@ -155,7 +156,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
     public async global::System.Threading.Tasks.Task<GoogleDocument> GetDocumentAsync(
         string documentId, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("GoogleWorkspace.GetDocument");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("GoogleWorkspace.GetDocument");
         activity?.SetTag("gws.document_id", documentId);
 
         if (string.IsNullOrWhiteSpace(documentId))
@@ -177,7 +178,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
         string? bodyText = ExtractDocumentText(body);
 
         Interlocked.Increment(ref _docsAccessed);
-        Telemetry.GoogleWorkspaceQueryOps.Add(1, new KeyValuePair<string, object?>("service", "docs"));
+        ObsTelemetry.GoogleWorkspaceQueryOps.Add(1, new KeyValuePair<string, object?>("service", "docs"));
         _logger.LogInformation("Retrieved Google Doc {DocumentId}: {Title}", documentId, title);
 
         return new GoogleDocument(documentId, title, bodyText, DateTimeOffset.UtcNow);
@@ -186,7 +187,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
     public async global::System.Threading.Tasks.Task<string> CreateDocumentAsync(
         string title, string? content, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("GoogleWorkspace.CreateDocument");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("GoogleWorkspace.CreateDocument");
 
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Document title is required.", nameof(title));
@@ -230,7 +231,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
         }
 
         Interlocked.Increment(ref _docsAccessed);
-        Telemetry.GoogleWorkspaceWriteOps.Add(1,
+        ObsTelemetry.GoogleWorkspaceWriteOps.Add(1,
             new KeyValuePair<string, object?>("service", "docs"),
             new KeyValuePair<string, object?>("operation", "create"));
 
@@ -245,7 +246,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
     public async global::System.Threading.Tasks.Task<GoogleSheetData> ReadSpreadsheetAsync(
         string spreadsheetId, string range, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("GoogleWorkspace.ReadSpreadsheet");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("GoogleWorkspace.ReadSpreadsheet");
         activity?.SetTag("gws.spreadsheet_id", spreadsheetId);
 
         if (string.IsNullOrWhiteSpace(spreadsheetId))
@@ -284,7 +285,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
         int columnCount = values.Count > 0 ? values.Max(r => r.Count) : 0;
 
         Interlocked.Increment(ref _sheetsAccessed);
-        Telemetry.GoogleWorkspaceQueryOps.Add(1, new KeyValuePair<string, object?>("service", "sheets"));
+        ObsTelemetry.GoogleWorkspaceQueryOps.Add(1, new KeyValuePair<string, object?>("service", "sheets"));
         _logger.LogInformation("Read Google Sheet {SpreadsheetId} range {Range}: {Rows}x{Cols}",
             spreadsheetId, actualRange, rowCount, columnCount);
 
@@ -295,7 +296,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
         string spreadsheetId, string range, IReadOnlyList<IReadOnlyList<string>> values,
         CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("GoogleWorkspace.WriteSpreadsheet");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("GoogleWorkspace.WriteSpreadsheet");
         activity?.SetTag("gws.spreadsheet_id", spreadsheetId);
 
         if (string.IsNullOrWhiteSpace(spreadsheetId))
@@ -323,7 +324,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
         int updatedCells = body.TryGetProperty("updatedCells", out var cellsProp) ? cellsProp.GetInt32() : 0;
 
         Interlocked.Increment(ref _sheetsAccessed);
-        Telemetry.GoogleWorkspaceWriteOps.Add(1,
+        ObsTelemetry.GoogleWorkspaceWriteOps.Add(1,
             new KeyValuePair<string, object?>("service", "sheets"),
             new KeyValuePair<string, object?>("operation", "write"));
 
@@ -339,7 +340,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
     public async global::System.Threading.Tasks.Task<IReadOnlyList<DriveFileInfo>> ListFilesAsync(
         string? query, int maxResults = 50, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("GoogleWorkspace.ListFiles");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("GoogleWorkspace.ListFiles");
 
         await EnsureAuthenticatedAsync(cancellationToken);
 
@@ -363,7 +364,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
         }
 
         Interlocked.Increment(ref _driveOps);
-        Telemetry.GoogleWorkspaceQueryOps.Add(1, new KeyValuePair<string, object?>("service", "drive"));
+        ObsTelemetry.GoogleWorkspaceQueryOps.Add(1, new KeyValuePair<string, object?>("service", "drive"));
         _logger.LogInformation("Google Drive list returned {Count} files", files.Count);
 
         return files;
@@ -372,7 +373,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
     public async global::System.Threading.Tasks.Task<DriveFileInfo> GetFileMetadataAsync(
         string fileId, CancellationToken cancellationToken = default)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("GoogleWorkspace.GetFileMetadata");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("GoogleWorkspace.GetFileMetadata");
 
         if (string.IsNullOrWhiteSpace(fileId))
             throw new ArgumentException("File ID is required.", nameof(fileId));
@@ -387,7 +388,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         Interlocked.Increment(ref _driveOps);
-        Telemetry.GoogleWorkspaceQueryOps.Add(1, new KeyValuePair<string, object?>("service", "drive"));
+        ObsTelemetry.GoogleWorkspaceQueryOps.Add(1, new KeyValuePair<string, object?>("service", "drive"));
 
         return ParseDriveFile(body);
     }
@@ -428,11 +429,11 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
 
     private async global::System.Threading.Tasks.Task<GoogleWorkspaceAuthResult> AuthenticateCoreAsync(CancellationToken cancellationToken)
     {
-        using var activity = Telemetry.ActivitySource.StartActivity("GoogleWorkspace.Authenticate");
+        using var activity = ObsTelemetry.ActivitySource.StartActivity("GoogleWorkspace.Authenticate");
 
         try
         {
-            Telemetry.GoogleWorkspaceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "attempt"));
+            ObsTelemetry.GoogleWorkspaceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "attempt"));
 
             var form = new FormUrlEncodedContent(new Dictionary<string, string>
             {
@@ -459,7 +460,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
                         : "Authentication failed";
 
                 _logger.LogError("Google OAuth failed: {Error}", error);
-                Telemetry.GoogleWorkspaceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
+                ObsTelemetry.GoogleWorkspaceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
                 Interlocked.Increment(ref _failedRequests);
                 return new GoogleWorkspaceAuthResult(false, null, null, error);
             }
@@ -478,14 +479,14 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
             }
 
             _logger.LogInformation("Google OAuth succeeded for {Email}", _email);
-            Telemetry.GoogleWorkspaceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
+            ObsTelemetry.GoogleWorkspaceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "success"));
 
             return new GoogleWorkspaceAuthResult(true, _email, _tokenExpiresAtUtc, null);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Google OAuth failed with exception");
-            Telemetry.GoogleWorkspaceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
+            ObsTelemetry.GoogleWorkspaceAuthAttempts.Add(1, new KeyValuePair<string, object?>("result", "failure"));
             Interlocked.Increment(ref _failedRequests);
             return new GoogleWorkspaceAuthResult(false, null, null, ex.Message);
         }
@@ -624,7 +625,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
         if (!response.IsSuccessStatusCode)
         {
             Interlocked.Increment(ref _failedRequests);
-            Telemetry.GoogleWorkspaceErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
+            ObsTelemetry.GoogleWorkspaceErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
 
             string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             _logger.LogWarning("Google API returned {StatusCode}: {Body}", response.StatusCode, errorBody);
@@ -670,7 +671,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
                 "Google API request failed with {StatusCode}, retrying in {DelayMs}ms (attempt {Attempt}/{MaxRetries})",
                 response.StatusCode, delayMs, attempt, _options.MaxRetries);
 
-            Telemetry.GoogleWorkspaceRetries.Add(1);
+            ObsTelemetry.GoogleWorkspaceRetries.Add(1);
 
             await global::System.Threading.Tasks.Task.Delay(delayMs, cancellationToken);
         }
@@ -685,7 +686,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
             if (header is not null && int.TryParse(header, out int remaining))
             {
                 _rateLimitRemaining = remaining;
-                Telemetry.GoogleWorkspaceRateLimitRemaining.Record(remaining);
+                ObsTelemetry.GoogleWorkspaceRateLimitRemaining.Record(remaining);
 
                 if (remaining < 50)
                 {

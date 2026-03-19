@@ -1,6 +1,7 @@
 using ArchonAI.Common.Observability;
 using ArchonAI.Infrastructure;
 using ArchonAI.Infrastructure.Cluster;
+using ArchonAI.Infrastructure.Health;
 using ArchonAI.Runtime;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -35,6 +36,9 @@ builder.Services.Configure<ClusterNodeRegistrationOptions>(opts =>
 });
 builder.Services.AddHostedService<ClusterNodeHeartbeatService>();
 builder.Services.AddHostedService<ClusterRebalanceService>();
+
+// Health: /healthz/live and /healthz/ready on port 8081
+builder.Services.AddWorkerHealthEndpoint("scheduler");
 
 var host = builder.Build();
 host.Run();
