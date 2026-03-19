@@ -40,67 +40,13 @@ public sealed class PostgresDecisionStore : IDecisionService
 
     // ── Initialization ──────────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {DecisionsTable} (
-                    id                    uuid PRIMARY KEY,
-                    tenant_id             uuid NOT NULL,
-                    title                 text NOT NULL,
-                    domain                text NOT NULL,
-                    objective             text NOT NULL,
-                    constraints           jsonb NOT NULL DEFAULT '[]',
-                    assumptions           jsonb NOT NULL DEFAULT '[]',
-                    alternatives          jsonb NOT NULL DEFAULT '[]',
-                    recommended_option_id text NOT NULL,
-                    confidence            double precision NOT NULL,
-                    reversibility         int NOT NULL,
-                    risk_level            int NOT NULL,
-                    expected_value        numeric,
-                    requires_approval     bool NOT NULL,
-                    linked_artifacts      jsonb NOT NULL DEFAULT '[]',
-                    status                int NOT NULL,
-                    created_by            text NOT NULL,
-                    created_at_utc        timestamptz NOT NULL,
-                    updated_at_utc        timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_decisions_tenant_id ON {DecisionsTable} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_decisions_domain    ON {DecisionsTable} (domain);
-                CREATE INDEX IF NOT EXISTS idx_decisions_status    ON {DecisionsTable} (status);
-
-                CREATE TABLE IF NOT EXISTS {LifecycleTable} (
-                    id              uuid PRIMARY KEY,
-                    decision_id     uuid NOT NULL,
-                    event_type      text NOT NULL,
-                    actor           text NOT NULL,
-                    detail          text,
-                    occurred_at_utc timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_lifecycle_decision_id ON {LifecycleTable} (decision_id);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresDecisionStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/006_create_decisions.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     // ── CreateAsync ─────────────────────────────────────────────────

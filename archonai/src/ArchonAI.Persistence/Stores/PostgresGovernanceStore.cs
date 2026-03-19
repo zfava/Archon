@@ -563,85 +563,12 @@ public sealed class PostgresGovernanceStore : IGovernanceService
         _logger.LogInformation("Seeded 5 default approval policies");
     }
 
-    private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
+    private Task EnsureInitializedAsync(CancellationToken cancellationToken)
     {
-        if (_initialized)
-        {
-            return;
-        }
-
-        await _initLock.WaitAsync(cancellationToken);
-        try
-        {
-            if (_initialized)
-            {
-                return;
-            }
-
-            await using var connection = new NpgsqlConnection(_connectionString);
-            await connection.OpenAsync(cancellationToken);
-
-            var schemaSql = $"CREATE SCHEMA IF NOT EXISTS {_schema};";
-            await using (var schemaCmd = new NpgsqlCommand(schemaSql, connection))
-            {
-                await schemaCmd.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            var bootstrapSql = $"""
-                CREATE TABLE IF NOT EXISTS {GatesTable} (
-                    id uuid PRIMARY KEY,
-                    action_type text NOT NULL,
-                    resource_id text NOT NULL,
-                    tenant_id text NOT NULL,
-                    requested_by text NOT NULL,
-                    justification text NOT NULL,
-                    status int NOT NULL DEFAULT 0,
-                    reviewed_by text,
-                    review_notes text,
-                    requested_at_utc timestamptz NOT NULL,
-                    reviewed_at_utc timestamptz,
-                    action_payload text,
-                    execution_status int NOT NULL DEFAULT 0,
-                    execution_error text,
-                    executed_at_utc timestamptz
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_approval_gates_tenant_id ON {GatesTable}(tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_approval_gates_status ON {GatesTable}(status);
-                CREATE INDEX IF NOT EXISTS idx_approval_gates_action_type ON {GatesTable}(action_type);
-
-                CREATE TABLE IF NOT EXISTS {PoliciesTable} (
-                    id uuid PRIMARY KEY,
-                    action_type text NOT NULL,
-                    description text NOT NULL,
-                    required_approver_role text NOT NULL,
-                    require_separation_of_duties boolean NOT NULL DEFAULT false,
-                    is_enabled boolean NOT NULL DEFAULT true,
-                    created_at_utc timestamptz NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS {AuditTable} (
-                    id uuid PRIMARY KEY,
-                    approval_gate_id uuid NOT NULL,
-                    action_type text NOT NULL,
-                    tenant_id text NOT NULL,
-                    requested_by text NOT NULL,
-                    reviewed_by text,
-                    outcome int NOT NULL,
-                    occurred_at_utc timestamptz NOT NULL
-                );
-                """;
-
-            await using var bootstrapCmd = new NpgsqlCommand(bootstrapSql, connection);
-            await bootstrapCmd.ExecuteNonQueryAsync(cancellationToken);
-
-            await SeedDefaultPoliciesAsync(connection, cancellationToken);
-
-            _initialized = true;
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/004_create_governance.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 }

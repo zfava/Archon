@@ -41,69 +41,13 @@ public sealed class PostgresActionSafetyStore : IActionSafetyService
 
     // ── Initialization ──────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {ClassificationsTable} (
-                    id                          uuid PRIMARY KEY,
-                    action_type                 text NOT NULL UNIQUE,
-                    reversibility               int NOT NULL,
-                    rollback_supported          bool NOT NULL,
-                    rollback_strategy           int NOT NULL,
-                    rollback_window_ticks       bigint,
-                    compensation_description    text,
-                    operator_notes              text,
-                    classified_by               text NOT NULL,
-                    classified_at_utc           timestamptz NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS {ActionsTable} (
-                    id                      uuid PRIMARY KEY,
-                    tenant_id               uuid NOT NULL,
-                    decision_id             uuid,
-                    workflow_id             uuid,
-                    approval_gate_id        uuid,
-                    action_type             text NOT NULL,
-                    description             text NOT NULL,
-                    safety_classification   jsonb NOT NULL,
-                    status                  int NOT NULL,
-                    executed_by             text NOT NULL,
-                    executed_at_utc         timestamptz NOT NULL,
-                    rollback_history        jsonb NOT NULL DEFAULT '[]',
-                    compensation_outcome    text,
-                    updated_at_utc          timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_gov_actions_tenant_id    ON {ActionsTable} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_gov_actions_action_type  ON {ActionsTable} (action_type);
-                CREATE INDEX IF NOT EXISTS idx_gov_actions_decision_id  ON {ActionsTable} (decision_id);
-                CREATE INDEX IF NOT EXISTS idx_gov_actions_workflow_id  ON {ActionsTable} (workflow_id);
-                CREATE INDEX IF NOT EXISTS idx_gov_actions_status       ON {ActionsTable} (status);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            // Seed default classifications if empty
-            await SeedDefaultClassificationsAsync(conn, ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresActionSafetyStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/017_create_action_safety.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     private async Task SeedDefaultClassificationsAsync(NpgsqlConnection conn, CancellationToken ct)

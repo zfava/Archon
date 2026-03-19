@@ -751,72 +751,12 @@ public sealed class PostgresRbacStore : IRbacService
         _logger.LogInformation("Seeded 3 default system roles (Admin, Operator, Viewer)");
     }
 
-    private async global::System.Threading.Tasks.Task EnsureInitializedAsync(CancellationToken cancellationToken)
+    private global::System.Threading.Tasks.Task EnsureInitializedAsync(CancellationToken cancellationToken)
     {
-        if (_initialized)
-        {
-            return;
-        }
-
-        await _initLock.WaitAsync(cancellationToken);
-        try
-        {
-            if (_initialized)
-            {
-                return;
-            }
-
-            await using var connection = new NpgsqlConnection(_connectionString);
-            await connection.OpenAsync(cancellationToken);
-
-            var schemaSql = $"CREATE SCHEMA IF NOT EXISTS {_schema};";
-            await using (var schemaCmd = new NpgsqlCommand(schemaSql, connection))
-            {
-                await schemaCmd.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            var bootstrapSql = $$"""
-                CREATE TABLE IF NOT EXISTS {{RolesTable}} (
-                    id uuid PRIMARY KEY,
-                    name text NOT NULL,
-                    description text NOT NULL,
-                    permissions jsonb NOT NULL DEFAULT '[]'::jsonb,
-                    is_system boolean NOT NULL DEFAULT false,
-                    created_at_utc timestamptz NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS {{AssignmentsTable}} (
-                    id uuid PRIMARY KEY,
-                    subject_id text NOT NULL,
-                    subject_type text NOT NULL,
-                    role_id uuid NOT NULL,
-                    assigned_by text NOT NULL,
-                    assigned_at_utc timestamptz NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS {{PoliciesTable}} (
-                    id uuid PRIMARY KEY,
-                    name text NOT NULL,
-                    description text NOT NULL,
-                    required_permissions jsonb NOT NULL DEFAULT '[]'::jsonb,
-                    resource text NOT NULL,
-                    effect text NOT NULL,
-                    conditions jsonb NOT NULL DEFAULT '{}'::jsonb,
-                    is_enabled boolean NOT NULL DEFAULT true,
-                    created_at_utc timestamptz NOT NULL
-                );
-                """;
-
-            await using var bootstrapCmd = new NpgsqlCommand(bootstrapSql, connection);
-            await bootstrapCmd.ExecuteNonQueryAsync(cancellationToken);
-
-            await SeedSystemRolesAsync(connection, cancellationToken);
-
-            _initialized = true;
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return global::System.Threading.Tasks.Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/003_create_rbac.sql
+        _initialized = true;
+        return global::System.Threading.Tasks.Task.CompletedTask;
     }
 }

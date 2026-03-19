@@ -92,45 +92,13 @@ public sealed class PostgresPolicySimulationStore : IPolicySimulationService
 
     // ── Initialization ──────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {SimulationsTable} (
-                    id               uuid PRIMARY KEY,
-                    tenant_id        uuid NOT NULL,
-                    action_type      text NOT NULL,
-                    title            text NOT NULL,
-                    verdict          int NOT NULL,
-                    simulation_data  jsonb NOT NULL,
-                    simulated_by     text NOT NULL,
-                    simulated_at_utc timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_policy_sim_tenant_id    ON {SimulationsTable} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_policy_sim_action_type   ON {SimulationsTable} (action_type);
-                CREATE INDEX IF NOT EXISTS idx_policy_sim_simulated_at  ON {SimulationsTable} (simulated_at_utc DESC);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresPolicySimulationStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/015_create_policy_simulations.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     // ── SimulateAsync ───────────────────────────────────────────

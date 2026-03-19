@@ -319,76 +319,12 @@ public sealed class PostgresAuditLogStore : IAuditLogService
             OccurredAtUtc: new DateTimeOffset(reader.GetFieldValue<DateTime>(reader.GetOrdinal("occurred_at_utc")), TimeSpan.Zero));
     }
 
-    private async global::System.Threading.Tasks.Task EnsureInitializedAsync(CancellationToken cancellationToken)
+    private global::System.Threading.Tasks.Task EnsureInitializedAsync(CancellationToken cancellationToken)
     {
-        if (_initialized)
-        {
-            return;
-        }
-
-        await _initLock.WaitAsync(cancellationToken);
-        try
-        {
-            if (_initialized)
-            {
-                return;
-            }
-
-            await using var connection = new NpgsqlConnection(_connectionString);
-            await connection.OpenAsync(cancellationToken);
-
-            var schemaSql = $"CREATE SCHEMA IF NOT EXISTS {_schema};";
-            await using (var schemaCmd = new NpgsqlCommand(schemaSql, connection))
-            {
-                await schemaCmd.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            var bootstrapSql = $$"""
-                CREATE TABLE IF NOT EXISTS {{TableName}} (
-                    id uuid PRIMARY KEY,
-                    event_type text NOT NULL,
-                    category text NOT NULL,
-                    source text NOT NULL,
-                    subject_id text NOT NULL,
-                    subject_type text NOT NULL,
-                    action text NOT NULL,
-                    resource_type text NOT NULL,
-                    resource_id text NOT NULL,
-                    description text NOT NULL,
-                    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
-                    checksum text NOT NULL,
-                    previous_entry_id uuid,
-                    occurred_at_utc timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_audit_log_category ON {{TableName}}(category);
-                CREATE INDEX IF NOT EXISTS idx_audit_log_subject_id ON {{TableName}}(subject_id);
-                CREATE INDEX IF NOT EXISTS idx_audit_log_resource_type ON {{TableName}}(resource_type);
-                CREATE INDEX IF NOT EXISTS idx_audit_log_occurred_at_utc ON {{TableName}}(occurred_at_utc DESC);
-                """;
-
-            await using var bootstrapCmd = new NpgsqlCommand(bootstrapSql, connection);
-            await bootstrapCmd.ExecuteNonQueryAsync(cancellationToken);
-
-            // Restore chain state from the latest entry
-            var restoreSql = $"""
-                SELECT id, checksum FROM {TableName}
-                ORDER BY occurred_at_utc DESC
-                LIMIT 1;
-                """;
-            await using var restoreCmd = new NpgsqlCommand(restoreSql, connection);
-            await using var reader = await restoreCmd.ExecuteReaderAsync(cancellationToken);
-            if (await reader.ReadAsync(cancellationToken))
-            {
-                _lastEntryId = reader.GetGuid(0);
-                _latestChecksum = reader.GetString(1);
-            }
-
-            _initialized = true;
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return global::System.Threading.Tasks.Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/002_create_audit_log.sql
+        _initialized = true;
+        return global::System.Threading.Tasks.Task.CompletedTask;
     }
 }

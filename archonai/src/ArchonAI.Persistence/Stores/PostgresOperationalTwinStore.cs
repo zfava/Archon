@@ -38,101 +38,13 @@ public sealed class PostgresOperationalTwinStore : IOperationalTwinService
 
     // ── Initialization ──────────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {EntitiesTable} (
-                    id              uuid PRIMARY KEY,
-                    tenant_id       uuid NOT NULL,
-                    entity_type     int NOT NULL,
-                    name            text NOT NULL,
-                    description     text,
-                    status          int NOT NULL,
-                    properties      jsonb NOT NULL DEFAULT '{{}}'::jsonb,
-                    tags            jsonb NOT NULL DEFAULT '[]',
-                    created_by      text NOT NULL,
-                    created_at_utc  timestamptz NOT NULL,
-                    updated_at_utc  timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_twin_entities_tenant_id   ON {EntitiesTable} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_twin_entities_entity_type ON {EntitiesTable} (entity_type);
-
-                CREATE TABLE IF NOT EXISTS {DependenciesTable} (
-                    id                  uuid PRIMARY KEY,
-                    tenant_id           uuid NOT NULL,
-                    from_entity_id      uuid NOT NULL,
-                    to_entity_id        uuid NOT NULL,
-                    type                int NOT NULL,
-                    label               text,
-                    criticality_score   double precision,
-                    created_at_utc      timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_twin_deps_tenant_id      ON {DependenciesTable} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_twin_deps_from_entity_id ON {DependenciesTable} (from_entity_id);
-
-                CREATE TABLE IF NOT EXISTS {KpisTable} (
-                    entity_id           uuid NOT NULL,
-                    metric_name         text NOT NULL,
-                    current_value       double precision NOT NULL,
-                    target_value        double precision,
-                    threshold_warning   double precision,
-                    threshold_critical  double precision,
-                    direction           int NOT NULL,
-                    unit                text NOT NULL,
-                    measured_at_utc     timestamptz NOT NULL,
-                    PRIMARY KEY (entity_id, metric_name)
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_twin_kpis_entity_id ON {KpisTable} (entity_id);
-
-                CREATE TABLE IF NOT EXISTS {BottlenecksTable} (
-                    id                  uuid PRIMARY KEY,
-                    tenant_id           uuid NOT NULL,
-                    affected_entity_id  uuid NOT NULL,
-                    description         text NOT NULL,
-                    severity            int NOT NULL,
-                    root_cause          text,
-                    is_resolved         bool NOT NULL DEFAULT false,
-                    detected_at_utc     timestamptz NOT NULL,
-                    resolved_at_utc     timestamptz
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_twin_bottlenecks_tenant_id ON {BottlenecksTable} (tenant_id);
-
-                CREATE TABLE IF NOT EXISTS {ArtifactLinksTable} (
-                    id              uuid PRIMARY KEY,
-                    twin_entity_id  uuid NOT NULL,
-                    artifact_type   text NOT NULL,
-                    artifact_id     text NOT NULL,
-                    relationship    text NOT NULL,
-                    linked_at_utc   timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_twin_artifact_links_tenant ON {ArtifactLinksTable} (twin_entity_id);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresOperationalTwinStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/011_create_operational_twin.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     // ══════════════════════════════════════════════════════════════

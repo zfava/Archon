@@ -34,56 +34,13 @@ public sealed class PostgresProofAnalyticsStore : IProofAnalyticsService
 
     // ── Initialization ──────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {EventsTable} (
-                    id                  uuid PRIMARY KEY,
-                    tenant_id           uuid NOT NULL,
-                    decision_id         uuid NOT NULL,
-                    workflow_id         uuid,
-                    event_type          int NOT NULL,
-                    actor               text NOT NULL,
-                    detail              text,
-                    expected_value      numeric,
-                    actual_value        numeric,
-                    variance            numeric,
-                    variance_percent    double precision,
-                    action_type         text,
-                    is_success          bool,
-                    override_reason     text,
-                    economic_impact     numeric,
-                    impact_attribution  text,
-                    occurred_at_utc     timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_proof_events_decision_id   ON {EventsTable} (decision_id);
-                CREATE INDEX IF NOT EXISTS idx_proof_events_workflow_id   ON {EventsTable} (workflow_id);
-                CREATE INDEX IF NOT EXISTS idx_proof_events_tenant_id     ON {EventsTable} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_proof_events_event_type    ON {EventsTable} (event_type);
-                CREATE INDEX IF NOT EXISTS idx_proof_events_occurred_at   ON {EventsTable} (occurred_at_utc DESC);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresProofAnalyticsStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/016_create_proof_analytics.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     // ── RecordEventAsync ────────────────────────────────────────

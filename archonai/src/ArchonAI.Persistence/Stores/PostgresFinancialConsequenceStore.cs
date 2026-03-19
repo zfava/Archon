@@ -34,57 +34,13 @@ public sealed class PostgresFinancialConsequenceStore : IFinancialConsequenceSer
 
     // ── Initialization ──────────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {TableName} (
-                    id                              uuid PRIMARY KEY,
-                    decision_id                     uuid NOT NULL UNIQUE,
-                    tenant_id                       uuid NOT NULL,
-                    expected_revenue_impact_low     numeric,
-                    expected_revenue_impact_high    numeric,
-                    expected_cost_impact_low        numeric,
-                    expected_cost_impact_high       numeric,
-                    expected_margin_impact          numeric,
-                    expected_cash_timing_impact     text,
-                    labor_impact                    text,
-                    downside_risk                   numeric,
-                    upside_potential                numeric,
-                    confidence_adjustment           double precision,
-                    roi_estimate_low                numeric,
-                    roi_estimate_high               numeric,
-                    break_even_estimate             text,
-                    assumptions                     jsonb NOT NULL DEFAULT '[]',
-                    notes                           text,
-                    created_by                      text NOT NULL,
-                    created_at_utc                  timestamptz NOT NULL,
-                    updated_at_utc                  timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_financial_consequences_decision_id ON {TableName} (decision_id);
-                CREATE INDEX IF NOT EXISTS idx_financial_consequences_tenant_id   ON {TableName} (tenant_id);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresFinancialConsequenceStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/007_create_financial_consequences.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     // ── AttachAsync ─────────────────────────────────────────────────

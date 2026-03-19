@@ -48,90 +48,13 @@ public sealed class PostgresInspectionStore : IInspectionService
 
     // ── Initialization ──────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {PolicyEvalTable} (
-                    evaluation_id           uuid PRIMARY KEY,
-                    tenant_id               uuid NOT NULL,
-                    subject_type            text NOT NULL,
-                    subject_id              text NOT NULL,
-                    is_allowed              bool NOT NULL,
-                    risk_score              double precision NOT NULL,
-                    confidence_score        double precision NOT NULL,
-                    requires_approval       bool NOT NULL,
-                    approval_state          text NOT NULL,
-                    manual_override_state   text NOT NULL,
-                    approval_checkpoint     text NOT NULL,
-                    guardrail_violations    jsonb NOT NULL DEFAULT '[]',
-                    rules_evaluated         jsonb NOT NULL DEFAULT '[]',
-                    reason                  text NOT NULL,
-                    evaluated_at_utc        timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_insp_policy_tenant_id     ON {PolicyEvalTable} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_insp_policy_subject       ON {PolicyEvalTable} (subject_type, subject_id);
-
-                CREATE TABLE IF NOT EXISTS {MemoryRefTable} (
-                    id                  uuid PRIMARY KEY,
-                    tenant_id           uuid NOT NULL,
-                    subject_type        text NOT NULL,
-                    subject_id          text NOT NULL,
-                    memory_id           uuid NOT NULL,
-                    memory_type         text NOT NULL,
-                    source              text NOT NULL,
-                    content_summary     text NOT NULL,
-                    relevance_score     double precision NOT NULL,
-                    usage_context       text NOT NULL,
-                    retrieved_at_utc    timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_insp_memref_tenant_id   ON {MemoryRefTable} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_insp_memref_subject     ON {MemoryRefTable} (subject_type, subject_id);
-
-                CREATE TABLE IF NOT EXISTS {WorkflowDiagTable} (
-                    workflow_id             uuid PRIMARY KEY,
-                    tenant_id               uuid NOT NULL,
-                    workflow_name           text NOT NULL,
-                    current_state           text NOT NULL,
-                    failure_category        text NOT NULL,
-                    failure_reason          text NOT NULL,
-                    failed_step_name        text,
-                    failed_step_index       int,
-                    step_diagnostics        jsonb NOT NULL DEFAULT '[]',
-                    policy_evaluations      jsonb NOT NULL DEFAULT '[]',
-                    context_used            jsonb NOT NULL DEFAULT '[]',
-                    is_retryable            bool NOT NULL,
-                    suggested_remediation   text,
-                    related_exceptions      jsonb NOT NULL DEFAULT '[]',
-                    failed_at_utc           timestamptz NOT NULL,
-                    inspected_at_utc        timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_insp_wfdiag_tenant_id   ON {WorkflowDiagTable} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_insp_wfdiag_workflow_id ON {WorkflowDiagTable} (workflow_id);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresInspectionStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/018_create_inspection.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     // ── Public record methods (not on interface, called by other services) ──

@@ -46,46 +46,13 @@ public sealed class PostgresMonitoringDashboardStore : IMonitoringDashboardServi
 
     // ── Initialization ──────────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {SnapshotsTable} (
-                    id              uuid PRIMARY KEY,
-                    dashboard_type  text NOT NULL,
-                    snapshot_data   jsonb NOT NULL,
-                    captured_at_utc timestamptz NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS {CountersTable} (
-                    counter_name    text PRIMARY KEY,
-                    counter_value   bigint NOT NULL DEFAULT 0,
-                    updated_at_utc  timestamptz NOT NULL
-                );
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            // Restore counters from DB
-            await RestoreCountersAsync(conn, ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresMonitoringDashboardStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/013_create_monitoring.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     private async Task RestoreCountersAsync(NpgsqlConnection conn, CancellationToken ct)

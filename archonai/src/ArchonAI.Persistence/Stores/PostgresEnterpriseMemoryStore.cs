@@ -34,52 +34,13 @@ public sealed class PostgresEnterpriseMemoryStore : IEnterpriseMemoryService
 
     // ── Initialization ──────────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {TableName} (
-                    id                  uuid PRIMARY KEY,
-                    tenant_id           uuid NOT NULL,
-                    layer               int NOT NULL,
-                    category            text NOT NULL,
-                    subject             text NOT NULL,
-                    content             text NOT NULL,
-                    metadata            jsonb NOT NULL DEFAULT '{{}}'::jsonb,
-                    linked_entities     jsonb NOT NULL DEFAULT '[]',
-                    tags                jsonb NOT NULL DEFAULT '[]',
-                    importance          double precision NOT NULL,
-                    created_by          text NOT NULL,
-                    created_at_utc      timestamptz NOT NULL,
-                    expires_at_utc      timestamptz
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_emr_tenant_id      ON {TableName} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_emr_layer           ON {TableName} (layer);
-                CREATE INDEX IF NOT EXISTS idx_emr_category        ON {TableName} (category);
-                CREATE INDEX IF NOT EXISTS idx_emr_created_at_utc  ON {TableName} (created_at_utc DESC);
-                CREATE INDEX IF NOT EXISTS idx_emr_expires_at_utc  ON {TableName} (expires_at_utc);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresEnterpriseMemoryStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/012_create_enterprise_memory.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     // ── StoreAsync ──────────────────────────────────────────────────

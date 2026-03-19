@@ -122,48 +122,13 @@ public sealed class PostgresHeroWorkflowStore : IHeroWorkflowService
 
     // ── Initialization ──────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {InstancesTable} (
-                    id              uuid PRIMARY KEY,
-                    tenant_id       uuid NOT NULL,
-                    workflow_type   text NOT NULL,
-                    title           text NOT NULL,
-                    status          int NOT NULL,
-                    steps           jsonb NOT NULL DEFAULT '[]',
-                    artifacts       jsonb NOT NULL DEFAULT '{{}}',
-                    initiated_by    text NOT NULL,
-                    created_at_utc  timestamptz NOT NULL,
-                    updated_at_utc  timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_hero_wf_tenant_id     ON {InstancesTable} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_hero_wf_workflow_type  ON {InstancesTable} (workflow_type);
-                CREATE INDEX IF NOT EXISTS idx_hero_wf_status         ON {InstancesTable} (status);
-                CREATE INDEX IF NOT EXISTS idx_hero_wf_created_at     ON {InstancesTable} (created_at_utc DESC);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresHeroWorkflowStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/014_create_hero_workflows.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     // ── Catalog (in-memory, static) ─────────────────────────────

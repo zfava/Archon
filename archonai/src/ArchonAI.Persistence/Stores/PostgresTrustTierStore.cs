@@ -352,59 +352,12 @@ public sealed class PostgresTrustTierStore : ITrustTierService
         _ => TrustDisposition.Blocked,
     };
 
-    private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
+    private Task EnsureInitializedAsync(CancellationToken cancellationToken)
     {
-        if (_initialized)
-        {
-            return;
-        }
-
-        await _initLock.WaitAsync(cancellationToken);
-        try
-        {
-            if (_initialized)
-            {
-                return;
-            }
-
-            await using var connection = new NpgsqlConnection(_connectionString);
-            await connection.OpenAsync(cancellationToken);
-
-            var schemaSql = $"CREATE SCHEMA IF NOT EXISTS {_schema};";
-            await using (var schemaCmd = new NpgsqlCommand(schemaSql, connection))
-            {
-                await schemaCmd.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            var bootstrapSql = $"""
-                CREATE TABLE IF NOT EXISTS {TableName} (
-                    id uuid PRIMARY KEY,
-                    tenant_id text NOT NULL,
-                    action_scope text NOT NULL,
-                    max_tier int NOT NULL,
-                    confidence_threshold double precision,
-                    value_ceiling numeric,
-                    require_reversible boolean NOT NULL DEFAULT false,
-                    description text,
-                    is_enabled boolean NOT NULL DEFAULT true,
-                    created_by text NOT NULL,
-                    created_at_utc timestamptz NOT NULL,
-                    updated_at_utc timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_trust_tier_policies_tenant_id ON {TableName}(tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_trust_tier_policies_action_scope ON {TableName}(action_scope);
-                CREATE INDEX IF NOT EXISTS idx_trust_tier_policies_tenant_scope ON {TableName}(tenant_id, action_scope);
-                """;
-
-            await using var bootstrapCmd = new NpgsqlCommand(bootstrapSql, connection);
-            await bootstrapCmd.ExecuteNonQueryAsync(cancellationToken);
-
-            _initialized = true;
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/005_create_trust_tiers.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 }

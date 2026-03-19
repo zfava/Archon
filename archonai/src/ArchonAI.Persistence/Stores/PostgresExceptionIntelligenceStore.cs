@@ -39,60 +39,13 @@ public sealed class PostgresExceptionIntelligenceStore : IExceptionIntelligenceS
 
     // ── Initialization ──────────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {TableName} (
-                    id                          uuid PRIMARY KEY,
-                    tenant_id                   uuid NOT NULL,
-                    category                    int NOT NULL,
-                    severity                    int NOT NULL,
-                    title                       text NOT NULL,
-                    description                 text NOT NULL,
-                    domain                      text NOT NULL,
-                    status                      int NOT NULL,
-                    urgency                     double precision NOT NULL,
-                    economic_impact_estimate     double precision NOT NULL,
-                    confidence                  double precision NOT NULL,
-                    escalation_level            int NOT NULL,
-                    assigned_to                 text,
-                    escalation_path             text,
-                    linked_artifacts            jsonb NOT NULL DEFAULT '[]',
-                    recommended_action          jsonb,
-                    created_by                  text NOT NULL,
-                    created_at_utc              timestamptz NOT NULL,
-                    updated_at_utc              timestamptz NOT NULL,
-                    acknowledged_at_utc         timestamptz,
-                    resolved_at_utc             timestamptz
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_opex_tenant_id  ON {TableName} (tenant_id);
-                CREATE INDEX IF NOT EXISTS idx_opex_severity   ON {TableName} (severity);
-                CREATE INDEX IF NOT EXISTS idx_opex_category   ON {TableName} (category);
-                CREATE INDEX IF NOT EXISTS idx_opex_status     ON {TableName} (status);
-                CREATE INDEX IF NOT EXISTS idx_opex_domain     ON {TableName} (domain);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresExceptionIntelligenceStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/009_create_exceptions.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     // ── RaiseExceptionAsync ─────────────────────────────────────────

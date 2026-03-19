@@ -29,56 +29,13 @@ public sealed class PostgresOutcomeLearningStore : IOutcomeLearningService
 
     // ── Initialization ──────────────────────────────────────────────
 
-    private async Task EnsureInitializedAsync(CancellationToken ct)
+    private Task EnsureInitializedAsync(CancellationToken ct)
     {
-        if (_initialized) return;
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initialized) return;
-
-            await using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync(ct);
-
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = $@"
-                CREATE SCHEMA IF NOT EXISTS {_schema};
-
-                CREATE TABLE IF NOT EXISTS {TableName} (
-                    id                          uuid PRIMARY KEY,
-                    decision_id                 uuid NOT NULL UNIQUE,
-                    tenant_id                   uuid NOT NULL,
-                    expected_outcome_summary    text,
-                    expected_value              numeric,
-                    confidence_at_prediction    double precision NOT NULL,
-                    expected_timeframe          text,
-                    actual_outcome_summary      text,
-                    actual_value                numeric,
-                    outcome_observed_at_utc     timestamptz,
-                    value_variance              numeric,
-                    variance_percent            double precision,
-                    direction                   int NOT NULL,
-                    root_cause                  text,
-                    notes                       text,
-                    assessment                  int NOT NULL,
-                    recalibration_signal        int NOT NULL,
-                    recorded_by                 text NOT NULL,
-                    created_at_utc              timestamptz NOT NULL,
-                    updated_at_utc              timestamptz NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_outcome_records_decision_id ON {TableName} (decision_id);
-                CREATE INDEX IF NOT EXISTS idx_outcome_records_tenant_id   ON {TableName} (tenant_id);
-            ";
-            await cmd.ExecuteNonQueryAsync(ct);
-
-            _initialized = true;
-            _logger.LogInformation("PostgresOutcomeLearningStore initialized (schema={Schema}).", _schema);
-        }
-        finally
-        {
-            _initLock.Release();
-        }
+        if (_initialized) return Task.CompletedTask;
+        // Table creation is managed by DbUp migrations in ArchonAI.Migrations.
+        // See Scripts/010_create_outcomes.sql
+        _initialized = true;
+        return Task.CompletedTask;
     }
 
     // ── RecordExpectedOutcomeAsync ──────────────────────────────────
