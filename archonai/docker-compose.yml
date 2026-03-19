@@ -1,5 +1,19 @@
 version: "3.9"
 
+# ══════════════════════════════════════════════════════════════════
+#  ArchonAI — Local Development Docker Compose
+# ══════════════════════════════════════════════════════════════════
+#
+#  Prerequisites:
+#    1. Copy .env.example to .env:  cp .env.example .env
+#    2. Generate secrets:
+#       - ARCHONAI_JWT_SIGNING_KEY: openssl rand -base64 48
+#       - POSTGRES_PASSWORD: openssl rand -base64 24
+#    3. Fill in API keys as needed (OpenAI, Anthropic, etc.)
+#
+#  IMPORTANT: Never commit the .env file — it is in .gitignore.
+# ══════════════════════════════════════════════════════════════════
+
 services:
   gateway:
     build:
@@ -8,7 +22,7 @@ services:
     image: archonai/gateway:local
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ARCHONAI_JWT_SIGNING_KEY: ${ARCHONAI_JWT_SIGNING_KEY:-change-me-please-use-at-least-32-characters}
+      ARCHONAI_JWT_SIGNING_KEY: ${ARCHONAI_JWT_SIGNING_KEY:?Set ARCHONAI_JWT_SIGNING_KEY in .env file (min 32 chars)}
       Security__Jwt__Issuer: ArchonAI
       Security__Jwt__Audience: ArchonAI.Api
       ReverseProxy__Clusters__api-cluster__Destinations__api-1__Address: http://api:8080
@@ -24,12 +38,12 @@ services:
     image: archonai/api:local
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ARCHONAI_JWT_SIGNING_KEY: ${ARCHONAI_JWT_SIGNING_KEY:-change-me-please-use-at-least-32-characters}
+      ARCHONAI_JWT_SIGNING_KEY: ${ARCHONAI_JWT_SIGNING_KEY:?Set ARCHONAI_JWT_SIGNING_KEY in .env file (min 32 chars)}
       Security__Jwt__Issuer: ArchonAI
       Security__Jwt__Audience: ArchonAI.Api
-      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       MemoryPersistence__Schema: public
-      ArchonAIPersistence__ConnectionString: Host=postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai;Minimum Pool Size=5;Maximum Pool Size=20
+      ArchonAIPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env};Minimum Pool Size=5;Maximum Pool Size=20
       ArchonAIPersistence__Schema: archonai
       EventBus__UseNats: "true"
       EventBus__Url: nats://nats:4222
@@ -59,7 +73,7 @@ services:
       DOTNET_ENVIRONMENT: Development
       EventBus__UseNats: "true"
       EventBus__Url: nats://nats:4222
-      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       MemoryPersistence__Schema: public
     depends_on:
       postgres:
@@ -76,7 +90,7 @@ services:
       DOTNET_ENVIRONMENT: Development
       EventBus__UseNats: "true"
       EventBus__Url: nats://nats:4222
-      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       MemoryPersistence__Schema: public
     depends_on:
       postgres:
@@ -93,7 +107,7 @@ services:
       DOTNET_ENVIRONMENT: Development
       EventBus__UseNats: "true"
       EventBus__Url: nats://nats:4222
-      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       MemoryPersistence__Schema: public
     depends_on:
       postgres:
@@ -104,15 +118,15 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: archonai
-      POSTGRES_USER: archonai
-      POSTGRES_PASSWORD: archonai
+      POSTGRES_DB: ${POSTGRES_DB:-archonai}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U archonai -d archonai"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-archonai} -d ${POSTGRES_DB:-archonai}"]
       interval: 5s
       timeout: 5s
       retries: 20

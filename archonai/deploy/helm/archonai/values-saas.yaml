@@ -6,10 +6,14 @@
 #    helm install archonai ./deploy/helm/archonai \
 #      -f ./deploy/helm/archonai/values-saas.yaml \
 #      --set security.jwtSigningKey="$(openssl rand -base64 48)" \
+#      --set postgres.username="archonai" \
 #      --set postgres.password="$(openssl rand -base64 24)"
 #
 #  Topology: shared multi-tenant cluster, bundled infra,
 #  network policies enforced, PDBs active.
+#
+#  IMPORTANT: No secrets in this file. All secrets must be
+#  provided via --set flags at install/upgrade time.
 # ══════════════════════════════════════════════════════════════════
 
 namespace: archonai

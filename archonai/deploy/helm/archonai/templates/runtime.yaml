@@ -19,6 +19,8 @@ spec:
         app: archonai-runtime
         app.kubernetes.io/name: archonai-runtime
         app.kubernetes.io/component: runtime
+      annotations:
+        {{- include "archonai.vaultAnnotations" . | nindent 8 }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
@@ -38,12 +40,20 @@ spec:
           envFrom:
             - configMapRef:
                 name: archonai-runtime-config
+            {{- if ne .Values.secrets.provider "vault-injector" }}
             - secretRef:
                 name: archonai-secrets
+            {{- end }}
+          env:
+            {{- include "archonai.vaultEnv" . | nindent 12 }}
           {{- with .Values.runtime.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          volumeMounts:
+            {{- include "archonai.vaultVolumeMount" . | nindent 12 }}
+      volumes:
+        {{- include "archonai.vaultVolume" . | nindent 8 }}
 ---
 apiVersion: v1
 kind: ConfigMap

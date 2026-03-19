@@ -12,11 +12,20 @@ topology:
   bundledInfra: true
 
 # ── Secret management ────────────────────────────────────────────
-# Secrets can be provided inline (default) or via external secret stores.
-# Set externalSecrets.enabled=true to use Kubernetes ExternalSecrets Operator,
-# AWS Secrets Manager, Azure Key Vault, or HashiCorp Vault.
+# Secrets are NEVER stored in this file. They must be provided at
+# install time via --set, external-secrets operator, or vault-injector.
+#
+# Providers:
+#   inline            - K8s Secret from --set values (default)
+#   external-secrets  - ExternalSecret CR syncing from cloud vault
+#   vault-injector    - HashiCorp Vault Agent sidecar file injection
 secrets:
   provider: inline  # inline | external-secrets | vault-injector
+
+  # Additional secrets to include in the K8s Secret (inline mode)
+  # Provide via --set: --set secrets.additionalSecrets.MY_KEY=value
+  additionalSecrets: {}
+
   # External Secrets Operator configuration (when provider=external-secrets)
   externalSecrets:
     enabled: false
@@ -27,10 +36,20 @@ secrets:
     # Remote key paths for each secret
     remoteRefs:
       jwtSigningKey: ""          # e.g. archonai/production/jwt-signing-key
+      jwtSigningKeyPrevious: ""  # e.g. archonai/production/jwt-signing-key-previous (for rotation)
       postgresUsername: ""       # e.g. archonai/production/postgres-username
       postgresPassword: ""       # e.g. archonai/production/postgres-password
       modelProviderApiKey: ""    # e.g. archonai/production/openai-api-key
+    additionalRemoteRefs: []
+    # - secretKey: ANTHROPIC_API_KEY
+    #   remoteRefKey: archonai/production/anthropic-api-key
     refreshInterval: 1h
+
+  # HashiCorp Vault Agent Injector (when provider=vault-injector)
+  vault:
+    role: ""              # Vault Kubernetes auth role
+    secretPath: ""        # e.g. secret/data/archonai/production
+    dbSecretPath: ""      # e.g. secret/data/archonai/production/db
 
 # ── Network policies ─────────────────────────────────────────────
 networkPolicy:
@@ -123,7 +142,8 @@ api:
     EventBus__UseNats: "true"
     EventBus__Url: nats://archonai-nats:4222
     MemoryPersistence__Schema: public
-    MemoryPersistence__ConnectionString: Host=archonai-postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
+    # Connection string is injected via secret — uses ARCHONAI_DB_USERNAME/PASSWORD env vars
+    # Application constructs connection string from env at startup
 
 runtime:
   enabled: true
@@ -144,7 +164,6 @@ runtime:
     EventBus__UseNats: "true"
     EventBus__Url: nats://archonai-nats:4222
     MemoryPersistence__Schema: public
-    MemoryPersistence__ConnectionString: Host=archonai-postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
     Runtime__MaxDegreeOfParallelism: "128"
     Runtime__MaxRetries: "2"
     Runtime__BaseRetryDelayMs: "250"
@@ -168,7 +187,6 @@ scheduler:
     EventBus__UseNats: "true"
     EventBus__Url: nats://archonai-nats:4222
     MemoryPersistence__Schema: public
-    MemoryPersistence__ConnectionString: Host=archonai-postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
     Scheduler__MaxGpuSlots: "4"
     Scheduler__MaxParallelTasks: "128"
 
@@ -191,16 +209,24 @@ agents:
     EventBus__UseNats: "true"
     EventBus__Url: nats://archonai-nats:4222
     MemoryPersistence__Schema: public
-    MemoryPersistence__ConnectionString: Host=archonai-postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
 
+# ── Secrets provided at install time ───────────────────────────────
+# These values MUST be provided via --set at install time.
+# They are NOT set here to prevent plaintext secrets in source control.
+# Example:
+#   helm install archonai ./deploy/helm/archonai \
+#     --set security.jwtSigningKey="$(openssl rand -base64 48)" \
+#     --set postgres.username="archonai" \
+#     --set postgres.password="$(openssl rand -base64 24)"
 security:
-  jwtSigningKey: change-me-please-use-at-least-32-characters
+  jwtSigningKey: ""  # REQUIRED: provide via --set
+  jwtSigningKeyPrevious: ""  # Optional: previous key for rotation rollover
 
 postgres:
   image: pgvector/pgvector:pg16
   database: archonai
-  username: archonai
-  password: archonai
+  username: ""  # REQUIRED: provide via --set
+  password: ""  # REQUIRED: provide via --set
   storage: 10Gi
   resources:
     requests:

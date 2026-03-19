@@ -30,7 +30,7 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddPrometheusExporter());
 
-// JWT Authentication
+// JWT Authentication — supports dual-key validation during key rotation
 var jwtSection = builder.Configuration.GetSection("Security:Jwt");
 string issuer = jwtSection["Issuer"] ?? "ArchonAI";
 string audience = jwtSection["Audience"] ?? "ArchonAI.Api";
@@ -46,6 +46,17 @@ if (string.IsNullOrWhiteSpace(signingKey) || signingKey.Length < 32)
 
 int clockSkewSeconds = int.TryParse(jwtSection["ClockSkewSeconds"], out var cs) ? cs : 60;
 
+var currentKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
+var validationKeys = new List<SecurityKey> { currentKey };
+
+// Support dual-key validation during rotation rollover
+string? previousKey = Environment.GetEnvironmentVariable("ARCHONAI_JWT_SIGNING_KEY_PREVIOUS");
+if (!string.IsNullOrWhiteSpace(previousKey) && previousKey.Length >= 32)
+{
+    validationKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(previousKey)));
+    Log.Information("JWT dual-key validation enabled for key rotation rollover");
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -56,7 +67,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidAudience = audience,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
+            IssuerSigningKey = currentKey,
+            IssuerSigningKeys = validationKeys,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(Math.Max(0, clockSkewSeconds))
         };

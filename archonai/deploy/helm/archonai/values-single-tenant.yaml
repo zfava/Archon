@@ -7,12 +7,16 @@
 #      -n archonai-<customer> --create-namespace \
 #      -f ./deploy/helm/archonai/values-single-tenant.yaml \
 #      --set security.jwtSigningKey="$(openssl rand -base64 48)" \
+#      --set postgres.username="archonai" \
 #      --set postgres.password="$(openssl rand -base64 24)"
 #
 #  Topology: dedicated namespace per customer, bundled infra per
 #  tenant, network policies enforced, PDBs active. Each customer
 #  gets their own Postgres instance and NATS bus — full data
 #  isolation at the infrastructure level.
+#
+#  IMPORTANT: No secrets in this file. All credentials must be
+#  provided via --set flags at install/upgrade time.
 # ══════════════════════════════════════════════════════════════════
 
 # Override per customer: archonai-<customer-slug>
@@ -63,7 +67,5 @@ agents:
 
 postgres:
   storage: 20Gi
-  # Dedicated credentials per customer — set via --set or external secrets
   database: archonai
-  username: archonai
-  password: change-me
+  # Credentials provided via --set at install time — never committed here

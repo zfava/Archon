@@ -18,6 +18,8 @@ spec:
         app: archonai-gateway
         app.kubernetes.io/name: archonai-gateway
         app.kubernetes.io/component: gateway
+      annotations:
+        {{- include "archonai.vaultAnnotations" . | nindent 8 }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
@@ -40,8 +42,12 @@ spec:
           envFrom:
             - configMapRef:
                 name: archonai-gateway-config
+            {{- if ne .Values.secrets.provider "vault-injector" }}
             - secretRef:
                 name: archonai-secrets
+            {{- end }}
+          env:
+            {{- include "archonai.vaultEnv" . | nindent 12 }}
           {{- with .Values.gateway.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -54,6 +60,10 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          volumeMounts:
+            {{- include "archonai.vaultVolumeMount" . | nindent 12 }}
+      volumes:
+        {{- include "archonai.vaultVolume" . | nindent 8 }}
 ---
 apiVersion: v1
 kind: ConfigMap

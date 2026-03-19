@@ -17,9 +17,48 @@ permissions:
   packages: write
 
 jobs:
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for hardcoded secrets
+        run: |
+          echo "Scanning for hardcoded secrets in tracked files..."
+          FOUND=0
+
+          # Patterns that indicate hardcoded secrets (not placeholder empty strings)
+          # Exclude .env.example (template), SECRETS.md (docs), ci-cd.yml (this file)
+          EXCLUDE_PATTERN="\.env\.example|SECRETS\.md|ci-cd\.yml|\.git/"
+
+          # Check for common secret patterns in source files
+          if grep -rn --include="*.yaml" --include="*.yml" --include="*.json" --include="*.cs" --include="*.xml" \
+            -E '(password|secret|apikey|api_key|signing_key|token).*[:=]\s*"[^"${}]{8,}"' \
+            --exclude-dir=.git --exclude="*.md" . | grep -v -E "$EXCLUDE_PATTERN" | grep -v '""' | head -20; then
+            echo "::warning::Potential hardcoded secrets detected. Review the matches above."
+            FOUND=1
+          fi
+
+          # Check for .env files that shouldn't be committed
+          if git ls-files | grep -E '^\.env$|/\.env$|\.env\.local$'; then
+            echo "::error::.env file is tracked by git. Remove it immediately."
+            FOUND=1
+          fi
+
+          if [ $FOUND -eq 1 ]; then
+            echo "::warning::Secret scan found potential issues. Review above."
+          else
+            echo "No hardcoded secrets detected."
+          fi
+
   build:
     name: Build Solution
     runs-on: ubuntu-latest
+    needs: secret-scan
     steps:
       - name: Checkout
         uses: actions/checkout@v4

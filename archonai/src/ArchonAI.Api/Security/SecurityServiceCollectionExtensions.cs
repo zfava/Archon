@@ -14,6 +14,8 @@ public static class SecurityServiceCollectionExtensions
         var jwtSection = configuration.GetSection(JwtOptions.SectionName);
         string issuer = jwtSection["Issuer"] ?? "ArchonAI";
         string audience = jwtSection["Audience"] ?? "ArchonAI.Api";
+
+        // Resolve signing key from config or environment (injected by K8s Secret / .env)
         string signingKey = jwtSection["SigningKey"]
             ?? Environment.GetEnvironmentVariable("ARCHONAI_JWT_SIGNING_KEY")
             ?? string.Empty;
@@ -27,7 +29,15 @@ public static class SecurityServiceCollectionExtensions
         int clockSkewSeconds = 60;
         _ = int.TryParse(jwtSection["ClockSkewSeconds"], out clockSkewSeconds);
 
-        var signingSecurityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
+        var currentKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
+
+        // Support dual-key validation during rotation rollover
+        var validationKeys = new List<SecurityKey> { currentKey };
+        string? previousKey = Environment.GetEnvironmentVariable("ARCHONAI_JWT_SIGNING_KEY_PREVIOUS");
+        if (!string.IsNullOrWhiteSpace(previousKey) && previousKey.Length >= 32)
+        {
+            validationKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(previousKey)));
+        }
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -39,7 +49,8 @@ public static class SecurityServiceCollectionExtensions
                     ValidateAudience = true,
                     ValidAudience = audience,
                     ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = signingSecurityKey,
+                    IssuerSigningKey = currentKey,
+                    IssuerSigningKeys = validationKeys,
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromSeconds(Math.Max(0, clockSkewSeconds))
                 };

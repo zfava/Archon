@@ -47,32 +47,18 @@ spec:
               mountPath: /var/lib/postgresql/data
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", {{ .Values.postgres.username | quote }}]
+              command: ["pg_isready", "-U", "postgres"]
             initialDelaySeconds: 30
             periodSeconds: 10
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", {{ .Values.postgres.username | quote }}]
+              command: ["pg_isready", "-U", "postgres"]
             initialDelaySeconds: 5
             periodSeconds: 5
       volumes:
         - name: postgres-data
           persistentVolumeClaim:
             claimName: archonai-postgres-pvc
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: archonai-postgres-credentials
-  namespace: {{ .Values.namespace }}
-  labels:
-    app.kubernetes.io/name: archonai-postgres
-    app.kubernetes.io/component: database
-    app.kubernetes.io/part-of: archonai
-type: Opaque
-data:
-  username: {{ .Values.postgres.username | b64enc | quote }}
-  password: {{ .Values.postgres.password | b64enc | quote }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

@@ -21,6 +21,11 @@
 #    - secrets.externalSecrets.remoteRefs.* (vault paths)
 #    - api/runtime/scheduler/agents env overrides for DB/NATS URLs
 #    - networkPolicy.egressCIDRs (model provider IPs)
+#
+#  For HashiCorp Vault, use secrets.provider=vault-injector and set:
+#    - secrets.vault.role
+#    - secrets.vault.secretPath
+#    - secrets.vault.dbSecretPath
 # ══════════════════════════════════════════════════════════════════
 
 namespace: archonai
@@ -41,9 +46,11 @@ secrets:
       kind: ClusterSecretStore
     remoteRefs:
       jwtSigningKey: ""          # customer must provide path
+      jwtSigningKeyPrevious: ""  # optional: for key rotation
       postgresUsername: ""       # customer must provide path
       postgresPassword: ""       # customer must provide path
       modelProviderApiKey: ""    # customer must provide path
+    additionalRemoteRefs: []
     refreshInterval: 1h
 
 # ── Strict network controls ──────────────────────────────────────
@@ -84,7 +91,6 @@ api:
     EventBus__UseNats: "true"
     EventBus__Url: ""   # customer must provide: e.g. nats://nats.internal:4222
     MemoryPersistence__Schema: public
-    MemoryPersistence__ConnectionString: ""  # customer must provide
 
 runtime:
   enabled: true
@@ -94,7 +100,6 @@ runtime:
     EventBus__UseNats: "true"
     EventBus__Url: ""
     MemoryPersistence__Schema: public
-    MemoryPersistence__ConnectionString: ""
     Runtime__MaxDegreeOfParallelism: "128"
     Runtime__MaxRetries: "2"
     Runtime__BaseRetryDelayMs: "250"
@@ -107,7 +112,6 @@ scheduler:
     EventBus__UseNats: "true"
     EventBus__Url: ""
     MemoryPersistence__Schema: public
-    MemoryPersistence__ConnectionString: ""
     Scheduler__MaxGpuSlots: "4"
     Scheduler__MaxParallelTasks: "128"
 
@@ -119,7 +123,6 @@ agents:
     EventBus__UseNats: "true"
     EventBus__Url: ""
     MemoryPersistence__Schema: public
-    MemoryPersistence__ConnectionString: ""
 
 # ── No bundled infrastructure ────────────────────────────────────
 # Customer provides managed Postgres (RDS, Cloud SQL, Azure DB) and
