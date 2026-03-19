@@ -37,6 +37,7 @@ COPY ./archonai/src/ArchonAI.Orchestrator/ArchonAI.Orchestrator.csproj          
 COPY ./archonai/src/ArchonAI.PatternDiscovery/ArchonAI.PatternDiscovery.csproj     ./src/ArchonAI.PatternDiscovery/
 COPY ./archonai/src/ArchonAI.Patterns/ArchonAI.Patterns.csproj                     ./src/ArchonAI.Patterns/
 COPY ./archonai/src/ArchonAI.Perception/ArchonAI.Perception.csproj                 ./src/ArchonAI.Perception/
+COPY ./archonai/src/ArchonAI.Persistence/ArchonAI.Persistence.csproj               ./src/ArchonAI.Persistence/
 COPY ./archonai/src/ArchonAI.Planner/ArchonAI.Planner.csproj                       ./src/ArchonAI.Planner/
 COPY ./archonai/src/ArchonAI.Plugins/ArchonAI.Plugins.csproj                       ./src/ArchonAI.Plugins/
 COPY ./archonai/src/ArchonAI.Policy/ArchonAI.Policy.csproj                         ./src/ArchonAI.Policy/
