@@ -49,6 +49,9 @@ public static class DependencyInjection
         // SAML stub (not yet implemented — interface wired for future extension)
         services.AddSingleton<ISamlAuthenticationHandler, NotImplementedSamlHandler>();
 
+        // GDPR data subject rights (Articles 15, 17, 20)
+        services.AddSingleton<IDataSubjectService, DataSubjectService>();
+
         return services;
     }
 }

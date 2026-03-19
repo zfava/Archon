@@ -19,6 +19,7 @@ public static class AdminEndpoints
         MapRuntimeHealthEndpoints(admin);
         MapSecurityEndpoints(admin);
         MapRetentionEndpoints(admin);
+        MapDataSubjectEndpoints(admin);
         OidcEndpoints.MapTenantAuthEndpoints(admin);
 
         MapAuditEndpoints(v1);
@@ -331,6 +332,61 @@ public static class AdminEndpoints
         retention.MapGet("/policy", (IOptions<PersistenceOptions> options) =>
         {
             return Results.Ok(options.Value.Retention);
+        });
+    }
+
+    private static void MapDataSubjectEndpoints(IEndpointRouteBuilder admin)
+    {
+        var dataSubject = admin.MapGroup("/data-subject");
+
+        dataSubject.MapGet("/{userId:guid}/export", async (
+            Guid userId,
+            IDataSubjectService dataSubjectService,
+            IAuditLogService auditLog,
+            HttpContext httpContext,
+            CancellationToken ct) =>
+        {
+            var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+            if (tenantClaim is null || !Guid.TryParse(tenantClaim, out var tenantId))
+                return Results.Unauthorized();
+
+            await auditLog.RecordAsync(
+                "data-subject-export-request", "compliance", "DataPrivacyEndpoint",
+                userId.ToString(), "user", "export", "user", userId.ToString(),
+                "GDPR Article 15/20 data export requested", ct: ct);
+
+            var export = await dataSubjectService.ExportUserDataAsync(userId, tenantId, ct);
+            return Results.Ok(export);
+        });
+
+        dataSubject.MapPost("/{userId:guid}/erase", async (
+            Guid userId,
+            DataErasureRequest request,
+            IDataSubjectService dataSubjectService,
+            IAuditLogService auditLog,
+            HttpContext httpContext,
+            CancellationToken ct) =>
+        {
+            var tenantClaim = httpContext.User.FindFirst("tenant_id")?.Value;
+            if (tenantClaim is null || !Guid.TryParse(tenantClaim, out var tenantId))
+                return Results.Unauthorized();
+
+            var callerEmail = httpContext.User.FindFirst("email")?.Value ?? "unknown";
+
+            await auditLog.RecordAsync(
+                "data-subject-erasure-request", "compliance", "DataPrivacyEndpoint",
+                userId.ToString(), "user", "erase", "user", userId.ToString(),
+                $"GDPR Article 17 erasure requested. Justification: {request.Justification}",
+                metadata: new Dictionary<string, string>
+                {
+                    ["requestedBy"] = callerEmail,
+                    ["justification"] = request.Justification
+                },
+                ct: ct);
+
+            var certificate = await dataSubjectService.EraseUserDataAsync(
+                userId, tenantId, callerEmail, ct);
+            return Results.Ok(certificate);
         });
     }
 }

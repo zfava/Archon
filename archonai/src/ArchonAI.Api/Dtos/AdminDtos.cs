@@ -12,3 +12,4 @@ public sealed record AuditVerifyRequest(Guid? FromEntryId = null);
 public sealed record AddSecurityPolicyRequest(string Name, string Category, string RuleType, IReadOnlyList<string>? AllowedValues = null, IReadOnlyList<string>? DeniedValues = null, Dictionary<string, string>? Limits = null);
 public sealed record EvaluateDataAccessRequest(string SubjectId, string ResourceType, string Action);
 public sealed record EvaluateWorkflowLimitsRequest(Guid WorkflowId, int StepCount, int ConcurrentAgents);
+public sealed record DataErasureRequest(string Justification);
