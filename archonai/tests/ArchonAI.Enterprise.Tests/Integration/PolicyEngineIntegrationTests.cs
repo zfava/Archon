@@ -1,5 +1,8 @@
 using ArchonAI.Core.Models;
 using ArchonAI.Policy;
+using ArchonAI.Policy.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using CoreExecutionContext = ArchonAI.Core.Models.ExecutionContext;
 using CoreTask = ArchonAI.Core.Models.Task;
@@ -17,7 +20,7 @@ public sealed class PolicyEngineIntegrationTests
     {
         var opts = new PolicyOptions();
         configure?.Invoke(opts);
-        return new PolicyEngine(Options.Create(opts));
+        return new PolicyEngine(Options.Create(opts), NullLogger<PolicyEngine>.Instance);
     }
 
     private static Agent MakeAgent(bool enabled = true, params string[] capabilities) =>
@@ -33,17 +36,31 @@ public sealed class PolicyEngineIntegrationTests
             DateTimeOffset.UtcNow, null, null);
     }
 
+    private const string TestSigningKey = "test-override-signing-key-for-integration-tests-32chars!";
+
     private static CoreExecutionContext MakeContext(
         double? confidence = null, bool isAdmin = true,
-        string? manualOverride = null, string? approvedTaskId = null)
+        string? manualOverride = null, string? approvedTaskId = null,
+        Guid? taskId = null)
     {
         var metadata = new Dictionary<string, string>();
         if (confidence.HasValue)
             metadata["confidence"] = confidence.Value.ToString();
         if (isAdmin)
             metadata["permissions"] = "admin,read,write";
-        if (!string.IsNullOrEmpty(manualOverride))
-            metadata["manualOverride"] = manualOverride;
+        if (!string.IsNullOrEmpty(manualOverride) && taskId.HasValue)
+        {
+            var token = new ManualOverrideToken(
+                TokenId: Guid.NewGuid(),
+                Action: manualOverride,
+                TargetTaskId: taskId.Value.ToString(),
+                TargetObjectiveId: Guid.Empty.ToString(),
+                AuthorizedBy: "test-admin",
+                AuthorizedByRole: "admin",
+                IssuedAtUtc: DateTimeOffset.UtcNow,
+                ExpiresAtUtc: DateTimeOffset.UtcNow.AddMinutes(30));
+            metadata["manualOverrideToken"] = ManualOverrideTokenService.IssueToken(token, TestSigningKey);
+        }
         if (!string.IsNullOrEmpty(approvedTaskId))
             metadata["approvedTasks"] = approvedTaskId;
 
@@ -158,12 +175,12 @@ public sealed class PolicyEngineIntegrationTests
     [Fact]
     public async Task ManualOverrideDeny_BlocksExecution()
     {
-        var engine = CreateEngine();
+        var engine = CreateEngine(o => o.ManualOverrideSigningKey = TestSigningKey);
         var agent = MakeAgent(true, "data-read");
         var task = MakeTask("data-read");
 
         var decision = await engine.EvaluateAsync(agent, task,
-            MakeContext(confidence: 0.9, manualOverride: "deny"));
+            MakeContext(confidence: 0.9, manualOverride: "deny", taskId: task.Id));
 
         Assert.False(decision.IsAllowed);
         Assert.Equal("deny", decision.ManualOverrideState);
@@ -172,12 +189,12 @@ public sealed class PolicyEngineIntegrationTests
     [Fact]
     public async Task ManualOverrideAllow_PermitsExecution()
     {
-        var engine = CreateEngine();
+        var engine = CreateEngine(o => o.ManualOverrideSigningKey = TestSigningKey);
         var agent = MakeAgent(true, "data-read");
         var task = MakeTask("data-read");
 
         var decision = await engine.EvaluateAsync(agent, task,
-            MakeContext(confidence: 0.9, manualOverride: "allow"));
+            MakeContext(confidence: 0.9, manualOverride: "allow", taskId: task.Id));
 
         Assert.True(decision.IsAllowed);
         Assert.Equal("allow", decision.ManualOverrideState);
