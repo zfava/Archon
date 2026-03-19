@@ -2,7 +2,6 @@ using ArchonAI.Api.Dtos;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.Identity;
 using ArchonAI.Identity;
-using ArchonAI.Identity.Stores;
 using Microsoft.Extensions.Options;
 
 namespace ArchonAI.Api.Endpoints;
@@ -20,6 +19,7 @@ public static class OidcEndpoints
             string tenant,
             ITenantAuthConfigStore tenantAuthConfigStore,
             IOrganizationStore orgStore,
+            IOidcLoginSessionStore loginSessionStore,
             IOptions<OidcOptions> oidcOptions,
             CancellationToken ct) =>
         {
@@ -47,6 +47,18 @@ public static class OidcEndpoints
             string nonce = OidcTokenExchangeService.GenerateOidcStateOrNonce();
 
             var opts = oidcOptions.Value;
+            var now = DateTimeOffset.UtcNow;
+
+            // Store the login session server-side so the callback can validate
+            // state, nonce, and code_verifier against trusted originals.
+            await loginSessionStore.CreateAsync(new OidcLoginSession(
+                State: state,
+                Nonce: nonce,
+                CodeVerifier: codeVerifier,
+                OrganizationId: org.Id,
+                CreatedAtUtc: now,
+                ExpiresAtUtc: now.AddSeconds(opts.StateExpirationSeconds)), ct);
+
             string redirectUri = $"{opts.CallbackBaseUrl.TrimEnd('/')}{opts.CallbackPath}";
             string scopes = string.Join(" ", config.Scopes.Length > 0 ? config.Scopes : new[] { "openid", "profile", "email" });
             string authorizeUrl = $"{config.Authority.TrimEnd('/')}/authorize"
@@ -59,18 +71,18 @@ public static class OidcEndpoints
                 + $"&code_challenge={Uri.EscapeDataString(codeChallenge)}"
                 + $"&code_challenge_method=S256";
 
-            // PKCE design: The CodeVerifier is intentionally returned to the client. The client holds it
-            // in memory and sends it back in the /callback request. The server then includes it in the
-            // back-channel token exchange with the IdP, which verifies it against the code_challenge
-            // that was sent in this /authorize URL. This is the standard PKCE flow per RFC 7636.
+            // The client receives the authorize URL and state (for redirect correlation).
+            // The code_verifier is NO LONGER returned to the client — it is held server-side
+            // in the login session and injected into the back-channel token exchange on callback.
             return Results.Ok(new OidcLoginResponse(
-                authorizeUrl, state, nonce, codeVerifier, org.Id));
+                authorizeUrl, state, org.Id));
         });
 
         oidc.MapPost("/callback", async (
             OidcCallbackRequest req,
             OidcTokenExchangeService exchangeService,
             ITenantAuthConfigStore tenantAuthConfigStore,
+            IOidcLoginSessionStore loginSessionStore,
             IHttpClientFactory httpClientFactory,
             IOptions<OidcOptions> oidcOptions,
             ILoggerFactory loggerFactory,
@@ -80,8 +92,31 @@ public static class OidcEndpoints
             if (string.IsNullOrWhiteSpace(req.Code) || string.IsNullOrWhiteSpace(req.State) || req.OrganizationId == Guid.Empty)
                 return Results.BadRequest(new { error = "Code, state, and organizationId are required." });
 
-            if (string.IsNullOrWhiteSpace(req.CodeVerifier))
-                return Results.BadRequest(new { error = "CodeVerifier is required for PKCE flow." });
+            // ── Server-side state validation ────────────────────────────────
+            // Atomically consume the login session — prevents replay attacks.
+            var session = await loginSessionStore.ConsumeAsync(req.State, ct);
+            if (session is null)
+            {
+                logger.LogWarning("OIDC callback rejected: state not found or already consumed. State={State}", req.State);
+                return Results.BadRequest(new { error = "Invalid or expired OIDC state. Please restart the login flow." });
+            }
+
+            // Validate expiration
+            if (DateTimeOffset.UtcNow > session.ExpiresAtUtc)
+            {
+                logger.LogWarning("OIDC callback rejected: login session expired at {Expiry} for org {OrgId}",
+                    session.ExpiresAtUtc, session.OrganizationId);
+                return Results.BadRequest(new { error = "OIDC login session has expired. Please restart the login flow." });
+            }
+
+            // Validate organization binding — the callback org must match the login org
+            if (req.OrganizationId != session.OrganizationId)
+            {
+                logger.LogWarning(
+                    "OIDC callback rejected: org mismatch. Expected={Expected}, Got={Got}",
+                    session.OrganizationId, req.OrganizationId);
+                return Results.BadRequest(new { error = "Organization mismatch. Please restart the login flow." });
+            }
 
             var config = await tenantAuthConfigStore.GetByOrganizationIdAsync(req.OrganizationId, ct);
             if (config is null || !config.IsEnabled)
@@ -91,6 +126,7 @@ public static class OidcEndpoints
             string redirectUri = $"{opts.CallbackBaseUrl.TrimEnd('/')}{opts.CallbackPath}";
             string tokenEndpoint = $"{config.Authority.TrimEnd('/')}/token";
 
+            // Use the server-stored code_verifier — NOT a client-supplied value
             var tokenRequestParams = new Dictionary<string, string>
             {
                 ["grant_type"] = "authorization_code",
@@ -98,7 +134,7 @@ public static class OidcEndpoints
                 ["redirect_uri"] = redirectUri,
                 ["client_id"] = config.ClientId,
                 ["client_secret"] = config.ClientSecret,
-                ["code_verifier"] = req.CodeVerifier,
+                ["code_verifier"] = session.CodeVerifier,
             };
 
             using var httpClient = httpClientFactory.CreateClient();
@@ -128,19 +164,9 @@ public static class OidcEndpoints
 
             string idToken = idTokenElement.GetString()!;
 
-            string expectedNonce;
-            try
-            {
-                var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                var jwt = handler.ReadJwtToken(idToken);
-                expectedNonce = jwt.Payload.Nonce ?? string.Empty;
-            }
-            catch
-            {
-                return Results.BadRequest(new { error = "Failed to read id_token from IdP response." });
-            }
-
-            var result = await exchangeService.ExchangeAsync(idToken, expectedNonce, req.OrganizationId, ct);
+            // Validate the id_token nonce against the SERVER-STORED nonce — not a client-supplied
+            // or token-extracted value. This is the correct anti-replay check.
+            var result = await exchangeService.ExchangeAsync(idToken, session.Nonce, req.OrganizationId, ct);
             if (result is null)
                 return Results.Unauthorized();
 

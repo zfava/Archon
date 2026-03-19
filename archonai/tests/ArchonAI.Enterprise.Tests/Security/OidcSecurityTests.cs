@@ -13,41 +13,41 @@ public sealed class OidcSecurityTests
     [Fact]
     public void OidcCallbackRequest_RequiresAuthorizationCode_NotIdToken()
     {
-        // The OidcCallbackRequest record requires Code, State, CodeVerifier, OrganizationId.
+        // The OidcCallbackRequest record requires Code, State, OrganizationId.
         // There is NO IdToken parameter — the OIDC flow enforces authorization code exchange.
         // An attacker cannot submit a raw IdToken to bypass the server-side token exchange.
 
         var request = new OidcCallbackRequest(
             Code: "auth-code-from-idp",
             State: "random-state",
-            CodeVerifier: "pkce-verifier",
             OrganizationId: Guid.NewGuid());
 
         // Verify the request has the correct fields for authorization code flow
         Assert.Equal("auth-code-from-idp", request.Code);
         Assert.Equal("random-state", request.State);
-        Assert.Equal("pkce-verifier", request.CodeVerifier);
         Assert.NotEqual(Guid.Empty, request.OrganizationId);
 
-        // Verify OidcCallbackRequest does NOT have an IdToken property.
-        // This ensures clients cannot inject a raw IdToken directly.
+        // Verify OidcCallbackRequest does NOT have an IdToken or CodeVerifier property.
+        // IdToken: clients cannot inject a raw IdToken directly.
+        // CodeVerifier: held server-side, never client-supplied.
         var properties = typeof(OidcCallbackRequest).GetProperties();
         var propertyNames = properties.Select(p => p.Name).ToList();
 
         Assert.DoesNotContain("IdToken", propertyNames);
         Assert.DoesNotContain("id_token", propertyNames, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CodeVerifier", propertyNames);
         Assert.Contains("Code", propertyNames);
-        Assert.Contains("CodeVerifier", propertyNames);
+        Assert.Contains("State", propertyNames);
     }
 
-    // ── Test 2: PKCE code verifier is mandatory ─────────────────────────
+    // ── Test 2: Callback parameters are minimal (Code + State + OrgId) ──
 
     [Fact]
-    public void OidcCallbackRequest_CodeVerifier_IsMandatoryForPkce()
+    public void OidcCallbackRequest_HasMinimalClientSuppliedParameters()
     {
-        // The authorization code flow uses PKCE (RFC 7636) which requires a code_verifier.
-        // Without CodeVerifier, the token exchange with the IdP will fail.
-        // This test verifies that CodeVerifier is a required constructor parameter.
+        // The callback request should only contain the authorization code,
+        // the state (for server-side lookup), and the organization ID.
+        // All security-sensitive values (nonce, code_verifier) are server-side.
 
         var constructors = typeof(OidcCallbackRequest).GetConstructors();
         Assert.Single(constructors);
@@ -55,11 +55,10 @@ public sealed class OidcSecurityTests
         var parameters = constructors[0].GetParameters();
         var paramNames = parameters.Select(p => p.Name).ToList();
 
-        // All four parameters are required (no default values)
-        Assert.Equal(4, parameters.Length);
+        // Exactly 3 parameters — Code, State, OrganizationId
+        Assert.Equal(3, parameters.Length);
         Assert.Contains("Code", paramNames);
         Assert.Contains("State", paramNames);
-        Assert.Contains("CodeVerifier", paramNames);
         Assert.Contains("OrganizationId", paramNames);
 
         // None have default values — all are mandatory
@@ -71,5 +70,23 @@ public sealed class OidcSecurityTests
         var state2 = OidcTokenExchangeService.GenerateOidcStateOrNonce();
         Assert.NotEqual(state1, state2);
         Assert.True(state1.Length >= 40, "PKCE state must have sufficient entropy (>=32 bytes base64)");
+    }
+
+    // ── Test 3: Login response does not leak nonce or code_verifier ─────
+
+    [Fact]
+    public void OidcLoginResponse_DoesNotExposeNonceOrCodeVerifier()
+    {
+        var properties = typeof(OidcLoginResponse).GetProperties();
+        var propertyNames = properties.Select(p => p.Name).ToList();
+
+        // Nonce and CodeVerifier must NOT be exposed to the client
+        Assert.DoesNotContain("Nonce", propertyNames);
+        Assert.DoesNotContain("CodeVerifier", propertyNames);
+
+        // Should still expose AuthorizeUrl, State, OrganizationId
+        Assert.Contains("AuthorizeUrl", propertyNames);
+        Assert.Contains("State", propertyNames);
+        Assert.Contains("OrganizationId", propertyNames);
     }
 }

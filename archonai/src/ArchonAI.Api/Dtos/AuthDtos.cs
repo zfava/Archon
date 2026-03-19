@@ -59,22 +59,24 @@ public sealed record MfaPolicyRequest(string Mode);
 public sealed record MfaPolicyResponse(string Mode);
 
 // OIDC DTOs
+/// <summary>
+/// Response from /login. Only the authorize URL, state (for redirect correlation),
+/// and organization ID are returned. The nonce and code_verifier are held server-side
+/// in the OIDC login session and never exposed to the client.
+/// </summary>
 public sealed record OidcLoginResponse(
     string AuthorizeUrl,
     string State,
-    string Nonce,
-    string CodeVerifier,
     Guid OrganizationId);
 
 /// <summary>
-/// OIDC PKCE callback request. The client sends the authorization code received from the
-/// IdP redirect, along with the PKCE code_verifier and state. The server exchanges the code
-/// for tokens server-side — the client NEVER handles raw ID tokens directly.
+/// OIDC callback request. The client sends the authorization code received from the IdP
+/// redirect and the state for server-side validation. The code_verifier is held server-side
+/// and injected into the back-channel token exchange automatically.
 /// </summary>
 public sealed record OidcCallbackRequest(
     string Code,
     string State,
-    string CodeVerifier,
     Guid OrganizationId);
 
 public sealed record OidcCallbackResponse(

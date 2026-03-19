@@ -40,6 +40,7 @@ public static class DependencyInjection
         // OIDC federation stores
         services.AddSingleton<ITenantAuthConfigStore, InMemoryTenantAuthConfigStore>();
         services.AddSingleton<IExternalIdentityLinkStore, InMemoryExternalIdentityLinkStore>();
+        services.AddSingleton<IOidcLoginSessionStore, InMemoryOidcLoginSessionStore>();
 
         // OIDC token exchange service
         services.AddOptions<OidcOptions>()
