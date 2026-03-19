@@ -58,6 +58,7 @@ using ArchonAI.Core.Models.ProofAnalytics;
 using ArchonAI.Core.Models.ActionSafety;
 using ArchonAI.Core.Models.Inspection;
 using ArchonAI.Identity;
+using ArchonAI.Persistence;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -91,6 +92,9 @@ builder.Services.AddSingleton<IProofAnalyticsService, ProofAnalyticsService>();
 builder.Services.AddSingleton<IActionSafetyService, ActionSafetyService>();
 builder.Services.AddSingleton<IInspectionService, InspectionService>();
 builder.Services.AddSingleton<InspectionService>();
+
+// ── Durable PostgreSQL Persistence (replaces ConcurrentDictionary stores when configured) ──
+builder.Services.AddArchonAIPersistence();
 
 // ── Health Checks ─────────────────────────────────────────────
 builder.Services.AddHealthChecks()

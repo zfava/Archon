@@ -1,0 +1,112 @@
+using ArchonAI.Core.Interfaces;
+using ArchonAI.Persistence.Stores;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+namespace ArchonAI.Persistence;
+
+public static class DependencyInjection
+{
+    /// <summary>
+    /// Registers all 17 PostgreSQL-backed stores as named singletons and wires
+    /// config-driven factory delegates that select between Postgres and in-memory
+    /// implementations based on the <see cref="PersistenceOptions.ConnectionString"/>.
+    ///
+    /// IMPORTANT: Call this AFTER the existing in-memory service registrations
+    /// (AddArchonAISecurity, AddArchonAIObservability, and the Program.cs singletons)
+    /// so that the in-memory concrete types are already registered.
+    /// This method removes the old interface registrations and replaces them with
+    /// factory delegates that choose the correct backend.
+    /// </summary>
+    public static IServiceCollection AddArchonAIPersistence(this IServiceCollection services)
+    {
+        services.AddOptions<PersistenceOptions>()
+            .BindConfiguration(PersistenceOptions.SectionName);
+
+        // Register all Postgres store concrete types
+        services.AddSingleton<PostgresAuditLogStore>();
+        services.AddSingleton<PostgresRbacStore>();
+        services.AddSingleton<PostgresGovernanceStore>();
+        services.AddSingleton<PostgresTrustTierStore>();
+        services.AddSingleton<PostgresDecisionStore>();
+        services.AddSingleton<PostgresFinancialConsequenceStore>();
+        services.AddSingleton<PostgresScenarioStore>();
+        services.AddSingleton<PostgresExceptionIntelligenceStore>();
+        services.AddSingleton<PostgresOutcomeLearningStore>();
+        services.AddSingleton<PostgresOperationalTwinStore>();
+        services.AddSingleton<PostgresEnterpriseMemoryStore>();
+        services.AddSingleton<PostgresMonitoringDashboardStore>();
+        services.AddSingleton<PostgresHeroWorkflowStore>();
+        services.AddSingleton<PostgresPolicySimulationStore>();
+        services.AddSingleton<PostgresProofAnalyticsStore>();
+        services.AddSingleton<PostgresActionSafetyStore>();
+        services.AddSingleton<PostgresInspectionStore>();
+
+        // Replace each interface registration with a config-driven factory.
+        // When ConnectionString is set → Postgres store; otherwise → original in-memory impl.
+        ReplaceWithFactory<IAuditLogService, PostgresAuditLogStore>(services);
+        ReplaceWithFactory<IRbacService, PostgresRbacStore>(services);
+        ReplaceWithFactory<IGovernanceService, PostgresGovernanceStore>(services);
+        ReplaceWithFactory<ITrustTierService, PostgresTrustTierStore>(services);
+        ReplaceWithFactory<IDecisionService, PostgresDecisionStore>(services);
+        ReplaceWithFactory<IFinancialConsequenceService, PostgresFinancialConsequenceStore>(services);
+        ReplaceWithFactory<IScenarioService, PostgresScenarioStore>(services);
+        ReplaceWithFactory<IExceptionIntelligenceService, PostgresExceptionIntelligenceStore>(services);
+        ReplaceWithFactory<IOutcomeLearningService, PostgresOutcomeLearningStore>(services);
+        ReplaceWithFactory<IOperationalTwinService, PostgresOperationalTwinStore>(services);
+        ReplaceWithFactory<IEnterpriseMemoryService, PostgresEnterpriseMemoryStore>(services);
+        ReplaceWithFactory<IMonitoringDashboardService, PostgresMonitoringDashboardStore>(services);
+        ReplaceWithFactory<IHeroWorkflowService, PostgresHeroWorkflowStore>(services);
+        ReplaceWithFactory<IPolicySimulationService, PostgresPolicySimulationStore>(services);
+        ReplaceWithFactory<IProofAnalyticsService, PostgresProofAnalyticsStore>(services);
+        ReplaceWithFactory<IActionSafetyService, PostgresActionSafetyStore>(services);
+        ReplaceWithFactory<IInspectionService, PostgresInspectionStore>(services);
+
+        return services;
+    }
+
+    private static void ReplaceWithFactory<TInterface, TPostgres>(IServiceCollection services)
+        where TInterface : class
+        where TPostgres : class, TInterface
+    {
+        // Capture the last existing descriptor so we can resolve the in-memory fallback
+        ServiceDescriptor? inMemoryDescriptor = null;
+        for (int i = services.Count - 1; i >= 0; i--)
+        {
+            if (services[i].ServiceType == typeof(TInterface))
+            {
+                inMemoryDescriptor ??= services[i];
+                services.RemoveAt(i);
+            }
+        }
+
+        services.AddSingleton<TInterface>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<PersistenceOptions>>().Value;
+            if (!string.IsNullOrWhiteSpace(options.ConnectionString))
+            {
+                return sp.GetRequiredService<TPostgres>();
+            }
+
+            // Resolve the original in-memory implementation
+            if (inMemoryDescriptor?.ImplementationType is not null)
+            {
+                return (TInterface)sp.GetRequiredService(inMemoryDescriptor.ImplementationType);
+            }
+
+            if (inMemoryDescriptor?.ImplementationFactory is not null)
+            {
+                return (TInterface)inMemoryDescriptor.ImplementationFactory(sp);
+            }
+
+            if (inMemoryDescriptor?.ImplementationInstance is not null)
+            {
+                return (TInterface)inMemoryDescriptor.ImplementationInstance;
+            }
+
+            throw new InvalidOperationException(
+                $"No persistence connection string configured and no in-memory fallback found for {typeof(TInterface).Name}. " +
+                $"Set {PersistenceOptions.SectionName}:ConnectionString or register an in-memory implementation.");
+        });
+    }
+}

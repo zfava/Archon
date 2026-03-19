@@ -29,6 +29,8 @@ services:
       Security__Jwt__Audience: ArchonAI.Api
       MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai
       MemoryPersistence__Schema: public
+      ArchonAIPersistence__ConnectionString: Host=postgres;Port=5432;Database=archonai;Username=archonai;Password=archonai;Minimum Pool Size=5;Maximum Pool Size=20
+      ArchonAIPersistence__Schema: archonai
       EventBus__UseNats: "true"
       EventBus__Url: nats://nats:4222
     expose:
