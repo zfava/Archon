@@ -201,7 +201,7 @@ public sealed class InMemoryAgentCapabilityRegistry : IAgentCapabilityRegistry
         cancellationToken.ThrowIfCancellationRequested();
 
         var items = _profiles.Values
-            .Where(p => p.Capabilities.Any(c => c.Equals(capability, StringComparison.OrdinalIgnoreCase)))
+            .Where(p => !p.IsSuspended && p.Capabilities.Any(c => c.Equals(capability, StringComparison.OrdinalIgnoreCase)))
             .OrderByDescending(p => ComputeAgentScore(p))
             .ToArray();
 
@@ -215,7 +215,7 @@ public sealed class InMemoryAgentCapabilityRegistry : IAgentCapabilityRegistry
         cancellationToken.ThrowIfCancellationRequested();
 
         var items = _profiles.Values
-            .Where(p => p.SupportedTaskTypes.Any(t => t.Equals(taskType, StringComparison.OrdinalIgnoreCase)))
+            .Where(p => !p.IsSuspended && p.SupportedTaskTypes.Any(t => t.Equals(taskType, StringComparison.OrdinalIgnoreCase)))
             .OrderByDescending(p => ComputeAgentScore(p))
             .ToArray();
 
@@ -230,7 +230,7 @@ public sealed class InMemoryAgentCapabilityRegistry : IAgentCapabilityRegistry
         cancellationToken.ThrowIfCancellationRequested();
 
         var candidates = _profiles.Values
-            .Where(p => p.Capabilities.Any(c => c.Equals(requiredCapability, StringComparison.OrdinalIgnoreCase)))
+            .Where(p => !p.IsSuspended && p.Capabilities.Any(c => c.Equals(requiredCapability, StringComparison.OrdinalIgnoreCase)))
             .ToList();
 
         if (candidates.Count == 0)
@@ -305,6 +305,51 @@ public sealed class InMemoryAgentCapabilityRegistry : IAgentCapabilityRegistry
             SnapshotAtUtc: DateTimeOffset.UtcNow);
 
         return global::System.Threading.Tasks.Task.FromResult<AgentPerformanceSnapshot?>(snapshot);
+    }
+
+    public global::System.Threading.Tasks.Task SuspendAgentAsync(
+        Guid agentId,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_profiles.TryGetValue(agentId, out var existing))
+        {
+            _profiles[agentId] = existing with
+            {
+                IsSuspended = true,
+                SuspendReason = reason,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            };
+            _logger.LogWarning(
+                "Agent {AgentId} '{AgentName}' suspended in capability registry: {Reason}",
+                agentId, existing.AgentName, reason);
+        }
+
+        return global::System.Threading.Tasks.Task.CompletedTask;
+    }
+
+    public global::System.Threading.Tasks.Task ReinstateAgentAsync(
+        Guid agentId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_profiles.TryGetValue(agentId, out var existing) && existing.IsSuspended)
+        {
+            _profiles[agentId] = existing with
+            {
+                IsSuspended = false,
+                SuspendReason = null,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            };
+            _logger.LogInformation(
+                "Agent {AgentId} '{AgentName}' reinstated in capability registry",
+                agentId, existing.AgentName);
+        }
+
+        return global::System.Threading.Tasks.Task.CompletedTask;
     }
 
     // ══════════════════════════════════════════════════════════════

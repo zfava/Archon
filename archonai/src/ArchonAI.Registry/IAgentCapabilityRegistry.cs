@@ -46,4 +46,13 @@ public interface IAgentCapabilityRegistry
     global::System.Threading.Tasks.Task<AgentPerformanceSnapshot?> GetPerformanceSnapshotAsync(
         Guid agentId,
         CancellationToken cancellationToken = default);
+
+    global::System.Threading.Tasks.Task SuspendAgentAsync(
+        Guid agentId,
+        string reason,
+        CancellationToken cancellationToken = default);
+
+    global::System.Threading.Tasks.Task ReinstateAgentAsync(
+        Guid agentId,
+        CancellationToken cancellationToken = default);
 }

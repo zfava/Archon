@@ -10,7 +10,7 @@ public static class InfraEndpoints
     public static IEndpointRouteBuilder MapInfraEndpoints(this IEndpointRouteBuilder v1)
     {
         MapControlPlaneEndpoints(v1);
-        MapObservabilityEndpoints(v1);
+        MapStandaloneObservabilityEndpoints(v1);
         MapMonitoringEndpoints(v1);
         MapClusterEndpoints(v1);
         return v1;
@@ -413,7 +413,7 @@ public static class InfraEndpoints
         }).RequireAuthorization("AdminOnly");
     }
 
-    private static void MapObservabilityEndpoints(IEndpointRouteBuilder v1)
+    private static void MapStandaloneObservabilityEndpoints(IEndpointRouteBuilder v1)
     {
         var observability = v1.MapGroup("/observability")
             .RequireAuthorization("OperatorOrAdmin");

@@ -16,7 +16,9 @@ public sealed record AgentCapabilityProfile(
     long FailureCount,
     double SuccessRate,
     double Throughput,
-    DateTimeOffset UpdatedAtUtc);
+    DateTimeOffset UpdatedAtUtc,
+    bool IsSuspended = false,
+    string? SuspendReason = null);
 
 public sealed record AgentPerformanceSnapshot(
     Guid AgentId,

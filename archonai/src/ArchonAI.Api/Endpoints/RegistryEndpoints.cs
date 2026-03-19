@@ -1,5 +1,6 @@
 using ArchonAI.Api.Dtos;
 using ArchonAI.Core.Interfaces;
+using ArchonAI.Core.Models.AgentRegistry;
 using ArchonAI.Core.Models.Planning;
 using ArchonAI.Registry;
 
@@ -12,10 +13,24 @@ public static class RegistryEndpoints
         var registry = v1.MapGroup("/registry")
             .RequireAuthorization("OperatorOrAdmin");
 
-        registry.MapGet("/agents", async (IAgentCapabilityRegistry capabilityRegistry, CancellationToken ct) =>
+        registry.MapGet("/agents", async (IAgentCapabilityRegistry capabilityRegistry, IAgentRegistryService agentRegistryService, CancellationToken ct) =>
         {
             var agents = await capabilityRegistry.GetAllAsync(ct);
-            return Results.Ok(agents);
+            var disabledAgents = await agentRegistryService.ListAgentsAsync(
+                status: RegisteredAgentStatus.Disabled, limit: 1000, ct: ct);
+            var disabledIds = disabledAgents.Select(a => a.Id).ToHashSet();
+
+            var result = agents.Select(a => new
+            {
+                a.AgentId, a.AgentName, a.Version, a.Capabilities, a.Tools, a.Permissions,
+                a.SupportedTaskTypes, a.AverageLatencyMs, a.P95LatencyMs, a.AverageCost,
+                a.Executions, a.SuccessCount, a.FailureCount, a.SuccessRate,
+                a.Throughput, a.UpdatedAtUtc, a.IsSuspended, a.SuspendReason,
+                SyncWarning = !a.IsSuspended && disabledIds.Contains(a.AgentId)
+                    ? "Agent is active in capability registry but disabled in agent registry — synchronization pending."
+                    : (string?)null
+            });
+            return Results.Ok(result);
         });
 
         registry.MapGet("/agents/{agentId:guid}", async (Guid agentId, IAgentCapabilityRegistry capabilityRegistry, CancellationToken ct) =>

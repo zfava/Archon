@@ -7,6 +7,7 @@ public static class DependencyInjection
     public static IServiceCollection AddArchonAIRegistry(this IServiceCollection services)
     {
         services.AddSingleton<IAgentCapabilityRegistry, InMemoryAgentCapabilityRegistry>();
+        services.AddHostedService<AgentRegistrySynchronizer>();
         return services;
     }
 }
