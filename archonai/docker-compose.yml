@@ -33,6 +33,15 @@ services:
       ArchonAIPersistence__Schema: archonai
       EventBus__UseNats: "true"
       EventBus__Url: nats://nats:4222
+      ModelProviders__OpenAI__Enabled: ${ARCHONAI_OPENAI_ENABLED:-true}
+      ModelProviders__OpenAI__ApiKey: ${OPENAI_API_KEY:-}
+      ModelProviders__Anthropic__Enabled: ${ARCHONAI_ANTHROPIC_ENABLED:-true}
+      ModelProviders__Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
+      ModelProviders__AzureOpenAI__Enabled: ${ARCHONAI_AZURE_OPENAI_ENABLED:-false}
+      ModelProviders__AzureOpenAI__ApiKey: ${AZURE_OPENAI_API_KEY:-}
+      ModelProviders__AzureOpenAI__Endpoint: ${AZURE_OPENAI_ENDPOINT:-}
+      ModelProviders__Local__Enabled: ${ARCHONAI_LOCAL_ENABLED:-true}
+      ModelProviders__Local__Endpoint: ${ARCHONAI_LOCAL_ENDPOINT:-http://localhost:11434}
     expose:
       - "8080"
     depends_on:

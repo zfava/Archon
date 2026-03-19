@@ -21,6 +21,12 @@ public static class DependencyInjection
         services.AddSingleton<LocalModelProvider>();
 
         services.AddSingleton<IModelProvider, CompositeModelProvider>();
+
+        services.AddSingleton<ModelOutputValidator>();
+        services.AddSingleton<ISystemPromptProvider, SystemPromptProvider>();
+
+        services.AddHostedService<ModelProviderActivationService>();
+
         return services;
     }
 }

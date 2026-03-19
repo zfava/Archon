@@ -27,10 +27,30 @@ The repository includes deployable infrastructure assets for local and cluster e
 - **Policy and safety engine** (`ArchonAI.Policy`) for permission enforcement, risk scoring, approval workflows, and runtime guardrails.
 - **Simulation engine** (`ArchonAI.Simulation`) to simulate workflows, predict outcomes, and compare strategies before execution.
 
+### Model Provider Setup
+
+ArchonAI supports multiple LLM providers. Configure API keys to enable real AI inference:
+
+1. Copy `archonai/.env.example` to `archonai/.env`
+2. Add your API keys:
+
+| Provider | Environment Variable | Required |
+|----------|---------------------|----------|
+| OpenAI | `OPENAI_API_KEY` | For GPT-4 models |
+| Anthropic | `ANTHROPIC_API_KEY` | For Claude models |
+| Azure OpenAI | `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT` | For Azure-hosted models |
+| Local (Ollama) | `ARCHONAI_LOCAL_ENDPOINT` | Defaults to localhost:11434 |
+
+Enable/disable providers with `ARCHONAI_OPENAI_ENABLED`, `ARCHONAI_ANTHROPIC_ENABLED`, `ARCHONAI_AZURE_OPENAI_ENABLED`, `ARCHONAI_LOCAL_ENABLED` (true/false).
+
+On startup, `ModelProviderActivationService` validates all provider configurations and logs a status table. If zero providers are active, AI endpoints return errors but non-AI endpoints remain functional.
+
 ### Local run
 
 From the repository root:
 
 ```bash
+cp archonai/.env.example archonai/.env
+# Edit archonai/.env to add your API keys
 docker compose -f archonai/docker-compose.yml up --build
 ```
