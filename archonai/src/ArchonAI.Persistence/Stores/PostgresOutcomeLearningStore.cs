@@ -21,7 +21,7 @@ public sealed class PostgresOutcomeLearningStore : IOutcomeLearningService
         IOptions<PersistenceOptions> options,
         ILogger<PostgresOutcomeLearningStore> logger)
     {
-        _connectionString = options.Value.ConnectionString
+        _connectionString = options.Value.ConnectionStringHardened
             ?? throw new ArgumentNullException(nameof(options), "ConnectionString is required.");
         _schema = options.Value.Schema;
         _logger = logger;

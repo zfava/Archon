@@ -23,7 +23,7 @@ public sealed class PostgresTrustTierStore : ITrustTierService
 
     public PostgresTrustTierStore(IOptions<PersistenceOptions> options, ILogger<PostgresTrustTierStore> logger)
     {
-        _connectionString = options.Value.ConnectionString ?? throw new InvalidOperationException("Persistence connection string is not configured.");
+        _connectionString = options.Value.ConnectionStringHardened ?? throw new InvalidOperationException("Persistence connection string is not configured.");
         _schema = options.Value.Schema;
         _logger = logger;
     }

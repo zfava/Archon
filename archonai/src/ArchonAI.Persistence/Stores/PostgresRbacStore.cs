@@ -57,7 +57,7 @@ public sealed class PostgresRbacStore : IRbacService
 
     public PostgresRbacStore(IOptions<PersistenceOptions> options, IEventBus eventBus, ILogger<PostgresRbacStore> logger)
     {
-        _connectionString = options.Value.ConnectionString ?? throw new InvalidOperationException("Persistence connection string is not configured.");
+        _connectionString = options.Value.ConnectionStringHardened ?? throw new InvalidOperationException("Persistence connection string is not configured.");
         _schema = options.Value.Schema;
         _eventBus = eventBus;
         _logger = logger;

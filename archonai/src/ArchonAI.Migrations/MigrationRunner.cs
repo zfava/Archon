@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using ArchonAI.Common;
 using DbUp;
 using DbUp.Engine;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,7 @@ public sealed class MigrationRunner
     public MigrationRunner(string connectionString, ILogger<MigrationRunner>? logger = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
-        _connectionString = connectionString;
+        _connectionString = PostgresConnectionStringBuilder.Harden(connectionString);
         _logger = logger;
     }
 

@@ -18,7 +18,7 @@ public sealed class PostgresMemoryRecordRepository : IMemoryRecordRepository
 
     public PostgresMemoryRecordRepository(IOptions<MemoryPersistenceOptions> options)
     {
-        _connectionString = options.Value.ConnectionString ?? throw new InvalidOperationException("Memory persistence connection string is not configured.");
+        _connectionString = options.Value.ConnectionStringHardened ?? throw new InvalidOperationException("Memory persistence connection string is not configured.");
         _schema = options.Value.Schema;
     }
 

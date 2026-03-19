@@ -18,7 +18,7 @@ public sealed class PostgresKnowledgeGraphStore : IKnowledgeGraphStore
 
     public PostgresKnowledgeGraphStore(IOptions<KnowledgeGraphOptions> options)
     {
-        _connectionString = options.Value.ConnectionString ?? throw new InvalidOperationException("Knowledge graph connection string is not configured.");
+        _connectionString = options.Value.ConnectionStringHardened ?? throw new InvalidOperationException("Knowledge graph connection string is not configured.");
         _schema = options.Value.Schema;
     }
 

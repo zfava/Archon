@@ -28,7 +28,7 @@ public sealed class PostgresDecisionStore : IDecisionService
         ILogger<PostgresDecisionStore> logger,
         IEventBus eventBus)
     {
-        _connectionString = options.Value.ConnectionString
+        _connectionString = options.Value.ConnectionStringHardened
             ?? throw new ArgumentNullException(nameof(options), "ConnectionString is required.");
         _schema = options.Value.Schema;
         _logger = logger;

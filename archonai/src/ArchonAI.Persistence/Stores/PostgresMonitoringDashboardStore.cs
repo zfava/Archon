@@ -37,7 +37,7 @@ public sealed class PostgresMonitoringDashboardStore : IMonitoringDashboardServi
         ILogger<PostgresMonitoringDashboardStore> logger,
         IObservabilityService observability)
     {
-        _connectionString = options.Value.ConnectionString
+        _connectionString = options.Value.ConnectionStringHardened
             ?? throw new ArgumentNullException(nameof(options), "ConnectionString is required.");
         _schema = options.Value.Schema;
         _logger = logger;

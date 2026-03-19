@@ -79,7 +79,7 @@ public sealed class PostgresPolicySimulationStore : IPolicySimulationService
         ITrustTierService trustTierService,
         IGovernanceService governanceService)
     {
-        _connectionString = options.Value.ConnectionString
+        _connectionString = options.Value.ConnectionStringHardened
             ?? throw new ArgumentNullException(nameof(options), "ConnectionString is required.");
         _schema = options.Value.Schema;
         _logger = logger;

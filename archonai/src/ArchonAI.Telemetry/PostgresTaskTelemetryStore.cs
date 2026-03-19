@@ -16,7 +16,7 @@ public sealed class PostgresTaskTelemetryStore : ITaskTelemetryStore
 
     public PostgresTaskTelemetryStore(IOptions<TelemetryOptions> options)
     {
-        _connectionString = options.Value.ConnectionString ?? throw new InvalidOperationException("Telemetry connection string is not configured.");
+        _connectionString = options.Value.ConnectionStringHardened ?? throw new InvalidOperationException("Telemetry connection string is not configured.");
         _schema = options.Value.Schema;
     }
 
