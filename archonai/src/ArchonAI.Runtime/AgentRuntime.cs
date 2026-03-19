@@ -390,10 +390,10 @@ public sealed class AgentRuntime : IRuntime
         _logger.LogDebug("Workflow {TaskId} transitioned via {Trigger} => {State}", taskId, trigger, newState);
     }
 
-    private IAgent? ResolveAgent(string capability)
+    private async global::System.Threading.Tasks.Task<IAgent?> ResolveAgentAsync(string capability, CancellationToken cancellationToken = default)
     {
         // Try the capability registry for performance-based selection
-        var selection = _capabilityRegistry.SelectBestAgentAsync(capability, taskType: null).GetAwaiter().GetResult();
+        var selection = await _capabilityRegistry.SelectBestAgentAsync(capability, taskType: null, cancellationToken);
         if (selection is not null)
         {
             var impl = _agentImplementations.FirstOrDefault(a => a.Describe().Id == selection.AgentId);
