@@ -58,7 +58,9 @@ using ArchonAI.Core.Models.ProofAnalytics;
 using ArchonAI.Core.Models.ActionSafety;
 using ArchonAI.Core.Models.Inspection;
 using ArchonAI.Identity;
+using ArchonAI.Migrations;
 using ArchonAI.Persistence;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
@@ -93,6 +95,9 @@ builder.Services.AddSingleton<IActionSafetyService, ActionSafetyService>();
 builder.Services.AddSingleton<IInspectionService, InspectionService>();
 builder.Services.AddSingleton<InspectionService>();
 
+// ── Database Migrations (DbUp) ────────────────────────────────────────────────
+builder.Services.AddArchonAIMigrations();
+
 // ── Durable PostgreSQL Persistence (replaces ConcurrentDictionary stores when configured) ──
 builder.Services.AddArchonAIPersistence();
 
@@ -102,9 +107,27 @@ builder.Services.AddHealthChecks()
     .AddCheck<ArchonAI.Common.Observability.TaskQueueHealthCheck>("task_queue", tags: ["live", "ready"])
     .AddCheck<ArchonAI.Common.Observability.ConnectorHealthCheck>("connectors", tags: ["ready"])
     .AddCheck<ArchonAI.Common.Observability.ModelProviderHealthCheck>("model_providers", tags: ["ready"])
-    .AddCheck<ArchonAI.Common.Observability.StartupReadinessCheck>("startup", tags: ["ready"]);
+    .AddCheck<ArchonAI.Common.Observability.StartupReadinessCheck>("startup", tags: ["ready"])
+    .AddCheck<MigrationHealthCheck>("database_migrations", tags: ["ready"]);
 
 var app = builder.Build();
+
+// ── Run database migrations before accepting traffic ──────────────────────────
+{
+    var migrationOptions = app.Services.GetService<IOptions<MigrationOptions>>()?.Value;
+    if (!string.IsNullOrWhiteSpace(migrationOptions?.ConnectionString))
+    {
+        var migrationRunner = app.Services.GetRequiredService<MigrationRunner>();
+        var migrationResult = migrationRunner.Run();
+        if (!migrationResult.Success)
+        {
+            app.Logger.LogCritical(
+                "Database migration failed on {Script}: {Error}. Shutting down.",
+                migrationResult.FailedScript, migrationResult.Error);
+            return;
+        }
+    }
+}
 
 app.UseSerilogRequestLogging();
 
