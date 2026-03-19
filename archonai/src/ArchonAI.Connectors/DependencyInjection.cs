@@ -89,7 +89,9 @@ public static class DependencyInjection
                 httpClient,
                 sp.GetRequiredService<IEventBus>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SalesforceConnector>>(),
-                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SalesforceOptions>>());
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SalesforceOptions>>(),
+                resilienceRegistry: sp.GetService<ConnectorResilienceRegistry>(),
+                shadowMetrics: sp.GetRequiredService<ConnectorShadowMetrics>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<ISalesforceConnector>());
 
@@ -112,7 +114,8 @@ public static class DependencyInjection
                 httpClient,
                 sp.GetRequiredService<IEventBus>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HubSpotConnector>>(),
-                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<HubSpotOptions>>());
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<HubSpotOptions>>(),
+                sp.GetRequiredService<ConnectorShadowMetrics>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IHubSpotConnector>());
 
@@ -135,7 +138,8 @@ public static class DependencyInjection
                 httpClient,
                 sp.GetRequiredService<IEventBus>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<QuickBooksConnector>>(),
-                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<QuickBooksOptions>>());
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<QuickBooksOptions>>(),
+                sp.GetRequiredService<ConnectorShadowMetrics>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IQuickBooksConnector>());
 
@@ -158,7 +162,8 @@ public static class DependencyInjection
                 httpClient,
                 sp.GetRequiredService<IEventBus>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SlackConnector>>(),
-                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SlackOptions>>());
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SlackOptions>>(),
+                sp.GetRequiredService<ConnectorShadowMetrics>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<ISlackConnector>());
 
@@ -181,7 +186,8 @@ public static class DependencyInjection
                 httpClient,
                 sp.GetRequiredService<IEventBus>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GoogleWorkspaceConnector>>(),
-                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<GoogleWorkspaceOptions>>());
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<GoogleWorkspaceOptions>>(),
+                sp.GetRequiredService<ConnectorShadowMetrics>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IGoogleWorkspaceConnector>());
 
@@ -204,9 +210,13 @@ public static class DependencyInjection
                 httpClient,
                 sp.GetRequiredService<IEventBus>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Microsoft365Connector>>(),
-                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft365Options>>());
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft365Options>>(),
+                sp.GetRequiredService<ConnectorShadowMetrics>());
         });
         services.AddSingleton<IConnector>(sp => sp.GetRequiredService<IMicrosoft365Connector>());
+
+        // Shadow metrics for in-process connector counter reads
+        services.AddSingleton<ConnectorShadowMetrics>();
 
         // Integration control center
         services.AddSingleton<IIntegrationControlService, IntegrationControlService>();

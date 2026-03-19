@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -5,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
 using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
+using ArchonAI.Connectors.Framework;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -18,6 +20,7 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
     private readonly IEventBus _eventBus;
     private readonly ILogger<GoogleWorkspaceConnector> _logger;
     private readonly GoogleWorkspaceOptions _options;
+    private readonly ConnectorShadowMetrics _shadowMetrics;
 
     private string? _accessToken;
     private string? _email;
@@ -37,12 +40,14 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
         HttpClient httpClient,
         IEventBus eventBus,
         ILogger<GoogleWorkspaceConnector> logger,
-        IOptions<GoogleWorkspaceOptions> options)
+        IOptions<GoogleWorkspaceOptions> options,
+        ConnectorShadowMetrics? shadowMetrics = null)
     {
         _httpClient = httpClient;
         _eventBus = eventBus;
         _logger = logger;
         _options = options.Value;
+        _shadowMetrics = shadowMetrics ?? new ConnectorShadowMetrics();
         _httpClient.Timeout = TimeSpan.FromSeconds(_options.HttpTimeoutSeconds);
     }
 
@@ -619,10 +624,15 @@ public sealed class GoogleWorkspaceConnector : IGoogleWorkspaceConnector, IDispo
             request.Content = content;
         }
 
+        var sw = Stopwatch.StartNew();
         var response = await _httpClient.SendAsync(request, cancellationToken);
+        sw.Stop();
         UpdateRateLimitInfo(response);
 
-        if (!response.IsSuccessStatusCode)
+        bool success = response.IsSuccessStatusCode;
+        _shadowMetrics.RecordRequest(SystemName, success, sw.Elapsed.TotalMilliseconds);
+
+        if (!success)
         {
             Interlocked.Increment(ref _failedRequests);
             ObsTelemetry.GoogleWorkspaceErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));

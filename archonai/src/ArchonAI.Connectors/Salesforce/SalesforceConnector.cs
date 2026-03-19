@@ -24,6 +24,7 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
     private readonly ILogger<SalesforceConnector> _logger;
     private readonly SalesforceOptions _options;
     private readonly ConnectorResilienceRegistry? _resilienceRegistry;
+    private readonly ConnectorShadowMetrics _shadowMetrics;
 
     private string? _accessToken;
     private string? _instanceUrl;
@@ -40,13 +41,15 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
         IEventBus eventBus,
         ILogger<SalesforceConnector> logger,
         IOptions<SalesforceOptions> options,
-        ConnectorResilienceRegistry? resilienceRegistry = null)
+        ConnectorResilienceRegistry? resilienceRegistry = null,
+        ConnectorShadowMetrics? shadowMetrics = null)
     {
         _httpClient = httpClient;
         _eventBus = eventBus;
         _logger = logger;
         _options = options.Value;
         _resilienceRegistry = resilienceRegistry;
+        _shadowMetrics = shadowMetrics ?? new ConnectorShadowMetrics();
         _httpClient.Timeout = TimeSpan.FromSeconds(_options.HttpTimeoutSeconds);
     }
 
@@ -295,10 +298,15 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
             request.Content = content;
         }
 
+        var sw = Stopwatch.StartNew();
         var response = await _httpClient.SendAsync(request, cancellationToken);
+        sw.Stop();
         UpdateRateLimitInfo(response);
 
-        if (!response.IsSuccessStatusCode)
+        bool success = response.IsSuccessStatusCode;
+        _shadowMetrics.RecordRequest(SystemName, success, sw.Elapsed.TotalMilliseconds);
+
+        if (!success)
         {
             Interlocked.Increment(ref _failedRequests);
             ObsTelemetry.SalesforceErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));

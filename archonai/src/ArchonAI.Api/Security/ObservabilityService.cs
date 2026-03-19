@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using ArchonAI.Common.Observability;
+using ArchonAI.Connectors.Framework;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.Observability;
 using OTel = ArchonAI.Common.Observability.Telemetry;
@@ -14,14 +15,16 @@ public sealed class ObservabilityService : IObservabilityService
     private readonly ConcurrentQueue<AgentExecutionTrace> _traces = new();
     private readonly ConcurrentDictionary<Guid, AgentTrackingState> _agentStates = new();
     private readonly ILogger<ObservabilityService> _logger;
+    private readonly ConnectorShadowMetrics _shadowMetrics;
 
     private long _tracesCollected;
     private long _metricsSnapshots;
     private long _alertsGenerated = 0;
 
-    public ObservabilityService(ILogger<ObservabilityService> logger)
+    public ObservabilityService(ILogger<ObservabilityService> logger, ConnectorShadowMetrics shadowMetrics)
     {
         _logger = logger;
+        _shadowMetrics = shadowMetrics;
     }
 
     public global::System.Threading.Tasks.Task RecordAgentExecutionAsync(AgentExecutionTrace trace, CancellationToken ct = default)
@@ -142,34 +145,37 @@ public sealed class ObservabilityService : IObservabilityService
             StatusAsOfUtc: DateTimeOffset.UtcNow);
     }
 
+    /// <summary>
+    /// Maps connector SystemName values to the display names used in health reports.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> ConnectorDisplayNames =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["salesforce"] = "Salesforce",
+            ["hubspot"] = "HubSpot",
+            ["quickbooks"] = "QuickBooks",
+            ["slack"] = "Slack",
+            ["google-workspace"] = "GoogleWorkspace",
+            ["microsoft365"] = "M365",
+        };
+
     private IReadOnlyDictionary<string, ConnectorHealthStatus> BuildConnectorHealth()
     {
         var now = DateTimeOffset.UtcNow;
         var health = new Dictionary<string, ConnectorHealthStatus>();
+        var allCounters = _shadowMetrics.GetAll();
 
-        AddConnectorHealth(health, "Salesforce",
-            CounterValue(OTel.SalesforceQueryOps) + CounterValue(OTel.SalesforceWriteOps),
-            CounterValue(OTel.SalesforceErrors), now);
-
-        AddConnectorHealth(health, "HubSpot",
-            CounterValue(OTel.HubSpotQueryOps) + CounterValue(OTel.HubSpotWriteOps),
-            CounterValue(OTel.HubSpotErrors), now);
-
-        AddConnectorHealth(health, "QuickBooks",
-            CounterValue(OTel.QuickBooksQueryOps) + CounterValue(OTel.QuickBooksWriteOps),
-            CounterValue(OTel.QuickBooksErrors), now);
-
-        AddConnectorHealth(health, "Slack",
-            CounterValue(OTel.SlackMessagesSent) + CounterValue(OTel.SlackQueryOps) + CounterValue(OTel.SlackAlertsSent),
-            CounterValue(OTel.SlackErrors), now);
-
-        AddConnectorHealth(health, "GoogleWorkspace",
-            CounterValue(OTel.GoogleWorkspaceQueryOps) + CounterValue(OTel.GoogleWorkspaceWriteOps),
-            CounterValue(OTel.GoogleWorkspaceErrors), now);
-
-        AddConnectorHealth(health, "M365",
-            CounterValue(OTel.M365QueryOps) + CounterValue(OTel.M365WriteOps),
-            CounterValue(OTel.M365Errors), now);
+        foreach (var (systemName, displayName) in ConnectorDisplayNames)
+        {
+            if (allCounters.TryGetValue(systemName, out var counters))
+            {
+                AddConnectorHealth(health, displayName, counters.TotalRequests, counters.FailedRequests, now);
+            }
+            else
+            {
+                AddConnectorHealth(health, displayName, 0, 0, now);
+            }
+        }
 
         return health;
     }
@@ -205,14 +211,6 @@ public sealed class ObservabilityService : IObservabilityService
 
         return metrics;
     }
-
-    /// <summary>
-    /// System.Diagnostics.Metrics Counter has no direct read API — values are exported
-    /// via OpenTelemetry/Prometheus collectors. This method exists to satisfy the
-    /// connector health computation; in-process reads always return 0.
-    /// For accurate connector metrics, query the Prometheus /metrics endpoint.
-    /// </summary>
-    private static long CounterValue(System.Diagnostics.Metrics.Counter<long> _) => 0;
 
     // These provide refs to static mutable tracking fields for task counts.
     // Since Telemetry counters don't expose read access, we maintain shadow counters.

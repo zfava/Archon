@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -6,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using ArchonAI.Common.Observability;
 using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
+using ArchonAI.Connectors.Framework;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -19,6 +21,7 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
     private readonly IEventBus _eventBus;
     private readonly ILogger<SlackConnector> _logger;
     private readonly SlackOptions _options;
+    private readonly ConnectorShadowMetrics _shadowMetrics;
 
     private string? _teamId;
     private string? _teamName;
@@ -36,12 +39,14 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
         HttpClient httpClient,
         IEventBus eventBus,
         ILogger<SlackConnector> logger,
-        IOptions<SlackOptions> options)
+        IOptions<SlackOptions> options,
+        ConnectorShadowMetrics? shadowMetrics = null)
     {
         _httpClient = httpClient;
         _eventBus = eventBus;
         _logger = logger;
         _options = options.Value;
+        _shadowMetrics = shadowMetrics ?? new ConnectorShadowMetrics();
         _httpClient.Timeout = TimeSpan.FromSeconds(_options.HttpTimeoutSeconds);
     }
 
@@ -435,10 +440,15 @@ public sealed class SlackConnector : ISlackConnector, IDisposable
             request.Content = content;
         }
 
+        var sw = Stopwatch.StartNew();
         var response = await _httpClient.SendAsync(request, cancellationToken);
+        sw.Stop();
         UpdateRateLimitInfo(response);
 
-        if (!response.IsSuccessStatusCode)
+        bool success = response.IsSuccessStatusCode;
+        _shadowMetrics.RecordRequest(SystemName, success, sw.Elapsed.TotalMilliseconds);
+
+        if (!success)
         {
             Interlocked.Increment(ref _failedRequests);
             ObsTelemetry.SlackErrors.Add(1, new KeyValuePair<string, object?>("status_code", (int)response.StatusCode));
