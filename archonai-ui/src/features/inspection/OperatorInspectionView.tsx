@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useInspection } from './hooks/useInspection';
 import { RationaleInspectionCard } from './components/RationaleInspectionCard';
 import { PolicyInspectionCard } from './components/PolicyInspectionCard';

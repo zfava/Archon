@@ -92,6 +92,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span>ArchonAI</span>
         </div>
 
+        {/* System pulse indicator */}
+        <div className="app-sidebar-pulse">
+          <span className="app-sidebar-pulse-dot" />
+          <span className="app-sidebar-pulse-label">
+            {visibleItems.length} active
+          </span>
+        </div>
+
         {org && (
           <div className="app-sidebar-tenant">
             <span className="app-sidebar-tenant-label">Tenant</span>

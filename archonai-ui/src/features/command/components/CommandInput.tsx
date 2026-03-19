@@ -26,20 +26,23 @@ export function CommandInput({ onSubmit, disabled, placeholder }: Props) {
 
   return (
     <div className="cmd-input-wrap">
-      <div className="cmd-prompt">
-        <span className="cmd-chevron">&#9656;</span>
+      <div className="cmd-input-pill">
+        <span className="cmd-input-prefix">
+          <span aria-hidden="true">&#9889;</span> Command
+          {!value && <span className="cmd-input-cursor" />}
+        </span>
+        <textarea
+          ref={inputRef}
+          className="cmd-input"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder={placeholder ?? 'Enter a command\u2026'}
+          disabled={disabled}
+          rows={1}
+          autoFocus
+        />
       </div>
-      <textarea
-        ref={inputRef}
-        className="cmd-input"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={handleKey}
-        placeholder={placeholder ?? 'Enter a command\u2026'}
-        disabled={disabled}
-        rows={1}
-        autoFocus
-      />
       <button
         className="cmd-send"
         onClick={() => {

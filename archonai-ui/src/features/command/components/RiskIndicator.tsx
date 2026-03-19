@@ -5,17 +5,17 @@ interface Props {
 }
 
 function riskColor(score: number): string {
-  if (score >= 0.7) return '#ef4444';
-  if (score >= 0.4) return '#f97316';
-  if (score >= 0.2) return '#facc15';
-  return '#4ade80';
+  if (score >= 0.7) return '#F87171';
+  if (score >= 0.4) return '#FB923C';
+  if (score >= 0.2) return '#FBBF24';
+  return '#34D399';
 }
 
 function riskBg(score: number): string {
-  if (score >= 0.7) return '#3b1111';
-  if (score >= 0.4) return '#2e1a0a';
-  if (score >= 0.2) return '#2e2a1a';
-  return '#052e16';
+  if (score >= 0.7) return '#1C0A0A';
+  if (score >= 0.4) return '#1C140A';
+  if (score >= 0.2) return '#1C1A0A';
+  return '#052E1C';
 }
 
 export function RiskIndicator({ score, level, size = 'md' }: Props) {
@@ -23,9 +23,10 @@ export function RiskIndicator({ score, level, size = 'md' }: Props) {
   const color = riskColor(score);
   const bg = riskBg(score);
   const isSm = size === 'sm';
+  const isHigh = score >= 0.7;
 
   return (
-    <div className={`risk-indicator ${isSm ? 'risk-indicator--sm' : ''}`}>
+    <div className={`risk-indicator ${isSm ? 'risk-indicator--sm' : ''} ${isHigh ? 'risk-indicator--high' : ''}`}>
       {/* Gauge arc */}
       <svg
         viewBox="0 0 60 36"
@@ -37,7 +38,7 @@ export function RiskIndicator({ score, level, size = 'md' }: Props) {
         <path
           d="M 6 32 A 24 24 0 0 1 54 32"
           fill="none"
-          stroke="#27272a"
+          stroke="#1A2440"
           strokeWidth="5"
           strokeLinecap="round"
         />
