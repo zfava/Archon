@@ -15,10 +15,13 @@
     <PackageReference Include="NSubstitute" Version="5.1.0" />
     <PackageReference Include="FluentAssertions" Version="7.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.3.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ArchonAI.Api\ArchonAI.Api.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Persistence\ArchonAI.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Migrations\ArchonAI.Migrations.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.Core\ArchonAI.Core.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.Common\ArchonAI.Common.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.Connectors\ArchonAI.Connectors.csproj" />
