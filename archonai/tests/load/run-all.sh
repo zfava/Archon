@@ -27,6 +27,9 @@ SCENARIOS=(
   "intelligence-loop-stress"
   "hero-workflow-composition"
   "proof-analytics-volume"
+  "governance-load"
+  "agent-execution-stress"
+  "connector-resilience"
   "soak-test"
 )
 
@@ -54,12 +57,40 @@ echo " Timestamp: $TIMESTAMP"
 echo " Scenarios: ${#SCENARIOS[@]}"
 echo "=============================================="
 
+# Section labels for clear output grouping
+declare -A SCENARIO_SECTIONS=(
+  ["auth-flow"]="Authentication"
+  ["api-crud"]="API CRUD"
+  ["gateway-throughput"]="Gateway & Rate Limiting"
+  ["multi-tenant-isolation"]="Multi-Tenant Isolation"
+  ["connector-load"]="Connector Load"
+  ["intelligence-loop-stress"]="Intelligence Loop"
+  ["hero-workflow-composition"]="Hero Workflow"
+  ["proof-analytics-volume"]="Proof Analytics"
+  ["governance-load"]="Governance & Approvals"
+  ["agent-execution-stress"]="Agent Execution Stress"
+  ["connector-resilience"]="Connector Resilience"
+  ["soak-test"]="Soak / Stability"
+)
+
+PREV_SECTION=""
+
 for scenario in "${SCENARIOS[@]}"; do
   SCENARIO_FILE="$SCRIPT_DIR/scenarios/${scenario}.js"
 
   if [[ ! -f "$SCENARIO_FILE" ]]; then
     echo "SKIP: $scenario (file not found)"
     continue
+  fi
+
+  # Print section header when entering a new group
+  SECTION="${SCENARIO_SECTIONS[$scenario]:-Other}"
+  if [[ "$SECTION" != "$PREV_SECTION" ]]; then
+    echo ""
+    echo "=============================================="
+    echo " SECTION: $SECTION"
+    echo "=============================================="
+    PREV_SECTION="$SECTION"
   fi
 
   echo ""

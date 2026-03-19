@@ -96,6 +96,16 @@ export const PROOF_ANALYTICS_THRESHOLDS = {
   ],
 };
 
+// Aggregate SLA thresholds derived from docs/sla/performance-baselines.md.
+// Use these for new scenarios that don't have scenario-specific thresholds.
+export const slaThresholds = {
+  http_req_duration: ['p(95)<500', 'p(99)<2000'],   // 500ms p95, 2s p99
+  http_req_failed: ['rate<0.01'],                    // <1% error rate
+  http_reqs: ['rate>100'],                           // >100 req/s throughput baseline
+  governance_eval_duration: ['p(95)<200'],           // policy eval < 200ms
+  agent_task_duration: ['p(95)<30000'],              // agent tasks < 30s p95
+};
+
 export const SOAK_THRESHOLDS = {
   http_req_duration: [
     { threshold: 'p(95)<500', abortOnFail: false },

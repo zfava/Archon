@@ -159,6 +159,54 @@ Each scenario produces:
 - `{scenario}-{timestamp}.log` — Human-readable console output
 - `summary-{timestamp}.json` — Consolidated pass/fail summary
 
+## Establishing & Comparing Baselines
+
+### Record a Baseline
+
+Run the API CRUD scenario and export results to a JSON baseline file:
+
+```bash
+k6 run --out json=baseline.json tests/load/scenarios/api-crud.js
+```
+
+This produces `baseline.json` with every metric sample. Store this file alongside
+the release tag or commit SHA it was captured from.
+
+### Compare a New Run Against Baseline
+
+1. Run the same scenario against the new build:
+
+   ```bash
+   k6 run --out json=current.json tests/load/scenarios/api-crud.js
+   ```
+
+2. Extract p95 and error rate from both files and compare:
+
+   ```bash
+   # Extract p95 latency from a k6 JSON output
+   jq -s '[.[] | select(.type=="Point" and .metric=="http_req_duration")] | sort_by(.data.value) | .[length * 0.95 | floor].data.value' baseline.json
+   jq -s '[.[] | select(.type=="Point" and .metric=="http_req_duration")] | sort_by(.data.value) | .[length * 0.95 | floor].data.value' current.json
+   ```
+
+   Alternatively, use the k6 summary export (`--summary-export`) for a simpler
+   comparison of aggregated metrics.
+
+### Regression Criteria
+
+A performance **regression** is flagged when either condition is met:
+
+| Metric | Regression Threshold |
+|--------|---------------------|
+| p95 Latency | Increases by **> 20%** compared to baseline |
+| Error Rate | Increases by **> 0.5 percentage points** compared to baseline |
+
+For example, if the baseline p95 is 250 ms, any run with p95 > 300 ms is a
+regression. If the baseline error rate is 0.8%, any run with error rate > 1.3%
+is a regression.
+
+These thresholds apply to all scenarios listed in this document. CI pipelines
+should fail the build when a regression is detected.
+
 ## Methodology
 
 - All tests use realistic workload patterns (weighted random, 80/20 splits)
