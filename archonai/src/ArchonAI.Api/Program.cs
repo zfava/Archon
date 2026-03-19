@@ -58,6 +58,7 @@ using ArchonAI.Core.Models.ProofAnalytics;
 using ArchonAI.Core.Models.ActionSafety;
 using ArchonAI.Core.Models.Inspection;
 using ArchonAI.Identity;
+using ArchonAI.Identity.Stores;
 using ArchonAI.Migrations;
 using ArchonAI.Persistence;
 using Microsoft.Extensions.Options;
@@ -5075,6 +5076,232 @@ inspection.MapGet("/workflows/{workflowId:guid}/diagnostics", async (
     return diag is null ? Results.NotFound() : Results.Ok(diag);
 }).RequireAuthorization("GovernanceRead");
 
+// ── OIDC Federation Endpoints (unauthenticated) ──────────────────────────
+var oidc = app.MapGroup("/api/v1/auth/oidc")
+    .AllowAnonymous()
+    .RequireRateLimiting("api")
+    .WithTags("oidc");
+
+oidc.MapGet("/login", async (
+    string tenant,
+    ITenantAuthConfigStore tenantAuthConfigStore,
+    IOrganizationStore orgStore,
+    IOptions<OidcOptions> oidcOptions,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(tenant))
+        return Results.BadRequest(new { error = "Tenant slug is required." });
+
+    var org = await orgStore.GetBySlugAsync(tenant, ct);
+    if (org is null)
+        return Results.NotFound(new { error = "Tenant not found." });
+
+    var config = await tenantAuthConfigStore.GetByOrganizationIdAsync(org.Id, ct);
+    if (config is null || !config.IsEnabled)
+        return Results.BadRequest(new { error = "No OIDC provider configured for this tenant." });
+
+    // Generate PKCE code verifier + challenge
+    string codeVerifier = OidcTokenExchangeService.GenerateOidcStateOrNonce();
+    byte[] challengeBytes;
+    using (var sha256 = System.Security.Cryptography.SHA256.Create())
+    {
+        challengeBytes = sha256.ComputeHash(System.Text.Encoding.ASCII.GetBytes(codeVerifier));
+    }
+    string codeChallenge = Convert.ToBase64String(challengeBytes)
+        .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+    string state = OidcTokenExchangeService.GenerateOidcStateOrNonce();
+    string nonce = OidcTokenExchangeService.GenerateOidcStateOrNonce();
+
+    var opts = oidcOptions.Value;
+    string redirectUri = $"{opts.CallbackBaseUrl.TrimEnd('/')}{opts.CallbackPath}";
+    string scopes = string.Join(" ", config.Scopes.Length > 0 ? config.Scopes : new[] { "openid", "profile", "email" });
+    string authorizeUrl = $"{config.Authority.TrimEnd('/')}/authorize"
+        + $"?client_id={Uri.EscapeDataString(config.ClientId)}"
+        + $"&response_type=code"
+        + $"&scope={Uri.EscapeDataString(scopes)}"
+        + $"&redirect_uri={Uri.EscapeDataString(redirectUri)}"
+        + $"&state={Uri.EscapeDataString(state)}"
+        + $"&nonce={Uri.EscapeDataString(nonce)}"
+        + $"&code_challenge={Uri.EscapeDataString(codeChallenge)}"
+        + $"&code_challenge_method=S256";
+
+    return Results.Ok(new OidcLoginResponse(
+        authorizeUrl, state, nonce, codeVerifier, org.Id));
+});
+
+oidc.MapPost("/callback", async (
+    OidcCallbackRequest req,
+    OidcTokenExchangeService exchangeService,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(req.IdToken) || string.IsNullOrWhiteSpace(req.Nonce) || req.OrganizationId == Guid.Empty)
+        return Results.BadRequest(new { error = "IdToken, nonce, and organizationId are required." });
+
+    var result = await exchangeService.ExchangeAsync(req.IdToken, req.Nonce, req.OrganizationId, ct);
+    if (result is null)
+        return Results.Unauthorized();
+
+    return Results.Ok(new OidcCallbackResponse(
+        result.Tokens.AccessToken,
+        result.Tokens.RefreshToken,
+        result.Tokens.ExpiresAtUtc,
+        new UserInfo(result.User.Id, result.User.Email, result.User.DisplayName, result.User.Role),
+        new OrgInfo(result.Organization.Id, result.Organization.Name, result.Organization.Slug),
+        result.IsNewUser));
+});
+
+oidc.MapGet("/providers/{tenant}", async (
+    string tenant,
+    ITenantAuthConfigStore tenantAuthConfigStore,
+    IOrganizationStore orgStore,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(tenant))
+        return Results.BadRequest(new { error = "Tenant slug is required." });
+
+    var org = await orgStore.GetBySlugAsync(tenant, ct);
+    if (org is null)
+        return Results.NotFound(new { error = "Tenant not found." });
+
+    var config = await tenantAuthConfigStore.GetByOrganizationIdAsync(org.Id, ct);
+    if (config is null)
+        return Results.Ok(new { hasOidc = false, providerType = (string?)null });
+
+    return Results.Ok(new
+    {
+        hasOidc = config.IsEnabled,
+        providerType = config.ProviderType.ToString(),
+        authority = config.Authority,
+        autoProvision = config.AutoProvision
+    });
+});
+
+// ── Admin: Tenant Auth Configuration Endpoints ───────────────────────────
+var tenantAuth = admin.MapGroup("/auth");
+
+tenantAuth.MapGet("/configs", async (
+    ITenantAuthConfigStore configStore,
+    CancellationToken ct) =>
+{
+    var configs = await configStore.ListAsync(ct);
+    return Results.Ok(configs.Select(c => new TenantAuthConfigResponse(
+        c.Id, c.OrganizationId, c.ProviderType.ToString(), c.Authority,
+        c.ClientId, c.Domain, c.Scopes, c.AutoProvision, c.DefaultRole, c.IsEnabled,
+        c.CreatedAtUtc, c.UpdatedAtUtc)));
+});
+
+tenantAuth.MapGet("/configs/{orgId:guid}", async (
+    Guid orgId,
+    ITenantAuthConfigStore configStore,
+    CancellationToken ct) =>
+{
+    var config = await configStore.GetByOrganizationIdAsync(orgId, ct);
+    if (config is null)
+        return Results.NotFound(new { error = "No auth config for this organization." });
+
+    return Results.Ok(new TenantAuthConfigResponse(
+        config.Id, config.OrganizationId, config.ProviderType.ToString(), config.Authority,
+        config.ClientId, config.Domain, config.Scopes, config.AutoProvision, config.DefaultRole,
+        config.IsEnabled, config.CreatedAtUtc, config.UpdatedAtUtc));
+});
+
+tenantAuth.MapPost("/configs", async (
+    CreateTenantAuthConfigRequest req,
+    ITenantAuthConfigStore configStore,
+    IOrganizationStore orgStore,
+    CancellationToken ct) =>
+{
+    if (!Enum.TryParse<OidcProviderType>(req.ProviderType, true, out var providerType))
+        return Results.BadRequest(new { error = $"Invalid provider type. Must be one of: {string.Join(", ", Enum.GetNames<OidcProviderType>())}" });
+
+    var org = await orgStore.GetByIdAsync(req.OrganizationId, ct);
+    if (org is null)
+        return Results.NotFound(new { error = "Organization not found." });
+
+    var existing = await configStore.GetByOrganizationIdAsync(req.OrganizationId, ct);
+    if (existing is not null)
+        return Results.Conflict(new { error = "Auth config already exists for this organization. Use PUT to update." });
+
+    var config = new TenantAuthConfig(
+        Id: Guid.NewGuid(),
+        OrganizationId: req.OrganizationId,
+        ProviderType: providerType,
+        Authority: req.Authority,
+        ClientId: req.ClientId,
+        ClientSecret: req.ClientSecret,
+        Domain: req.Domain,
+        Scopes: req.Scopes ?? new[] { "openid", "profile", "email" },
+        AutoProvision: req.AutoProvision,
+        DefaultRole: req.DefaultRole ?? "Viewer",
+        IsEnabled: req.IsEnabled,
+        CreatedAtUtc: DateTimeOffset.UtcNow,
+        UpdatedAtUtc: null);
+    await configStore.CreateAsync(config, ct);
+
+    return Results.Created($"/api/v1/admin/auth/configs/{req.OrganizationId}", new TenantAuthConfigResponse(
+        config.Id, config.OrganizationId, config.ProviderType.ToString(), config.Authority,
+        config.ClientId, config.Domain, config.Scopes, config.AutoProvision, config.DefaultRole,
+        config.IsEnabled, config.CreatedAtUtc, config.UpdatedAtUtc));
+});
+
+tenantAuth.MapPut("/configs/{configId:guid}", async (
+    Guid configId,
+    UpdateTenantAuthConfigRequest req,
+    ITenantAuthConfigStore configStore,
+    CancellationToken ct) =>
+{
+    var existing = await configStore.GetByIdAsync(configId, ct);
+    if (existing is null)
+        return Results.NotFound(new { error = "Auth config not found." });
+
+    OidcProviderType providerType = existing.ProviderType;
+    if (req.ProviderType is not null && !Enum.TryParse(req.ProviderType, true, out providerType))
+        return Results.BadRequest(new { error = "Invalid provider type." });
+
+    var updated = existing with
+    {
+        ProviderType = providerType,
+        Authority = req.Authority ?? existing.Authority,
+        ClientId = req.ClientId ?? existing.ClientId,
+        ClientSecret = req.ClientSecret ?? existing.ClientSecret,
+        Domain = req.Domain ?? existing.Domain,
+        Scopes = req.Scopes ?? existing.Scopes,
+        AutoProvision = req.AutoProvision ?? existing.AutoProvision,
+        DefaultRole = req.DefaultRole ?? existing.DefaultRole,
+        IsEnabled = req.IsEnabled ?? existing.IsEnabled,
+        UpdatedAtUtc = DateTimeOffset.UtcNow
+    };
+    await configStore.UpdateAsync(updated, ct);
+
+    return Results.Ok(new TenantAuthConfigResponse(
+        updated.Id, updated.OrganizationId, updated.ProviderType.ToString(), updated.Authority,
+        updated.ClientId, updated.Domain, updated.Scopes, updated.AutoProvision, updated.DefaultRole,
+        updated.IsEnabled, updated.CreatedAtUtc, updated.UpdatedAtUtc));
+});
+
+tenantAuth.MapDelete("/configs/{configId:guid}", async (
+    Guid configId,
+    ITenantAuthConfigStore configStore,
+    CancellationToken ct) =>
+{
+    var existing = await configStore.GetByIdAsync(configId, ct);
+    if (existing is null)
+        return Results.NotFound(new { error = "Auth config not found." });
+
+    await configStore.DeleteAsync(configId, ct);
+    return Results.NoContent();
+});
+
+tenantAuth.MapGet("/links/{orgId:guid}", async (
+    Guid orgId,
+    IExternalIdentityLinkStore linkStore,
+    CancellationToken ct) =>
+{
+    var links = await linkStore.ListByOrganizationAsync(orgId, ct);
+    return Results.Ok(links);
+});
+
 app.Run();
 
 
@@ -5279,6 +5506,65 @@ public sealed record AuthResponse(
 public sealed record MeResponse(
     UserInfo User,
     OrgInfo Organization);
+
+// ── OIDC DTOs ──────────────────────────────────────────────
+
+public sealed record OidcLoginResponse(
+    string AuthorizeUrl,
+    string State,
+    string Nonce,
+    string CodeVerifier,
+    Guid OrganizationId);
+
+public sealed record OidcCallbackRequest(
+    string IdToken,
+    string Nonce,
+    Guid OrganizationId);
+
+public sealed record OidcCallbackResponse(
+    string AccessToken,
+    string RefreshToken,
+    DateTimeOffset ExpiresAtUtc,
+    UserInfo User,
+    OrgInfo Organization,
+    bool IsNewUser);
+
+public sealed record TenantAuthConfigResponse(
+    Guid Id,
+    Guid OrganizationId,
+    string ProviderType,
+    string Authority,
+    string ClientId,
+    string? Domain,
+    string[] Scopes,
+    bool AutoProvision,
+    string DefaultRole,
+    bool IsEnabled,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? UpdatedAtUtc);
+
+public sealed record CreateTenantAuthConfigRequest(
+    Guid OrganizationId,
+    string ProviderType,
+    string Authority,
+    string ClientId,
+    string ClientSecret,
+    string? Domain,
+    string[]? Scopes,
+    bool AutoProvision,
+    string? DefaultRole,
+    bool IsEnabled);
+
+public sealed record UpdateTenantAuthConfigRequest(
+    string? ProviderType,
+    string? Authority,
+    string? ClientId,
+    string? ClientSecret,
+    string? Domain,
+    string[]? Scopes,
+    bool? AutoProvision,
+    string? DefaultRole,
+    bool? IsEnabled);
 
 // ── Governance DTOs ────────────────────────────────────────
 

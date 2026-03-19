@@ -28,6 +28,18 @@ public static class DependencyInjection
         services.AddSingleton<TokenService>();
         services.AddSingleton<AuthenticationService>();
 
+        // OIDC federation stores
+        services.AddSingleton<ITenantAuthConfigStore, InMemoryTenantAuthConfigStore>();
+        services.AddSingleton<IExternalIdentityLinkStore, InMemoryExternalIdentityLinkStore>();
+
+        // OIDC token exchange service
+        services.AddOptions<OidcOptions>()
+            .BindConfiguration(OidcOptions.SectionName);
+        services.AddSingleton<OidcTokenExchangeService>();
+
+        // SAML stub (not yet implemented — interface wired for future extension)
+        services.AddSingleton<ISamlAuthenticationHandler, NotImplementedSamlHandler>();
+
         return services;
     }
 }
