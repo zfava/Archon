@@ -1,6 +1,9 @@
 using System.Text.Json;
 using ArchonAI.Api.Dtos;
 using ArchonAI.Core.Interfaces;
+using ArchonAI.Infrastructure;
+using ArchonAI.Persistence;
+using Microsoft.Extensions.Options;
 
 namespace ArchonAI.Api.Endpoints;
 
@@ -15,6 +18,7 @@ public static class AdminEndpoints
         MapRbacEndpoints(admin);
         MapRuntimeHealthEndpoints(admin);
         MapSecurityEndpoints(admin);
+        MapRetentionEndpoints(admin);
         OidcEndpoints.MapTenantAuthEndpoints(admin);
 
         MapAuditEndpoints(v1);
@@ -311,6 +315,22 @@ public static class AdminEndpoints
         {
             var isValid = await auditService.VerifyIntegrityAsync(request?.FromEntryId, ct);
             return Results.Ok(new { integrityValid = isValid, verifiedAtUtc = DateTimeOffset.UtcNow });
+        });
+    }
+
+    private static void MapRetentionEndpoints(IEndpointRouteBuilder admin)
+    {
+        var retention = admin.MapGroup("/retention");
+
+        retention.MapPost("/sweep", async (RetentionHostedService retentionService, CancellationToken ct) =>
+        {
+            var result = await retentionService.RunSweepAsync(ct);
+            return Results.Ok(result);
+        });
+
+        retention.MapGet("/policy", (IOptions<PersistenceOptions> options) =>
+        {
+            return Results.Ok(options.Value.Retention);
         });
     }
 }

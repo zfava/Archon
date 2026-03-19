@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ArchonAI.Common\ArchonAI.Common.csproj" />
+    <ProjectReference Include="..\ArchonAI.Persistence\ArchonAI.Persistence.csproj" />
     <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
     <ProjectReference Include="..\ArchonAI.Planner\ArchonAI.Planner.csproj" />
     <ProjectReference Include="..\ArchonAI.Reasoner\ArchonAI.Reasoner.csproj" />
