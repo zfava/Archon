@@ -3,8 +3,11 @@
 # PREREQUISITE: GitHub Dependency Graph must be enabled on this repository.
 #   → Settings → Code security and analysis → Dependency graph → Enable
 #
-# Without Dependency Graph the review step cannot retrieve the dependency diff
-# and this workflow will fail with a clear error message explaining why.
+# Behavior:
+#   - If Dependency Graph is available, the review runs and blocks on high-severity findings.
+#   - If Dependency Graph is unavailable (403/404), the workflow emits a clear
+#     warning with the exact enablement path and skips the review step gracefully,
+#     so an unconfigured repo setting does not block the entire CI pipeline.
 
 name: Dependency review
 
@@ -19,10 +22,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Pre-flight: verify that the Dependency Graph API is available.
-      # The dependency-review-action calls this endpoint internally; if it
-      # returns 404 or 403 the action fails with an opaque error.
-      - name: Check Dependency Graph is enabled
+      # Pre-flight: verify that the Dependency Graph API is reachable.
+      # Sets output "available" to "true" or "false" so downstream steps
+      # can be gated without hard-failing the pipeline.
+      - name: Check Dependency Graph availability
+        id: depgraph_check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -32,14 +36,26 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/dependency-graph/compare/${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}")
 
           if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Dependency Graph API is reachable."
+            echo "Dependency Graph API is reachable."
+            echo "available=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::Dependency Graph is not enabled for this repository (HTTP $HTTP_CODE)."
-            echo "::error::Enable it at: https://github.com/${{ github.repository }}/settings/security_analysis"
-            echo "::error::Settings → Code security and analysis → Dependency graph → Enable"
-            exit 1
+            echo "::warning::Dependency Graph is not enabled or not reachable for this repository (HTTP $HTTP_CODE)."
+            echo "::warning::Enable it at: https://github.com/${{ github.repository }}/settings/security_analysis"
+            echo "::warning::Settings → Code security and analysis → Dependency graph → Enable"
+            echo "::warning::Dependency review will be SKIPPED for this run."
+            echo "available=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/dependency-review-action@v4
+      # Runs only when the Dependency Graph API responded successfully.
+      - name: Run dependency review
+        if: steps.depgraph_check.outputs.available == 'true'
+        uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
+
+      # Explicit log entry when review is skipped so it is obvious in the job summary.
+      - name: Dependency review skipped
+        if: steps.depgraph_check.outputs.available != 'true'
+        run: |
+          echo "::warning::Dependency review was SKIPPED because the Dependency Graph API is not available."
+          echo "::warning::To enable: Repository → Settings → Code security and analysis → Dependency graph → Enable"
