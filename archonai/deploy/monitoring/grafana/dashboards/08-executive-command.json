@@ -1,0 +1,751 @@
+{
+  "uid": "archonai-executive-command",
+  "title": "ArchonAI — Executive Command",
+  "tags": ["archonai", "executive"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {
+          "selected": true,
+          "text": "Prometheus",
+          "value": "Prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Exception Severity",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Task Failures/hr",
+      "description": "Total task failures observed in the last hour. Red threshold indicates critical failure rate.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 2,
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(increase(archonai_tasks_failed_total[1h]))",
+          "legendFormat": "Task Failures/hr",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 10 }
+            ]
+          },
+          "color": { "mode": "thresholds" },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Agent Failures/hr",
+      "description": "Runtime agent failures in the last hour. Any value above zero triggers a red alert.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 3,
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(increase(archonai_runtime_agent_failures_total[1h]))",
+          "legendFormat": "Agent Failures/hr",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0 }
+            ]
+          },
+          "color": { "mode": "thresholds" },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Alerts Raised/hr",
+      "description": "Number of observability alerts raised in the last hour.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 4,
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(increase(archonai_observability_alerts_total[1h]))",
+          "legendFormat": "Alerts Raised/hr",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 5 },
+              { "color": "red", "value": 20 }
+            ]
+          },
+          "color": { "mode": "thresholds" },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Recovery Success %",
+      "description": "Percentage of recovery attempts that succeeded. Indicates self-healing effectiveness.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 5,
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "targets": [
+        {
+          "expr": "(sum(increase(archonai_runtime_recoveries_succeeded_total[1h])) / clamp_min(sum(increase(archonai_runtime_recoveries_attempted_total[1h])), 1)) * 100",
+          "legendFormat": "Recovery Success %",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 50 },
+              { "color": "green", "value": 90 }
+            ]
+          },
+          "color": { "mode": "thresholds" },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Decision Pipeline",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false,
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "Loop Cycle Rate & Failures",
+      "description": "Completed and failed loop cycle rates, stacked to show total throughput and failure proportion.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 11,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "expr": "rate(archonai_loop_cycles_completed_total[5m])",
+          "legendFormat": "Completed/s",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_loop_cycles_failures_total[5m])",
+          "legendFormat": "Failures/s",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 30,
+            "stacking": { "mode": "normal", "group": "A" },
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Failures/s" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Loop Cycle Duration P95",
+      "description": "95th percentile of loop cycle duration in milliseconds, showing worst-case decision pipeline latency.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 12,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(archonai_loop_cycle_duration_ms_bucket[5m])) by (le))",
+          "legendFormat": "P95 Duration (ms)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Calibration & Simulation",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "collapsed": false,
+      "id": 20
+    },
+    {
+      "type": "timeseries",
+      "title": "Simulation Runs",
+      "description": "Rate of workflow simulation runs per second.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 21,
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 15 },
+      "targets": [
+        {
+          "expr": "rate(archonai_workflowsimulation_runs_total[5m])",
+          "legendFormat": "Simulation Runs/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Predictions Generated",
+      "description": "Rate of simulation predictions generated per second.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 22,
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 15 },
+      "targets": [
+        {
+          "expr": "rate(archonai_workflowsimulation_predictions_total[5m])",
+          "legendFormat": "Predictions/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Resource Estimates",
+      "description": "Rate of resource estimates produced by workflow simulation per second.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 23,
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 15 },
+      "targets": [
+        {
+          "expr": "rate(archonai_workflowsimulation_resource_estimates_total[5m])",
+          "legendFormat": "Resource Estimates/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency Estimates",
+      "description": "Rate of latency estimates produced by workflow simulation per second.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 24,
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 15 },
+      "targets": [
+        {
+          "expr": "rate(archonai_workflowsimulation_latency_estimates_total[5m])",
+          "legendFormat": "Latency Estimates/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Strategy Intelligence",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "collapsed": false,
+      "id": 30
+    },
+    {
+      "type": "timeseries",
+      "title": "Strategies Created",
+      "description": "Rate of new strategies created in the strategy library per second.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 31,
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "rate(archonai_strategylibrary_created_total[5m])",
+          "legendFormat": "Created/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Strategy Executions",
+      "description": "Rate of strategy executions recorded per second.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 32,
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 24 },
+      "targets": [
+        {
+          "expr": "rate(archonai_strategylibrary_executions_recorded_total[5m])",
+          "legendFormat": "Executions/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Strategy Ranking Queries",
+      "description": "Rate of strategy ranking queries per second.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 33,
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "expr": "rate(archonai_strategylibrary_rank_queries_total[5m])",
+          "legendFormat": "Rank Queries/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Strategy Comparisons",
+      "description": "Rate of strategy comparisons per second.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 34,
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 24 },
+      "targets": [
+        {
+          "expr": "rate(archonai_strategylibrary_comparisons_total[5m])",
+          "legendFormat": "Comparisons/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Observability Pipeline",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "collapsed": false,
+      "id": 40
+    },
+    {
+      "type": "timeseries",
+      "title": "Traces Collected",
+      "description": "Rate of observability traces collected per second.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 41,
+      "gridPos": { "h": 8, "w": 9, "x": 0, "y": 33 },
+      "targets": [
+        {
+          "expr": "rate(archonai_observability_traces_collected_total[5m])",
+          "legendFormat": "Traces/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Metrics Snapshots",
+      "description": "Rate of metrics snapshots captured per second.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 42,
+      "gridPos": { "h": 8, "w": 9, "x": 9, "y": 33 },
+      "targets": [
+        {
+          "expr": "rate(archonai_observability_metrics_snapshots_total[5m])",
+          "legendFormat": "Snapshots/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 15,
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "none" },
+            "axisBorderShow": false,
+            "scaleDistribution": { "type": "linear" }
+          },
+          "color": { "mode": "palette-classic" },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "calcs": [] }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Policy Operations/hr",
+      "description": "Total control-plane policy operations in the last hour.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 43,
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 33 },
+      "targets": [
+        {
+          "expr": "sum(increase(archonai_controlplane_policy_ops_total[1h]))",
+          "legendFormat": "Policy Ops/hr",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          },
+          "color": { "mode": "thresholds" },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      }
+    }
+  ]
+}
