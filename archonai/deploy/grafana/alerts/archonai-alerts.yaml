@@ -1,0 +1,174 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: archonai-alerts
+    folder: ArchonAI
+    interval: 1m
+    rules:
+      - uid: archonai-high-api-error-rate
+        title: HighAPIErrorRate
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: rate(archonai_gateway_requests_failed_total[5m])
+              instant: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: rate(archonai_gateway_requests_total[5m])
+              instant: false
+              refId: B
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: $A / $B > 0.01
+              refId: C
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: API error rate above 1%
+          description: >-
+            The API error rate (5xx responses / total requests) has exceeded
+            1% for more than 2 minutes. Investigate recent deployments,
+            downstream service health, and database connectivity.
+          runbook_url: https://docs.archonai.io/runbooks/high-api-error-rate
+
+      - uid: archonai-agent-execution-stalled
+        title: AgentExecutionStalled
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: increase(archonai_tasks_executed_total[10m])
+              instant: true
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                sum(archonai_tasks_queued_total)
+                - sum(archonai_tasks_executed_total)
+                - sum(archonai_tasks_failed_total)
+              instant: true
+              refId: B
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: math
+              expression: $A == 0 && $B > 5
+              refId: C
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: Tasks queued but none completing
+          description: >-
+            No tasks have completed in the last 10 minutes while more than
+            5 tasks remain in the queue. Check agent worker health, NATS
+            connectivity, and task execution logs.
+          runbook_url: https://docs.archonai.io/runbooks/agent-stalled
+
+      - uid: archonai-governance-approval-backlog
+        title: GovernanceApprovalBacklog
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                sum(archonai_admin_workflow_queries_total)
+                - sum(archonai_admin_policy_updates_total) > 10
+              instant: true
+              refId: A
+        for: 15m
+        labels:
+          severity: warning
+          team: governance
+        annotations:
+          summary: More than 10 approvals pending
+          description: >-
+            The governance approval backlog has exceeded 10 pending items
+            for 15 minutes. Notify governance reviewers to process the queue.
+          runbook_url: https://docs.archonai.io/runbooks/approval-backlog
+
+      - uid: archonai-connector-circuit-open
+        title: ConnectorCircuitOpen
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: archonai_circuit_breaker_state == 2
+              instant: true
+              refId: A
+        for: 1m
+        labels:
+          severity: critical
+          team: integrations
+        annotations:
+          summary: Connector circuit breaker OPEN — external system unreachable
+          description: >-
+            A connector circuit breaker has transitioned to OPEN state,
+            meaning the external system is unreachable. Check the external
+            service status page, network connectivity, and API credentials.
+            The circuit breaker will automatically attempt HALF-OPEN after
+            the configured timeout.
+          runbook_url: https://docs.archonai.io/runbooks/circuit-breaker-open
+
+      - uid: archonai-worker-health-missing
+        title: WorkerHealthMissing
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: absent(up{job=~"archonai-worker.*"}) or up{job=~"archonai-worker.*"} == 0
+              instant: true
+              refId: A
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+        annotations:
+          summary: ArchonAI worker service is down
+          description: >-
+            One or more ArchonAI worker services (agents, runtime, scheduler)
+            are not reporting health metrics. Check Kubernetes pod status,
+            restart events, and resource limits.
+          runbook_url: https://docs.archonai.io/runbooks/worker-down
