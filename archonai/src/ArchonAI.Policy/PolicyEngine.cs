@@ -197,7 +197,7 @@ public sealed class PolicyEngine : IPolicyEngine
         return token.Action.ToLowerInvariant();
     }
 
-    private static double ResolveConfidenceScore(CoreTask task, CoreExecutionContext context)
+    private double ResolveConfidenceScore(CoreTask task, CoreExecutionContext context)
     {
         if (context.Metadata.TryGetValue("confidence", out string? contextConfidence)
             && double.TryParse(contextConfidence, out double parsedContextConfidence))
@@ -211,6 +211,11 @@ public sealed class PolicyEngine : IPolicyEngine
             return parsedTaskConfidence;
         }
 
-        return 0.75;
+        _logger.LogDebug(
+            "No confidence signal found for task {TaskId}. Using configured default {Default}. " +
+            "Set 'confidence' in context.Metadata or task.Inputs to override.",
+            task.Id, _options.DefaultConfidenceScore);
+
+        return _options.DefaultConfidenceScore;
     }
 }
