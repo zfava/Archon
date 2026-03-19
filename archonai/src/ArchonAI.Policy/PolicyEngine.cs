@@ -1,6 +1,7 @@
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Policy;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using CoreExecutionContext = ArchonAI.Core.Models.ExecutionContext;
 using CoreTask = ArchonAI.Core.Models.Task;
@@ -10,10 +11,12 @@ namespace ArchonAI.Policy;
 public sealed class PolicyEngine : IPolicyEngine
 {
     private readonly PolicyOptions _options;
+    private readonly ILogger<PolicyEngine> _logger;
 
-    public PolicyEngine(IOptions<PolicyOptions> options)
+    public PolicyEngine(IOptions<PolicyOptions> options, ILogger<PolicyEngine> logger)
     {
         _options = options.Value;
+        _logger = logger;
     }
 
     public global::System.Threading.Tasks.Task<PolicyDecision> EvaluateAsync(
@@ -114,7 +117,7 @@ public sealed class PolicyEngine : IPolicyEngine
             }
         }
 
-        string manualOverrideState = ResolveManualOverrideState(context);
+        string manualOverrideState = ResolveManualOverrideState(task, context);
 
         bool isAllowed = violations.Count == 0 && risk < _options.AutoBlockRiskThreshold;
         string reason = isAllowed
@@ -153,18 +156,45 @@ public sealed class PolicyEngine : IPolicyEngine
             EvaluatedAtUtc: DateTimeOffset.UtcNow));
     }
 
-    private static string ResolveManualOverrideState(CoreExecutionContext context)
+    private string ResolveManualOverrideState(CoreTask task, CoreExecutionContext context)
     {
-        if (!context.Metadata.TryGetValue("manualOverride", out string? value) || string.IsNullOrWhiteSpace(value))
+        if (!context.Metadata.TryGetValue("manualOverrideToken", out string? tokenString)
+            || string.IsNullOrWhiteSpace(tokenString))
         {
             return "none";
         }
 
-        return value.Equals("allow", StringComparison.OrdinalIgnoreCase)
-            ? "allow"
-            : value.Equals("deny", StringComparison.OrdinalIgnoreCase)
-                ? "deny"
-                : "none";
+        if (string.IsNullOrWhiteSpace(_options.ManualOverrideSigningKey))
+        {
+            _logger.LogWarning(
+                "Manual override token presented for task {TaskId} but ManualOverrideSigningKey is not configured — rejecting",
+                task.Id);
+            return "none";
+        }
+
+        var token = ManualOverrideTokenService.ValidateToken(tokenString, _options.ManualOverrideSigningKey);
+        if (token is null)
+        {
+            _logger.LogWarning(
+                "Invalid or expired manual override token presented for task {TaskId}",
+                task.Id);
+            return "none";
+        }
+
+        // Verify the token targets this specific task
+        if (!string.Equals(token.TargetTaskId, task.Id.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning(
+                "Manual override token target task {TokenTaskId} does not match current task {TaskId} — rejecting",
+                token.TargetTaskId, task.Id);
+            return "none";
+        }
+
+        _logger.LogInformation(
+            "Valid manual override token accepted: action={Action} task={TaskId} authorizedBy={AuthorizedBy} role={Role}",
+            token.Action, task.Id, token.AuthorizedBy, token.AuthorizedByRole);
+
+        return token.Action.ToLowerInvariant();
     }
 
     private static double ResolveConfidenceScore(CoreTask task, CoreExecutionContext context)

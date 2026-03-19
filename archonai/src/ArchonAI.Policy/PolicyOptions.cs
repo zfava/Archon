@@ -12,4 +12,5 @@ public sealed class PolicyOptions
     public double ConfidenceRiskWeight { get; set; } = 50;
     public double AutoBlockRiskThreshold { get; set; } = 80;
     public double ApprovalRiskThreshold { get; set; } = 60;
+    public string ManualOverrideSigningKey { get; set; } = string.Empty;
 }
