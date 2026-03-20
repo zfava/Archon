@@ -17,16 +17,23 @@ public static class DependencyInjection
 
         services.AddSingleton<IAgentIdentityStore, DurableAgentIdentityStore>();
 
-        // User/org/membership stores – single durable store implements all interfaces
-        services.AddSingleton<DurableIdentityStore>();
-        services.AddSingleton<IUserStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
-        services.AddSingleton<IOrganizationStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
-        services.AddSingleton<IMembershipStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
-        services.AddSingleton<IRefreshTokenStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
-        services.AddSingleton<IInviteTokenStore>(sp => sp.GetRequiredService<DurableIdentityStore>());
+        // In-memory identity stores — registered as concrete types for the persistence
+        // factory to capture. When PostgreSQL ConnectionString is configured,
+        // AddArchonAIPersistence() replaces these with Postgres-backed implementations.
+        services.AddSingleton<InMemoryUserStore>();
+        services.AddSingleton<IUserStore>(sp => sp.GetRequiredService<InMemoryUserStore>());
+        services.AddSingleton<InMemoryOrganizationStore>();
+        services.AddSingleton<IOrganizationStore>(sp => sp.GetRequiredService<InMemoryOrganizationStore>());
+        services.AddSingleton<InMemoryMembershipStore>();
+        services.AddSingleton<IMembershipStore>(sp => sp.GetRequiredService<InMemoryMembershipStore>());
+        services.AddSingleton<InMemoryRefreshTokenStore>();
+        services.AddSingleton<IRefreshTokenStore>(sp => sp.GetRequiredService<InMemoryRefreshTokenStore>());
+        services.AddSingleton<InMemoryInviteTokenStore>();
+        services.AddSingleton<IInviteTokenStore>(sp => sp.GetRequiredService<InMemoryInviteTokenStore>());
 
         // MFA store
-        services.AddSingleton<IMfaStore, InMemoryMfaStore>();
+        services.AddSingleton<InMemoryMfaStore>();
+        services.AddSingleton<IMfaStore>(sp => sp.GetRequiredService<InMemoryMfaStore>());
 
         // Auth services
         services.AddSingleton<TokenService>();
@@ -38,9 +45,12 @@ public static class DependencyInjection
         services.AddSingleton<MfaChallengeService>();
 
         // OIDC federation stores
-        services.AddSingleton<ITenantAuthConfigStore, InMemoryTenantAuthConfigStore>();
-        services.AddSingleton<IExternalIdentityLinkStore, InMemoryExternalIdentityLinkStore>();
-        services.AddSingleton<IOidcLoginSessionStore, InMemoryOidcLoginSessionStore>();
+        services.AddSingleton<InMemoryTenantAuthConfigStore>();
+        services.AddSingleton<ITenantAuthConfigStore>(sp => sp.GetRequiredService<InMemoryTenantAuthConfigStore>());
+        services.AddSingleton<InMemoryExternalIdentityLinkStore>();
+        services.AddSingleton<IExternalIdentityLinkStore>(sp => sp.GetRequiredService<InMemoryExternalIdentityLinkStore>());
+        services.AddSingleton<InMemoryOidcLoginSessionStore>();
+        services.AddSingleton<IOidcLoginSessionStore>(sp => sp.GetRequiredService<InMemoryOidcLoginSessionStore>());
 
         // OIDC token exchange service
         services.AddOptions<OidcOptions>()

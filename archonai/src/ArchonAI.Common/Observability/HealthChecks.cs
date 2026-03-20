@@ -154,6 +154,42 @@ public sealed class ModelProviderHealthCheck : IHealthCheck
 }
 
 /// <summary>
+/// Health check that validates identity-critical persistence is properly configured.
+/// Reports unhealthy in production-like environments when identity stores are backed
+/// by in-memory implementations instead of durable (PostgreSQL) persistence.
+/// </summary>
+public sealed class IdentityPersistenceHealthCheck : IHealthCheck
+{
+    private static bool _isProductionLike;
+    private static bool _hasDurablePersistence;
+    private static string _detail = "Not yet evaluated.";
+
+    public static void Configure(bool isProductionLike, bool hasDurablePersistence)
+    {
+        _isProductionLike = isProductionLike;
+        _hasDurablePersistence = hasDurablePersistence;
+        _detail = hasDurablePersistence
+            ? "Identity stores are PostgreSQL-backed."
+            : isProductionLike
+                ? "CRITICAL: Identity stores are using in-memory/file persistence in a production-like environment. " +
+                  "Set ArchonAIPersistence:ConnectionString to enable durable identity persistence."
+                : "Identity stores are using in-memory persistence (acceptable for local/dev).";
+    }
+
+    public Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context, CancellationToken cancellationToken = default)
+    {
+        if (_hasDurablePersistence)
+            return Task.FromResult(HealthCheckResult.Healthy(_detail));
+
+        if (_isProductionLike)
+            return Task.FromResult(HealthCheckResult.Unhealthy(_detail));
+
+        return Task.FromResult(HealthCheckResult.Degraded(_detail));
+    }
+}
+
+/// <summary>
 /// Startup/readiness probe — reports unhealthy until all critical services have completed
 /// initialization (agent registration, tool registration, etc.).
 /// </summary>

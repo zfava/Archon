@@ -21,13 +21,17 @@ namespace ArchonAI.Infrastructure.Secrets;
 /// - Ciphertexts without a version prefix (format: <c>{Base64(IV)}.{Base64(Ciphertext)}</c>)
 ///   are detected as legacy and decrypted using the JWT-derived key (<c>ARCHONAI_JWT_SIGNING_KEY</c>).
 /// - On successful TOTP verification, callers should re-encrypt with the current key.
+///
+/// Security:
+/// - No hardcoded fallback key exists. In production-like environments, a dedicated
+///   TOTP encryption key MUST be configured. The JWT signing key is accepted as a
+///   secondary source but a warning is emitted.
 /// </summary>
 public sealed class DedicatedTotpSecretEncryptor : ITotpSecretEncryptor
 {
     private const string CurrentVersion = "v1";
-    private const string TotpKeyEnvVar = "ARCHONAI_TOTP_ENCRYPTION_KEY";
-    private const string JwtKeyEnvVar = "ARCHONAI_JWT_SIGNING_KEY";
-    private const string DevFallbackKey = "default-dev-key-not-for-production!!";
+    internal const string TotpKeyEnvVar = "ARCHONAI_TOTP_ENCRYPTION_KEY";
+    internal const string JwtKeyEnvVar = "ARCHONAI_JWT_SIGNING_KEY";
 
     // HKDF info strings to derive separate encryption and MAC keys
     private static readonly byte[] EncKeyInfo = "archonai-totp-enc"u8.ToArray();
@@ -118,7 +122,13 @@ public sealed class DedicatedTotpSecretEncryptor : ITotpSecretEncryptor
             "Decrypting TOTP secret using legacy JWT-derived key. " +
             "This credential should be re-encrypted with the dedicated TOTP key on next verification.");
 
-        string jwtKey = _secretProvider.GetSecret(JwtKeyEnvVar) ?? DevFallbackKey;
+        string? jwtKey = _secretProvider.GetSecret(JwtKeyEnvVar);
+        if (string.IsNullOrWhiteSpace(jwtKey))
+        {
+            throw new InvalidOperationException(
+                $"Cannot decrypt legacy TOTP secret: {JwtKeyEnvVar} is required for legacy migration. " +
+                $"Set the original JWT signing key that was used to encrypt these secrets.");
+        }
         byte[] keyBytes = SHA256.HashData(Encoding.UTF8.GetBytes(jwtKey));
 
         var parts = ciphertext.Split('.');
@@ -138,15 +148,27 @@ public sealed class DedicatedTotpSecretEncryptor : ITotpSecretEncryptor
 
     private (byte[] EncKey, byte[] MacKey) DeriveCurrentKeys()
     {
-        string rawKey = _secretProvider.GetSecret(TotpKeyEnvVar)
-            ?? _secretProvider.GetSecret(JwtKeyEnvVar)
-            ?? DevFallbackKey;
+        string? rawKey = _secretProvider.GetSecret(TotpKeyEnvVar);
 
-        if (rawKey == DevFallbackKey)
+        if (rawKey is null)
         {
-            _logger.LogWarning(
-                "TOTP encryption using development fallback key. " +
-                "Set {EnvVar} for production deployments.", TotpKeyEnvVar);
+            // Fall back to JWT signing key — acceptable but not ideal.
+            rawKey = _secretProvider.GetSecret(JwtKeyEnvVar);
+
+            if (rawKey is not null)
+            {
+                _logger.LogWarning(
+                    "TOTP encryption using JWT signing key as fallback. " +
+                    "Set {EnvVar} for proper key separation.", TotpKeyEnvVar);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(rawKey))
+        {
+            throw new InvalidOperationException(
+                $"TOTP encryption key not configured. " +
+                $"Set the {TotpKeyEnvVar} environment variable (preferred) or {JwtKeyEnvVar} (fallback). " +
+                $"No hardcoded fallback key exists — this is a security requirement.");
         }
 
         byte[] ikm = Encoding.UTF8.GetBytes(rawKey);

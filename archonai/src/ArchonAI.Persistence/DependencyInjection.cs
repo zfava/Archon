@@ -9,13 +9,13 @@ namespace ArchonAI.Persistence;
 public static class DependencyInjection
 {
     /// <summary>
-    /// Registers all 21 PostgreSQL-backed stores as named singletons and wires
+    /// Registers all PostgreSQL-backed stores as named singletons and wires
     /// config-driven factory delegates that select between Postgres and in-memory
     /// implementations based on the <see cref="PersistenceOptions.ConnectionString"/>.
     ///
     /// IMPORTANT: Call this AFTER the existing in-memory service registrations
-    /// (AddArchonAISecurity, AddArchonAIObservability, and the Program.cs singletons)
-    /// so that the in-memory concrete types are already registered.
+    /// (AddArchonAISecurity, AddArchonAIObservability, AddArchonAIIdentity, and the
+    /// Program.cs singletons) so that the in-memory concrete types are already registered.
     /// This method removes the old interface registrations and replaces them with
     /// factory delegates that choose the correct backend.
     /// </summary>
@@ -24,7 +24,7 @@ public static class DependencyInjection
         services.AddOptions<PersistenceOptions>()
             .BindConfiguration(PersistenceOptions.SectionName);
 
-        // Register all Postgres store concrete types
+        // ── Domain stores (21) ───────────────────────────────────────
         services.AddSingleton<PostgresAuditLogStore>();
         services.AddSingleton<PostgresRbacStore>();
         services.AddSingleton<PostgresGovernanceStore>();
@@ -47,8 +47,6 @@ public static class DependencyInjection
         services.AddSingleton<PostgresAgentCapabilityRegistryStore>();
         services.AddSingleton<PostgresControlPlaneAlertStore>();
 
-        // Replace each interface registration with a config-driven factory.
-        // When ConnectionString is set → Postgres store; otherwise → original in-memory impl.
         ReplaceWithFactory<IAuditLogService, PostgresAuditLogStore>(services);
         ReplaceWithFactory<IRbacService, PostgresRbacStore>(services);
         ReplaceWithFactory<IGovernanceService, PostgresGovernanceStore>(services);
@@ -70,6 +68,27 @@ public static class DependencyInjection
         ReplaceWithFactory<IControlPlaneRepository, PostgresControlPlaneStore>(services);
         ReplaceWithFactory<IAgentCapabilityRegistry, PostgresAgentCapabilityRegistryStore>(services);
         ReplaceWithFactory<IControlPlaneAlertStore, PostgresControlPlaneAlertStore>(services);
+
+        // ── Identity stores (9) ──────────────────────────────────────
+        services.AddSingleton<PostgresUserStore>();
+        services.AddSingleton<PostgresOrganizationStore>();
+        services.AddSingleton<PostgresMembershipStore>();
+        services.AddSingleton<PostgresRefreshTokenStore>();
+        services.AddSingleton<PostgresInviteTokenStore>();
+        services.AddSingleton<PostgresMfaStore>();
+        services.AddSingleton<PostgresTenantAuthConfigStore>();
+        services.AddSingleton<PostgresExternalIdentityLinkStore>();
+        services.AddSingleton<PostgresOidcLoginSessionStore>();
+
+        ReplaceWithFactory<IUserStore, PostgresUserStore>(services);
+        ReplaceWithFactory<IOrganizationStore, PostgresOrganizationStore>(services);
+        ReplaceWithFactory<IMembershipStore, PostgresMembershipStore>(services);
+        ReplaceWithFactory<IRefreshTokenStore, PostgresRefreshTokenStore>(services);
+        ReplaceWithFactory<IInviteTokenStore, PostgresInviteTokenStore>(services);
+        ReplaceWithFactory<IMfaStore, PostgresMfaStore>(services);
+        ReplaceWithFactory<ITenantAuthConfigStore, PostgresTenantAuthConfigStore>(services);
+        ReplaceWithFactory<IExternalIdentityLinkStore, PostgresExternalIdentityLinkStore>(services);
+        ReplaceWithFactory<IOidcLoginSessionStore, PostgresOidcLoginSessionStore>(services);
 
         return services;
     }

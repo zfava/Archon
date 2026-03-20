@@ -84,9 +84,40 @@ builder.Services.AddHealthChecks()
     .AddCheck<ArchonAI.Common.Observability.ConnectorHealthCheck>("connectors", tags: ["ready"])
     .AddCheck<ArchonAI.Common.Observability.ModelProviderHealthCheck>("model_providers", tags: ["ready"])
     .AddCheck<ArchonAI.Common.Observability.StartupReadinessCheck>("startup", tags: ["ready"])
+    .AddCheck<ArchonAI.Common.Observability.IdentityPersistenceHealthCheck>("identity_persistence", tags: ["ready"])
     .AddCheck<MigrationHealthCheck>("database_migrations", tags: ["ready"]);
 
 var app = builder.Build();
+
+// ── Identity/security startup validation ─────────────────────────────────────
+{
+    var env = app.Environment;
+    var persistenceOpts = app.Services.GetService<IOptions<PersistenceOptions>>()?.Value;
+    bool hasDurablePersistence = !string.IsNullOrWhiteSpace(persistenceOpts?.ConnectionString);
+    bool isProductionLike = env.IsProduction()
+        || string.Equals(env.EnvironmentName, "Staging", StringComparison.OrdinalIgnoreCase);
+
+    // Configure the identity persistence health check
+    ArchonAI.Common.Observability.IdentityPersistenceHealthCheck.Configure(isProductionLike, hasDurablePersistence);
+
+    if (isProductionLike && !hasDurablePersistence)
+    {
+        app.Logger.LogCritical(
+            "FATAL: Identity stores require PostgreSQL persistence in {Environment} environments. " +
+            "Set ArchonAIPersistence:ConnectionString to a valid PostgreSQL connection string. " +
+            "In-memory/file-backed identity persistence is not safe for production deployment.",
+            env.EnvironmentName);
+        return;
+    }
+
+    if (!hasDurablePersistence)
+    {
+        app.Logger.LogWarning(
+            "Identity stores are using in-memory persistence. This is acceptable for local " +
+            "development but NOT safe for production or multi-instance deployment. " +
+            "Set ArchonAIPersistence:ConnectionString for durable identity persistence.");
+    }
+}
 
 // ── Run database migrations before accepting traffic ──────────────────────────
 {
