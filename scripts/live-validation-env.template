@@ -1,0 +1,39 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  ArchonAI Live Validation — Environment Template
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#  Copy to .env.live-validation and fill in values.
+#  NEVER commit the filled-in file. It is already in .gitignore.
+#
+#  Usage:
+#    cp scripts/live-validation-env.template .env.live-validation
+#    # Fill in values
+#    set -a && source .env.live-validation && set +a
+#    bash scripts/live-validation-smoke.sh
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ─── Salesforce (OAuth2 Password Grant) ─────────────────────────────────
+# Required for Salesforce probes. Use a sandbox org for safety.
+SALESFORCE_LOGIN_URL=https://test.salesforce.com
+SALESFORCE_CLIENT_ID=
+SALESFORCE_CLIENT_SECRET=
+SALESFORCE_USERNAME=
+SALESFORCE_PASSWORD=
+SALESFORCE_SECURITY_TOKEN=
+SALESFORCE_API_VERSION=v59.0
+
+# ─── OIDC Identity Provider ────────────────────────────────────────────
+# Required for OIDC probes. Authority must expose .well-known/openid-configuration.
+#
+# Okta example:     https://dev-123456.okta.com/oauth2/default
+# Entra ID example: https://login.microsoftonline.com/{tenant-id}/v2.0
+# Auth0 example:    https://your-tenant.auth0.com
+OIDC_AUTHORITY=
+OIDC_CLIENT_ID=
+
+# Optional — enables client credential validation probe (Probe 7)
+OIDC_CLIENT_SECRET=
+
+# ─── Output ────────────────────────────────────────────────────────────
+# Directory for JSON reports. Defaults to ./live-validation-results
+# LIVE_VALIDATION_REPORT_DIR=./live-validation-results

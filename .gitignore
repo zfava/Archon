@@ -9,3 +9,7 @@ test-results/
 
 # Staging environment secrets (never commit)
 .env.staging
+
+# Live validation secrets and output (never commit)
+.env.live-validation
+live-validation-results/
