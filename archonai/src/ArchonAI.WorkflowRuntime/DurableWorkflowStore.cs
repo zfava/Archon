@@ -117,13 +117,7 @@ public sealed class DurableWorkflowStore : IWorkflowExecutionStore, IDisposable
 
         try
         {
-            var dir = Path.GetDirectoryName(_filePath);
-            if (dir is not null && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-
-            var records = _records.Values.ToList();
-            var json = JsonSerializer.Serialize(records, JsonOpts);
-            await File.WriteAllTextAsync(_filePath, json);
+            await WriteStateAsync();
         }
         catch (Exception ex)
         {
@@ -136,13 +130,41 @@ public sealed class DurableWorkflowStore : IWorkflowExecutionStore, IDisposable
     }
 
     /// <summary>
-    /// Awaits any in-flight flush so callers can guarantee state is persisted.
-    /// Useful for graceful shutdown and deterministic testing.
+    /// Performs a deterministic, synchronous flush that guarantees all in-memory
+    /// state is written to disk before returning.
+    ///
+    /// Unlike <see cref="FlushAsync"/>, this method:
+    /// <list type="bullet">
+    ///   <item>Waits indefinitely for the semaphore (no 5-second timeout that could skip writes)</item>
+    ///   <item>Always writes the current state (not just waiting for an in-flight flush)</item>
+    /// </list>
+    ///
+    /// This eliminates the race where <c>FlushPendingAsync</c> could return before
+    /// a fire-and-forget <see cref="FlushAsync"/> acquired the semaphore, because
+    /// <see cref="SemaphoreSlim"/> does not guarantee FIFO ordering.
     /// </summary>
     public async Task FlushPendingAsync()
     {
         await _writeLock.WaitAsync();
-        _writeLock.Release();
+        try
+        {
+            await WriteStateAsync();
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    private async Task WriteStateAsync()
+    {
+        var dir = Path.GetDirectoryName(_filePath);
+        if (dir is not null && !Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        var records = _records.Values.ToList();
+        var json = JsonSerializer.Serialize(records, JsonOpts);
+        await File.WriteAllTextAsync(_filePath, json);
     }
 
     public void Dispose() => _writeLock.Dispose();
