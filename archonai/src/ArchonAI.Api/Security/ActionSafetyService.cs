@@ -316,6 +316,82 @@ public sealed class ActionSafetyService : IActionSafetyService
             attempted, succeeded, failed, withinWindow, expired));
     }
 
+    // ── Auto-classification ─────────────────────────────────────
+
+    public Task<ActionSafetyClassification> GetOrInferClassificationAsync(
+        string actionType, string tenantId, CancellationToken ct = default)
+    {
+        // Return explicit classification if one exists
+        if (_classifications.TryGetValue(actionType, out var existing))
+            return Task.FromResult(existing);
+
+        // Infer classification from action type keywords
+        var lower = actionType.ToLowerInvariant();
+        var now = DateTimeOffset.UtcNow;
+
+        var (reversibility, rollbackSupported, strategy, window, compensation, notes) = lower switch
+        {
+            _ when ContainsAny(lower, "delete", "remove", "terminate", "cancel", "drop") =>
+                (ReversibilityLevel.Irreversible, false, RollbackStrategy.None,
+                 (TimeSpan?)null, (string?)null,
+                 "Inferred irreversible: destructive action detected."),
+
+            _ when ContainsAny(lower, "send", "notify", "email", "publish", "broadcast") =>
+                (ReversibilityLevel.Irreversible, false, RollbackStrategy.None,
+                 (TimeSpan?)null, (string?)null,
+                 "Inferred irreversible: communication action cannot be recalled."),
+
+            _ when ContainsAny(lower, "update", "modify", "edit", "change", "patch") =>
+                (ReversibilityLevel.Reversible, true, RollbackStrategy.Automatic,
+                 (TimeSpan?)TimeSpan.FromHours(4), (string?)null,
+                 "Inferred reversible: modification can be undone."),
+
+            _ when ContainsAny(lower, "create", "add", "register", "insert") =>
+                (ReversibilityLevel.Reversible, true, RollbackStrategy.Automatic,
+                 (TimeSpan?)TimeSpan.FromHours(8), (string?)null,
+                 "Inferred reversible: creation can be rolled back via deletion."),
+
+            _ when ContainsAny(lower, "approve", "deny", "review", "reject") =>
+                (ReversibilityLevel.Compensatable, false, RollbackStrategy.Compensation,
+                 (TimeSpan?)TimeSpan.FromHours(2),
+                 "Re-review and update the approval decision.",
+                 "Inferred compensatable: approval decisions can be re-reviewed."),
+
+            _ => (ReversibilityLevel.Compensatable, false, RollbackStrategy.Compensation,
+                  (TimeSpan?)TimeSpan.FromHours(4),
+                  "Manual intervention required for compensation.",
+                  "Inferred default: unknown action type classified as compensatable."),
+        };
+
+        var inferred = new ActionSafetyClassification(
+            Id: Guid.NewGuid(),
+            ActionType: actionType,
+            Reversibility: reversibility,
+            RollbackSupported: rollbackSupported,
+            RollbackStrategy: strategy,
+            RollbackWindow: window,
+            CompensationDescription: compensation,
+            OperatorNotes: notes,
+            ClassifiedBy: "auto-inference",
+            ClassifiedAtUtc: now);
+
+        _logger.LogInformation(
+            "Auto-inferred safety classification for {ActionType}: {Reversibility} (tenant={TenantId})",
+            actionType, reversibility, tenantId);
+
+        return Task.FromResult(inferred);
+    }
+
+    private static bool ContainsAny(string text, params string[] keywords)
+    {
+        foreach (var kw in keywords)
+        {
+            if (text.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
     // ── Helpers ──────────────────────────────────────────────────
 
     private static GovernedActionStatus DetermineInitialStatus(ActionSafetyClassification safety)

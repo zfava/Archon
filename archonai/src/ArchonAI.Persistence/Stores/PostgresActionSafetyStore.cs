@@ -127,6 +127,72 @@ public sealed class PostgresActionSafetyStore : IActionSafetyService
             "system", DateTimeOffset.UtcNow);
     }
 
+    // ── GetOrInferClassificationAsync ──────────────────────────
+
+    public async Task<ActionSafetyClassification> GetOrInferClassificationAsync(
+        string actionType, string tenantId, CancellationToken ct = default)
+    {
+        var existing = await GetClassificationAsync(actionType, ct);
+        if (existing.ClassifiedBy != "system") // Not the default fallback
+            return existing;
+
+        // Check if this is a real persisted classification or the default fallback
+        await EnsureInitializedAsync(ct);
+        await using var conn = new NpgsqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+        await using var cmd = new NpgsqlCommand(
+            $"SELECT COUNT(*) FROM {ClassificationsTable} WHERE action_type = @actionType", conn);
+        cmd.Parameters.AddWithValue("actionType", actionType);
+        var count = Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));
+        if (count > 0) return existing;
+
+        // Infer from keywords
+        var lower = actionType.ToLowerInvariant();
+        var now = DateTimeOffset.UtcNow;
+
+        var (rev, rollback, strategy, window, comp, notes) = lower switch
+        {
+            _ when ContainsAny(lower, "delete", "remove", "terminate", "cancel", "drop") =>
+                (ReversibilityLevel.Irreversible, false, RollbackStrategy.None,
+                 (TimeSpan?)null, (string?)null, "Inferred irreversible: destructive action."),
+
+            _ when ContainsAny(lower, "send", "notify", "email", "publish", "broadcast") =>
+                (ReversibilityLevel.Irreversible, false, RollbackStrategy.None,
+                 (TimeSpan?)null, (string?)null, "Inferred irreversible: communication action."),
+
+            _ when ContainsAny(lower, "update", "modify", "edit", "change", "patch") =>
+                (ReversibilityLevel.Reversible, true, RollbackStrategy.Automatic,
+                 (TimeSpan?)TimeSpan.FromHours(4), (string?)null, "Inferred reversible: modification."),
+
+            _ when ContainsAny(lower, "create", "add", "register", "insert") =>
+                (ReversibilityLevel.Reversible, true, RollbackStrategy.Automatic,
+                 (TimeSpan?)TimeSpan.FromHours(8), (string?)null, "Inferred reversible: creation."),
+
+            _ when ContainsAny(lower, "approve", "deny", "review", "reject") =>
+                (ReversibilityLevel.Compensatable, false, RollbackStrategy.Compensation,
+                 (TimeSpan?)TimeSpan.FromHours(2), "Re-review the decision.",
+                 "Inferred compensatable: approval decision."),
+
+            _ => (ReversibilityLevel.Compensatable, false, RollbackStrategy.Compensation,
+                  (TimeSpan?)TimeSpan.FromHours(4), "Manual intervention required.",
+                  "Inferred default: unknown action type."),
+        };
+
+        return new ActionSafetyClassification(
+            Guid.NewGuid(), actionType, rev, rollback, strategy, window, comp, notes,
+            "auto-inference", now);
+    }
+
+    private static bool ContainsAny(string text, params string[] keywords)
+    {
+        foreach (var kw in keywords)
+        {
+            if (text.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
     // ── SetClassificationAsync ──────────────────────────────────
 
     public async Task<ActionSafetyClassification> SetClassificationAsync(

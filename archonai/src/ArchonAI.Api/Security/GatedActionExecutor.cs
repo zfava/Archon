@@ -14,17 +14,20 @@ public sealed class GatedActionExecutor : IGatedActionExecutor
 {
     private readonly IAdminService _adminService;
     private readonly IHumanOverrideService _overrideService;
+    private readonly IActionSafetyService _actionSafety;
     private readonly IEventBus _eventBus;
     private readonly ILogger<GatedActionExecutor> _logger;
 
     public GatedActionExecutor(
         IAdminService adminService,
         IHumanOverrideService overrideService,
+        IActionSafetyService actionSafety,
         IEventBus eventBus,
         ILogger<GatedActionExecutor> logger)
     {
         _adminService = adminService;
         _overrideService = overrideService;
+        _actionSafety = actionSafety;
         _eventBus = eventBus;
         _logger = logger;
     }
@@ -37,6 +40,10 @@ public sealed class GatedActionExecutor : IGatedActionExecutor
         if (gate.ActionPayload is null)
             return new GatedActionResult(false, "No action payload stored.");
 
+        // Auto-classify the action type before execution
+        var classification = await _actionSafety.GetOrInferClassificationAsync(
+            gate.ActionType, gate.TenantId, ct);
+
         var result = gate.ActionType switch
         {
             "workflow.cancel" => await ExecuteWorkflowCancelAsync(gate.ActionPayload, ct),
@@ -45,7 +52,7 @@ public sealed class GatedActionExecutor : IGatedActionExecutor
             _ => new GatedActionResult(false, $"Unknown action type '{gate.ActionType}'.")
         };
 
-        // Publish action execution event for proof auto-emission
+        // Publish action execution event for proof auto-emission — include classification
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
             "gated-action.executed",
@@ -58,6 +65,8 @@ public sealed class GatedActionExecutor : IGatedActionExecutor
                 ["success"] = result.Success.ToString(),
                 ["detail"] = result.Error ?? "",
                 ["actor"] = gate.ReviewedBy ?? "system",
+                ["reversibility"] = classification.Reversibility.ToString(),
+                ["classifiedBy"] = classification.ClassifiedBy,
             }.AsReadOnly(),
             DateTimeOffset.UtcNow), ct);
 

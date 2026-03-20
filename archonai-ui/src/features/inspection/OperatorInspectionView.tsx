@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useInspection } from './hooks/useInspection';
+import { useInspectionHub } from './hooks/useInspectionHub';
 import { RationaleInspectionCard } from './components/RationaleInspectionCard';
 import { PolicyInspectionCard } from './components/PolicyInspectionCard';
 import { MemoryReferencesCard } from './components/MemoryReferencesCard';
@@ -29,10 +30,20 @@ export function OperatorInspectionView() {
     inspectWorkflowDiagnostics,
   } = useInspection();
 
+  const { status: hubStatus, events: liveEvents, subscribe: hubSubscribe, unsubscribe: hubUnsubscribe } = useInspectionHub();
+
   const [tab, setTab] = useState<Tab>(paramSubjectId ? 'rationale' : 'overview');
   const [subjectId, setSubjectId] = useState(paramSubjectId ?? '');
   const [subjectType, setSubjectType] = useState(paramSubjectType ?? 'decision');
   const [filterDomain, setFilterDomain] = useState('');
+
+  // Subscribe to live inspection events when a subject is loaded
+  useEffect(() => {
+    if (subjectId && subjectType) {
+      hubSubscribe(subjectType, subjectId);
+    }
+    return () => { hubUnsubscribe(); };
+  }, [subjectId, subjectType, hubSubscribe, hubUnsubscribe]);
 
   useEffect(() => {
     if (paramSubjectId) {
@@ -244,6 +255,55 @@ export function OperatorInspectionView() {
           {/* Diagnostics tab */}
           {tab === 'diagnostics' && workflowDiagnostics && (
             <WorkflowDiagnosticsCard diagnostics={workflowDiagnostics} />
+          )}
+
+          {/* Live Updates panel */}
+          {subjectId && (
+            <section className="ins-card">
+              <div className="ins-card-header">
+                <span className="ins-section-label">
+                  Live Updates
+                  <span
+                    className="ins-live-dot"
+                    style={{
+                      display: 'inline-block',
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      marginLeft: 8,
+                      backgroundColor: hubStatus === 'connected' ? '#22c55e' : hubStatus === 'reconnecting' ? '#f59e0b' : '#94a3b8',
+                      animation: hubStatus === 'connected' ? 'pulse 2s infinite' : undefined,
+                    }}
+                    title={hubStatus}
+                  />
+                </span>
+                <span className="ins-meta-text">{hubStatus}</span>
+              </div>
+              {liveEvents.length === 0 && (
+                <p className="ins-empty">No live events yet. Events will appear here in real time.</p>
+              )}
+              <div className="ins-summary-list">
+                {liveEvents.map((evt, i) => (
+                  <div key={`${evt.receivedAt}-${i}`} className="ins-summary-row">
+                    <div className="ins-summary-main">
+                      <span className={`ins-badge ins-badge--${evt.type === 'PolicyEvaluationRecorded' ? 'decision' : evt.type === 'MemoryReferenceRecorded' ? 'action' : 'workflow'}`}>
+                        {evt.type.replace('Recorded', '').replace('Updated', '')}
+                      </span>
+                      <span className="ins-summary-title">
+                        {evt.type === 'PolicyEvaluationRecorded'
+                          ? `Policy: ${evt.payload.isAllowed ? 'Allowed' : 'Blocked'} (risk: ${evt.payload.riskScore})`
+                          : evt.type === 'MemoryReferenceRecorded'
+                            ? `Memory: ${evt.payload.memoryType} (relevance: ${evt.payload.relevanceScore})`
+                            : `Workflow: ${evt.payload.status} — step ${evt.payload.stepId ?? 'n/a'}`}
+                      </span>
+                    </div>
+                    <div className="ins-summary-meta">
+                      <span>{new Date(evt.receivedAt).toLocaleTimeString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
         </div>
       </div>

@@ -1,33 +1,39 @@
+using ArchonAI.Api.Hubs;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Inspection;
 using ArchonAI.Core.Models.ProofAnalytics;
+using Microsoft.AspNetCore.SignalR;
 using Task = System.Threading.Tasks.Task;
 
 namespace ArchonAI.Api.Security;
 
 /// <summary>
 /// Subscribes to domain events on the IEventBus and dispatches inspection data
-/// recording and proof analytics auto-emission. This keeps producers (PolicyEngine,
-/// HeroWorkflowService, GatedActionExecutor) non-blocking while ensuring events
-/// are reliably dispatched, observable, and deterministically testable.
+/// recording, proof analytics auto-emission, and real-time SignalR broadcasts.
+/// This keeps producers (PolicyEngine, HeroWorkflowService, GatedActionExecutor)
+/// non-blocking while ensuring events are reliably dispatched, observable, and
+/// deterministically testable.
 /// </summary>
 public sealed class GovernanceEventSubscriber : IHostedService
 {
     private readonly IEventBus _eventBus;
     private readonly InspectionService _inspectionService;
     private readonly IProofAnalyticsService _proofAnalytics;
+    private readonly IHubContext<InspectionHub>? _inspectionHub;
     private readonly ILogger<GovernanceEventSubscriber> _logger;
 
     public GovernanceEventSubscriber(
         IEventBus eventBus,
         InspectionService inspectionService,
         IProofAnalyticsService proofAnalytics,
-        ILogger<GovernanceEventSubscriber> logger)
+        ILogger<GovernanceEventSubscriber> logger,
+        IHubContext<InspectionHub>? inspectionHub = null)
     {
         _eventBus = eventBus;
         _inspectionService = inspectionService;
         _proofAnalytics = proofAnalytics;
+        _inspectionHub = inspectionHub;
         _logger = logger;
     }
 
@@ -120,6 +126,12 @@ public sealed class GovernanceEventSubscriber : IHostedService
 
             _inspectionService.RecordPolicyEvaluation(subjectType, subjectId, evalResult);
 
+            BroadcastToSubject(subjectType, subjectId, "PolicyEvaluationRecorded", new
+            {
+                subjectType, subjectId, evalResult.IsAllowed, evalResult.RiskScore,
+                evalResult.ConfidenceScore, evalResult.Reason, occurredAtUtc = evalResult.EvaluatedAtUtc,
+            });
+
             _logger.LogDebug(
                 "Inspection: recorded policy evaluation for {SubjectType}/{SubjectId}",
                 subjectType, subjectId);
@@ -153,6 +165,12 @@ public sealed class GovernanceEventSubscriber : IHostedService
                 RetrievedAtUtc: evt.OccurredAtUtc);
 
             _inspectionService.RecordMemoryReference(subjectType, subjectId, reference);
+
+            BroadcastToSubject(subjectType, subjectId, "MemoryReferenceRecorded", new
+            {
+                subjectType, subjectId, reference.MemoryId, reference.MemoryType,
+                reference.Source, reference.RelevanceScore, occurredAtUtc = reference.RetrievedAtUtc,
+            });
 
             _logger.LogDebug(
                 "Inspection: recorded memory reference for {SubjectType}/{SubjectId}",
@@ -293,6 +311,12 @@ public sealed class GovernanceEventSubscriber : IHostedService
                 EconomicImpact: null,
                 ImpactAttribution: null,
                 OccurredAtUtc: evt.OccurredAtUtc), ct);
+
+            BroadcastToSubject("workflow", workflowId.ToString(), "WorkflowDiagnosticsUpdated", new
+            {
+                workflowId, stepId = evt.Payload.GetValueOrDefault("stepId"),
+                status = "step-completed", occurredAtUtc = evt.OccurredAtUtc,
+            });
         }
         catch (Exception ex)
         {
@@ -417,5 +441,24 @@ public sealed class GovernanceEventSubscriber : IHostedService
                 "GovernanceEventSubscriber: failed to auto-emit proof for gated-action {EventId}",
                 evt.Id);
         }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  SignalR broadcasting helper
+    // ══════════════════════════════════════════════════════════════
+
+    private void BroadcastToSubject(string subjectType, string subjectId, string method, object payload)
+    {
+        if (_inspectionHub is null) return;
+
+        var group = $"inspection:{subjectType}:{subjectId}";
+        _ = _inspectionHub.Clients.Group(group)
+            .SendAsync(method, payload)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    _logger.LogWarning(t.Exception,
+                        "Failed to broadcast {Method} to SignalR group {Group}", method, group);
+            }, TaskScheduler.Default);
     }
 }

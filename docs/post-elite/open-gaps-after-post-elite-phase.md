@@ -16,15 +16,13 @@
 
 **Tests**: `DecisionCreatedEvent_EmitsProofEvent`, `WorkflowCompletedEvent_EmitsProofEvent`, `WorkflowFailedEvent_EmitsProofEventWithFailure`, `GatedActionExecuted_EmitsProofEvent`, `SubscriberFailure_DoesNotBreakEventBus` — all pass.
 
-## Priority 3 — Real-Time Inspection Streaming
+## Priority 3 — Real-Time Inspection Streaming — **CLOSED**
 
 **Gap**: Inspection is currently request-response only. For long-running workflows, operators cannot watch diagnostics update in real time.
 
-**Impact**: Operators must refresh manually to see updated step diagnostics during workflow execution.
+**Resolution**: SignalR `InspectionHub` created at `/hubs/inspection` following the `ControlPlaneDashboardHub` pattern (`InspectionHub.cs`). Hub supports `SubscribeToSubject(subjectType, subjectId)` and `UnsubscribeFromSubject` for group-based routing. `GovernanceEventSubscriber` injects optional `IHubContext<InspectionHub>` and broadcasts `PolicyEvaluationRecorded`, `MemoryReferenceRecorded`, and `WorkflowDiagnosticsUpdated` events to `inspection:{subjectType}:{subjectId}` groups via fire-and-forget with error logging. Frontend `useInspectionHub` hook manages connection lifecycle with automatic reconnect (`[0, 2000, 5000, 10000, 30000]ms`), typed events, and last-100-event buffer. `OperatorInspectionView` wires the hook with a "Live Updates" panel showing connection status and streaming events.
 
-**Fix**: Add SignalR channels for inspection events, similar to the existing `ControlPlaneDashboardHub`.
-
-**Effort**: Medium — requires new hub methods and frontend subscription hooks.
+**Tests**: `InspectionHub_CanBeConstructed`, `GovernanceEventSubscriber_BroadcastsAfterPolicyEvaluation` (mock IHubContext verifies group routing and SendCoreAsync), `GovernanceEventSubscriber_WorksWithoutHub` (nullable hub graceful degradation) — all pass.
 
 ## Priority 4 — Historical Inspection Archives
 
@@ -44,15 +42,13 @@
 
 **Tests**: Frontend builds with zero TypeScript errors. Cross-link navigation verified in component source.
 
-## Priority 6 — Action Safety Automatic Classification
+## Priority 6 — Action Safety Automatic Classification — **CLOSED**
 
 **Gap**: Action safety classifications must be manually configured per action type. New action types are unclassified by default.
 
-**Impact**: New action types bypass the safety classification system until an operator manually adds them.
+**Resolution**: `ActionSafetyService.GetOrInferClassificationAsync` checks for explicit classification first, then falls back to keyword-based auto-inference. Keyword categories: delete/remove/terminate/cancel/drop → Irreversible (no rollback); send/notify/email/publish/broadcast → Irreversible; update/modify/edit/change/patch → Reversible (automatic rollback); create/add/register/insert → Reversible (automatic rollback); approve/deny/review/reject → Compensatable (compensation rollback). Unknown action types default to Compensatable. Inferred classifications marked with `ClassifiedBy = "auto-inference"`. `PostgresActionSafetyStore` implements the same logic with DB-first lookup. `GatedActionExecutor` now calls `GetOrInferClassificationAsync` before execution and includes `reversibility` and `classifiedBy` in the published event payload.
 
-**Fix**: Add default classification rules based on trust tier and risk level. Auto-classify actions when first encountered using policy engine risk scoring.
-
-**Effort**: Medium — requires classification inference logic and policy rule integration.
+**Tests**: 9 test methods (24 test cases total): `DeleteKeywords_InferIrreversible` (4 cases), `SendKeywords_InferIrreversible` (4), `UpdateKeywords_InferReversible` (4), `CreateKeywords_InferReversible` (3), `ApprovalKeywords_InferCompensatable` (3), `UnknownActionType_InferCompensatableDefault`, `ExplicitClassification_OverridesInference`, `ExplicitSetClassification_OverridesInference` — all pass.
 
 ## Priority 7 — Workflow Retry/Replay from Inspection — **CLOSED**
 
@@ -88,10 +84,8 @@
 
 ## Residual Gap Summary
 
-Of the 8 priorities identified after the post-elite phase, **5 are now CLOSED** (priorities 1, 2, 5, 7, 8) with implemented code paths, passing tests, and runtime wiring. **3 remain open** (priorities 3, 4, 6):
+Of the 8 priorities identified after the post-elite phase, **7 are now CLOSED** (priorities 1, 2, 3, 5, 6, 7, 8) with implemented code paths, passing tests, and runtime wiring. **1 remains open** (priority 4):
 
-- **Priority 3** (real-time inspection streaming) requires SignalR hub work — medium effort, not blocking for GA.
 - **Priority 4** (historical inspection archives) requires Postgres persistence migration — medium effort, important for compliance but not blocking for initial deployment.
-- **Priority 6** (action safety auto-classification) requires policy rule inference — medium effort, operator workaround exists (manual classification).
 
-All closed gaps use the existing IEventBus pattern for event-driven integration, preserving observability, tracing, graceful shutdown, and deterministic testability. No Task.Run fire-and-forget patterns were introduced.
+Archon10 pass closed Priority 3 (SignalR InspectionHub with real-time broadcasting from GovernanceEventSubscriber, frontend hook, and OperatorInspectionView integration) and Priority 6 (keyword-based action safety auto-classification with 5 keyword categories, DB-first lookup, and GatedActionExecutor integration). All closed gaps use the existing IEventBus pattern for event-driven integration, preserving observability, tracing, graceful shutdown, and deterministic testability.

@@ -38,4 +38,13 @@ public interface IActionSafetyService
     /// <summary>Get rollback summary for a tenant.</summary>
     Task<RollbackSummary> GetRollbackSummaryAsync(
         Guid tenantId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get an explicit classification if one exists, otherwise infer a default
+    /// classification based on action type keywords. Inferred classifications are
+    /// transient (ClassifiedBy = "auto-inference") and not persisted unless an
+    /// operator explicitly saves them.
+    /// </summary>
+    Task<ActionSafetyClassification> GetOrInferClassificationAsync(
+        string actionType, string tenantId, CancellationToken ct = default);
 }

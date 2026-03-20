@@ -264,8 +264,9 @@ app.MapHealthChecks("/healthz", new Microsoft.AspNetCore.Diagnostics.HealthCheck
     ResponseWriter = ArchonAI.Api.Security.HealthCheckResponseWriter.WriteAsync
 }).AllowAnonymous();
 
-// WebSocket hub for real-time dashboard updates
+// WebSocket hubs for real-time updates
 app.MapHub<ControlPlaneDashboardHub>("/hubs/control-plane-dashboard");
+app.MapHub<ArchonAI.Api.Hubs.InspectionHub>("/hubs/inspection");
 
 // ── Auth endpoints (registered directly on app) ───────────────
 app.MapAuthEndpoints();
