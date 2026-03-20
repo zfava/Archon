@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using ArchonAI.Core.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -54,7 +55,9 @@ public static class SecurityServiceCollectionExtensions
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromSeconds(Math.Max(0, clockSkewSeconds))
                 };
-            });
+            })
+            .AddScheme<ExternalApiKeyAuthOptions, ExternalApiKeyAuthHandler>(
+                ExternalApiKeyAuthHandler.SchemeName, _ => { });
 
         services.AddSingleton<IRbacService, RbacService>();
         services.AddSingleton<IGovernanceService, GovernanceService>();
@@ -86,15 +89,42 @@ public static class SecurityServiceCollectionExtensions
             .AddPolicy("GovernanceApprove", policy => policy.Requirements.Add(new PermissionRequirement("governance:approve")))
             .AddPolicy("TenantScoped", policy => policy.Requirements.Add(new TenantMatchRequirement()));
 
+        // Parse configurable external API rate limit
+        int externalApiPermitLimit = 60;
+        var externalSection = configuration.GetSection("ExternalApi");
+        if (int.TryParse(externalSection["RateLimitPerMinute"], out var configuredLimit) && configuredLimit > 0)
+            externalApiPermitLimit = configuredLimit;
+
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.OnRejected = async (context, cancellationToken) =>
+            {
+                context.HttpContext.Response.Headers.RetryAfter = "60";
+                context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    new { error = "Rate limit exceeded. Retry after the period specified in Retry-After header." },
+                    cancellationToken);
+            };
             options.AddFixedWindowLimiter("api", limiterOptions =>
             {
                 limiterOptions.PermitLimit = 120;
                 limiterOptions.Window = TimeSpan.FromMinutes(1);
-                limiterOptions.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+                limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
                 limiterOptions.QueueLimit = 20;
+            });
+            // Per-organization sliding window for external API
+            options.AddPolicy("external-api", context =>
+            {
+                var orgId = context.User?.FindFirst("org-id")?.Value ?? "anonymous";
+                return RateLimitPartition.GetSlidingWindowLimiter(orgId, _ => new SlidingWindowRateLimiterOptions
+                {
+                    PermitLimit = externalApiPermitLimit,
+                    Window = TimeSpan.FromMinutes(1),
+                    SegmentsPerWindow = 6,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = 5,
+                });
             });
         });
 

@@ -303,6 +303,9 @@ v1.MapOperatorEndpoints();
 v1.MapTrustVisibilityEndpoints();
 v1.MapDemoEndpoints();
 
+// ── External governance API (API-key authenticated, separate rate limit) ──
+app.MapExternalGovernanceEndpoints();
+
 // ── API v2 endpoints ──────────────────────────────────────────
 var v2 = app.MapGroup("/api/v2")
     .RequireAuthorization()
