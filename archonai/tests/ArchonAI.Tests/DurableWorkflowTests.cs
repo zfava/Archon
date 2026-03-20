@@ -19,7 +19,7 @@ namespace ArchonAI.Tests;
 /// - Idempotent step tracking
 /// - Audit event recording
 /// </summary>
-public class DurableWorkflowTests : IDisposable
+public class DurableWorkflowTests : IAsyncLifetime
 {
     private readonly string _tempDir;
     private readonly DurableWorkflowStore _store;
@@ -48,9 +48,11 @@ public class DurableWorkflowTests : IDisposable
             NullLogger<DurableWorkflowExecutionEngine>.Instance);
     }
 
-    public void Dispose()
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
-        _store.Dispose();
+        await _store.DisposeAsync();
         try
         {
             if (Directory.Exists(_tempDir))
@@ -186,7 +188,7 @@ public class DurableWorkflowTests : IDisposable
         Assert.Equal(WorkflowExecutionStatus.DeadLettered, stored!.Status);
         Assert.Contains("workflow.dead_lettered", stored.Events.Select(e => e.EventType));
 
-        store.Dispose();
+        await store.DisposeAsync();
     }
 
     // ── Cancellation Tests ───────────────────────────────────────────
@@ -251,7 +253,8 @@ public class DurableWorkflowTests : IDisposable
         var filePath = Path.Combine(_tempDir, "restart-test.json");
         var opts = Options.Create(new WorkflowRuntimeOptions { PersistencePath = filePath });
 
-        // Create store and write data
+        // Create store and write data — CreateAsync is now synchronous-flush,
+        // so the data is on disk when CreateAsync returns. No FlushPendingAsync needed.
         var store1 = new DurableWorkflowStore(opts, NullLogger<DurableWorkflowStore>.Instance);
         var record = new WorkflowExecutionRecord
         {
@@ -263,8 +266,7 @@ public class DurableWorkflowTests : IDisposable
             InitiatedBy = "user-a",
         };
         await store1.CreateAsync(record);
-        await store1.FlushPendingAsync(); // Deterministically wait for fire-and-forget flush
-        store1.Dispose();
+        await store1.DisposeAsync();
 
         // Simulate restart: new store instance loads from disk
         var store2 = new DurableWorkflowStore(opts, NullLogger<DurableWorkflowStore>.Instance);
@@ -275,7 +277,7 @@ public class DurableWorkflowTests : IDisposable
         Assert.Equal("2.0", loaded.Version);
         Assert.Equal(WorkflowExecutionStatus.Running, loaded.Status);
         Assert.Equal("tenant-1", loaded.TenantId);
-        store2.Dispose();
+        await store2.DisposeAsync();
     }
 
     [Fact]
@@ -580,8 +582,7 @@ public class DurableWorkflowTests : IDisposable
         record.Status = WorkflowExecutionStatus.Running;
         record.StartedAtUtc = DateTimeOffset.UtcNow;
         await store1.UpdateAsync(record);
-        await store1.FlushPendingAsync(); // Deterministically wait for fire-and-forget flush
-        store1.Dispose();
+        await store1.DisposeAsync();
 
         // Second "process lifetime": new store, resume
         var store2 = new DurableWorkflowStore(opts, NullLogger<DurableWorkflowStore>.Instance);
@@ -605,7 +606,7 @@ public class DurableWorkflowTests : IDisposable
         Assert.Equal(2, executorCalls);
         Assert.Contains(resumed[0].Events, e => e.EventType == "workflow.resumed_after_restart");
 
-        store2.Dispose();
+        await store2.DisposeAsync();
     }
 
     // ── Minimal stub for IWorkflowExecutionEngine ────────────────────

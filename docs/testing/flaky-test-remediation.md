@@ -2,9 +2,11 @@
 
 ## DurableWorkflowTests — Fire-and-Forget Flush Race Condition
 
+**Status: RESOLVED (Phase 3 — Structural Elimination)**
+
 ### Root Cause (Original — Phase 1)
 
-`DurableWorkflowStore.CreateAsync` and `UpdateAsync` use fire-and-forget
+`DurableWorkflowStore.CreateAsync` and `UpdateAsync` used fire-and-forget
 flushing (`_ = FlushAsync()`). Two persistence-survival tests depended on
 `Task.Delay(100)` / `Task.Delay(200)` to hope the background flush finished
 before disposing the store and reloading from disk. Under CI load the delay
@@ -12,94 +14,57 @@ was sometimes insufficient, causing the second store instance to read stale
 or missing data.
 
 **Affected tests:**
-- `Store_SurvivesRestart` — 100 ms delay after `CreateAsync`
-- `RestartRecovery_PartiallyCompleteWorkflow_ResumesFromLastPending` — 200 ms
-  delay after `UpdateAsync`
+- `Store_SurvivesRestart`
+- `RestartRecovery_PartiallyCompleteWorkflow_ResumesFromLastPending`
 
-### Fix (Phase 1)
+### Phase 1 Fix (Partial)
 
-Added `DurableWorkflowStore.FlushPendingAsync()`, a synchronization method
-that acquires and immediately releases the internal write semaphore. Tests
-call `await store.FlushPendingAsync()` instead of `Task.Delay(…)`.
+Added `FlushPendingAsync()` as a synchronization barrier.
 
-### Residual Race Condition (Phase 2)
+### Phase 2 Fix (Partial)
 
-The Phase 1 `FlushPendingAsync` implementation had a subtle race:
+Made `FlushPendingAsync()` perform its own write instead of just probing the
+semaphore. This addressed the non-FIFO semaphore ordering issue but left the
+fire-and-forget pattern in place — meaning untracked flush tasks could still
+race with `Dispose()`, causing `ObjectDisposedException`.
 
-```csharp
-// Phase 1 — RACY under contention
-public async Task FlushPendingAsync()
-{
-    await _writeLock.WaitAsync();   // acquire semaphore
-    _writeLock.Release();           // immediately release — no write
-}
-```
+### Phase 3 Fix (Structural — Current)
 
-**Two problems:**
+**Eliminated fire-and-forget entirely.** The race is now structurally impossible:
 
-1. **Non-FIFO semaphore ordering**: When `FlushAsync` (fire-and-forget) and
-   `FlushPendingAsync` both queue on the semaphore, `SemaphoreSlim` does not
-   guarantee FIFO wakeup. `FlushPendingAsync` could acquire first, find no
-   flush in progress, release, and return — while the actual `FlushAsync`
-   hasn't written to disk yet. The caller then disposes the store before the
-   data reaches disk.
+1. `CreateAsync` and `UpdateAsync` now **await** `FlushAsync()` directly.
+   When the method returns, the data is on disk. No background task, no
+   timing dependency, no semaphore ordering concern.
 
-2. **Silent skip on timeout**: `FlushAsync` uses
-   `WaitAsync(TimeSpan.FromSeconds(5))`. If the semaphore isn't acquired
-   within 5 seconds (e.g., under CI contention), `FlushAsync` returns
-   without writing — silently losing the flush. `FlushPendingAsync` (Phase 1)
-   wouldn't detect this because it only waited for semaphore availability,
-   not for a write to have occurred.
+2. `FlushAsync` no longer has a 5-second timeout. It waits indefinitely for
+   the write lock and propagates exceptions instead of swallowing them.
 
-### Fix (Phase 2 — Deterministic)
+3. `FlushPendingAsync()` was **removed** — it was a workaround for
+   fire-and-forget semantics that no longer exist.
 
-`FlushPendingAsync` now performs a real flush instead of just probing the
-semaphore:
+4. `DurableWorkflowStore` now implements **`IAsyncDisposable`**. The
+   `DisposeAsync()` method acquires the write lock before disposing the
+   semaphore, ensuring no in-flight write is interrupted.
 
-```csharp
-public async Task FlushPendingAsync()
-{
-    await _writeLock.WaitAsync();   // wait indefinitely (no timeout)
-    try
-    {
-        await WriteStateAsync();    // write current in-memory state to disk
-    }
-    finally
-    {
-        _writeLock.Release();
-    }
-}
-```
+5. Tests use `IAsyncLifetime` and `await store.DisposeAsync()` instead of
+   synchronous `Dispose()`.
 
-**Why this eliminates the race:**
+### Why the Race Is Structurally Eliminated
 
-- **No timeout**: Unlike the fire-and-forget `FlushAsync` (5-second timeout),
-  `FlushPendingAsync` waits indefinitely. It cannot silently skip.
-- **Always writes**: Even if `FlushPendingAsync` acquires the semaphore before
-  a queued `FlushAsync`, it writes the current state itself. The data is on
-  disk when it returns, regardless of what the fire-and-forget task does.
-- **Shared write logic**: Both `FlushAsync` and `FlushPendingAsync` use the
-  extracted `WriteStateAsync()` method — no code duplication, identical write
-  semantics.
-
-The fire-and-forget `FlushAsync` in `CreateAsync`/`UpdateAsync` remains
-unchanged (best-effort background persistence). `FlushPendingAsync` is the
-deterministic "write barrier" for shutdown and tests.
-
-### Why This Is Safe
-
-- `FlushPendingAsync` is on the concrete class, not the
-  `IWorkflowExecutionStore` interface — no contract change for other
-  implementations.
-- The method is also useful in production for graceful-shutdown scenarios
-  where you need to guarantee pending writes are persisted before process exit.
-- No assertion strength was reduced; the behavioral intent of both tests is
-  preserved exactly.
+- **No untracked tasks**: Every write is awaited by the caller. There is no
+  background work that can outlive the store instance.
+- **No disposal race**: `DisposeAsync` acquires the write lock, so it
+  cannot destroy the semaphore while a write is in progress.
+- **No silent data loss**: `FlushAsync` propagates exceptions instead of
+  catching and logging. Write failures are visible to the caller.
+- **Deterministic persistence**: When `CreateAsync`/`UpdateAsync` returns,
+  the data is durable. No need for flush barriers, delays, or test-specific
+  synchronization.
 
 ### Remaining Flaky-Risk Areas
 
 | Area | Risk | Notes |
 |------|------|-------|
-| `FlushAsync` 5-second timeout | Low | Fire-and-forget flushes can still be skipped under extreme contention, but this only affects background persistence — `FlushPendingAsync` compensates by doing its own write. |
-| Other `DurableWorkflowStore` tests | None | All non-persistence tests operate on in-memory state via the engine and do not depend on flush timing. |
+| `DurableWorkflowStore` flush | **None** | Fire-and-forget eliminated. All writes are synchronous and awaited. |
+| Other `DurableWorkflowStore` tests | None | All non-persistence tests operate on in-memory state via the engine. |
 | Testcontainers-backed tests | None | Use real PostgreSQL, no file-backed store involved. |

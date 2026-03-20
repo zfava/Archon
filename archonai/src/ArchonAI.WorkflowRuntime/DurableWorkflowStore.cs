@@ -9,17 +9,22 @@ namespace ArchonAI.WorkflowRuntime;
 
 /// <summary>
 /// File-backed durable workflow execution store.
-/// Uses an in-memory ConcurrentDictionary as the hot cache, periodically flushed
-/// to a JSON file on disk. On startup, the file is loaded to restore state.
+/// Uses an in-memory ConcurrentDictionary as the hot cache with synchronous
+/// flush-to-disk on every write. On startup, the file is loaded to restore state.
+///
+/// All writes are deterministic: when CreateAsync/UpdateAsync returns, the data
+/// is on disk. There is no fire-and-forget flush, no background write, and no
+/// possibility of data loss between a successful API call and process exit.
 ///
 /// For production: replace with a database-backed implementation of IWorkflowExecutionStore.
 /// </summary>
-public sealed class DurableWorkflowStore : IWorkflowExecutionStore, IDisposable
+public sealed class DurableWorkflowStore : IWorkflowExecutionStore, IAsyncDisposable, IDisposable
 {
     private readonly ConcurrentDictionary<Guid, WorkflowExecutionRecord> _records = new();
     private readonly string _filePath;
     private readonly ILogger<DurableWorkflowStore> _logger;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private volatile bool _disposed;
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         WriteIndented = false,
@@ -37,11 +42,11 @@ public sealed class DurableWorkflowStore : IWorkflowExecutionStore, IDisposable
         LoadFromDisk();
     }
 
-    public Task<WorkflowExecutionRecord> CreateAsync(WorkflowExecutionRecord record, CancellationToken ct = default)
+    public async Task<WorkflowExecutionRecord> CreateAsync(WorkflowExecutionRecord record, CancellationToken ct = default)
     {
         _records[record.Id] = record;
-        _ = FlushAsync();
-        return Task.FromResult(record);
+        await FlushAsync(ct);
+        return record;
     }
 
     public Task<WorkflowExecutionRecord?> GetAsync(Guid workflowId, CancellationToken ct = default)
@@ -67,11 +72,11 @@ public sealed class DurableWorkflowStore : IWorkflowExecutionStore, IDisposable
         return Task.FromResult(result);
     }
 
-    public Task<WorkflowExecutionRecord> UpdateAsync(WorkflowExecutionRecord record, CancellationToken ct = default)
+    public async Task<WorkflowExecutionRecord> UpdateAsync(WorkflowExecutionRecord record, CancellationToken ct = default)
     {
         _records[record.Id] = record;
-        _ = FlushAsync();
-        return Task.FromResult(record);
+        await FlushAsync(ct);
+        return record;
     }
 
     public Task<IReadOnlyList<WorkflowExecutionRecord>> GetResumableAsync(CancellationToken ct = default)
@@ -110,11 +115,10 @@ public sealed class DurableWorkflowStore : IWorkflowExecutionStore, IDisposable
         }
     }
 
-    private async Task FlushAsync()
+    private async Task FlushAsync(CancellationToken ct = default)
     {
-        if (!await _writeLock.WaitAsync(TimeSpan.FromSeconds(5)))
-            return; // Skip if another flush is in progress
-
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _writeLock.WaitAsync(ct);
         try
         {
             await WriteStateAsync();
@@ -122,33 +126,7 @@ public sealed class DurableWorkflowStore : IWorkflowExecutionStore, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to flush workflow state to {Path}", _filePath);
-        }
-        finally
-        {
-            _writeLock.Release();
-        }
-    }
-
-    /// <summary>
-    /// Performs a deterministic, synchronous flush that guarantees all in-memory
-    /// state is written to disk before returning.
-    ///
-    /// Unlike <see cref="FlushAsync"/>, this method:
-    /// <list type="bullet">
-    ///   <item>Waits indefinitely for the semaphore (no 5-second timeout that could skip writes)</item>
-    ///   <item>Always writes the current state (not just waiting for an in-flight flush)</item>
-    /// </list>
-    ///
-    /// This eliminates the race where <c>FlushPendingAsync</c> could return before
-    /// a fire-and-forget <see cref="FlushAsync"/> acquired the semaphore, because
-    /// <see cref="SemaphoreSlim"/> does not guarantee FIFO ordering.
-    /// </summary>
-    public async Task FlushPendingAsync()
-    {
-        await _writeLock.WaitAsync();
-        try
-        {
-            await WriteStateAsync();
+            throw;
         }
         finally
         {
@@ -167,5 +145,21 @@ public sealed class DurableWorkflowStore : IWorkflowExecutionStore, IDisposable
         await File.WriteAllTextAsync(_filePath, json);
     }
 
-    public void Dispose() => _writeLock.Dispose();
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        // Acquire the lock one final time to ensure no in-flight write is running,
+        // then dispose the semaphore while holding it — guarantees no concurrent access.
+        await _writeLock.WaitAsync();
+        _writeLock.Dispose();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _writeLock.Dispose();
+    }
 }
