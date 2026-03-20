@@ -1,6 +1,10 @@
 # Staging Baseline Runbook
 
 > Copy-paste commands. No interpretation required.
+>
+> **Canonical path**: `docs/performance/staging-baseline-runbook.md`
+> **Env template**: `archonai/tests/load/.env.staging.example`
+> **Runner script**: `archonai/tests/load/run-baseline.sh`
 
 ## Prerequisites Check
 
@@ -17,11 +21,30 @@ docker run --rm grafana/k6:0.50.0 version
 
 ## Environment Variables
 
-Set these before running. Replace placeholders with actual staging values:
+Set these before running. Replace placeholders with actual staging values.
+
+**Quick start**: copy the template and fill in values:
 
 ```bash
+cd archonai/tests/load
+cp .env.staging.example .env.staging
+# Edit .env.staging — fill in BASE_URL, DEPLOY_IMAGE_TAG, MIGRATION_VERSION
+source .env.staging
+```
+
+**All variables below are required.** Full reference:
+
+```bash
+# ── Run identity (captured in summary JSON) ──────────────────────
 export BASE_URL="http://STAGING_HOST:8080"
-export REPORT_DIR="./results/baseline-$(date +%Y%m%d)"
+export REPORT_DIR="./results/baseline-$(date +%Y%m%d-%H%M%S)"
+export ENVIRONMENT_NAME="staging"                         # staging | staging-2 | pre-prod
+export DEPLOY_IMAGE_TAG="ghcr.io/archonai/api:x.y.z"     # image tag(s) under test
+export MIGRATION_VERSION="20260315_001"                   # last applied DB migration
+export AI_PROVIDER_MODE="cloud-openai"                    # cloud-openai | cloud-anthropic | azure-openai | local-ollama | mixed
+export CONNECTOR_CONFIG_MODE="live-sandbox"               # live-sandbox | mock-stub | hybrid
+
+# ── Test user credentials ────────────────────────────────────────
 export ADMIN_EMAIL="loadtest-admin@archonai.test"
 export ADMIN_PASSWORD="LoadTest!Admin#2026"
 export OPERATOR_EMAIL="loadtest-operator@archonai.test"
@@ -29,6 +52,7 @@ export OPERATOR_PASSWORD="LoadTest!Operator#2026"
 export VIEWER_EMAIL="loadtest-viewer@archonai.test"
 export VIEWER_PASSWORD="LoadTest!Viewer#2026"
 export TENANT_COUNT="10"
+
 mkdir -p "$REPORT_DIR"
 ```
 
@@ -55,7 +79,13 @@ k6 run \
   2>&1 | tee "$REPORT_DIR/api-crud.log"
 ```
 
-**Check**: Read p95 < 300ms, Write p95 < 500ms, Error < 2%
+**Pass/Fail thresholds** (abort on any breach):
+
+| Metric | Pass | Abort |
+|--------|------|-------|
+| Read p95 | < 300ms | >= 300ms |
+| Write p95 | < 500ms | >= 500ms |
+| Error Rate | < 2% | >= 2% |
 
 ### 2. Governance/Policy Evaluation
 
@@ -68,7 +98,12 @@ k6 run \
   2>&1 | tee "$REPORT_DIR/governance-load.log"
 ```
 
-**Check**: p95 < 500ms, Error < 1%
+**Pass/Fail thresholds** (abort on any breach):
+
+| Metric | Pass | Abort |
+|--------|------|-------|
+| p95 | < 500ms | >= 500ms |
+| Error Rate | < 1% | >= 1% |
 
 ### 3. Multi-Tenant Isolation (CRITICAL — stop if this fails)
 
@@ -82,7 +117,13 @@ k6 run \
   2>&1 | tee "$REPORT_DIR/multi-tenant-isolation.log"
 ```
 
-**Check**: `archon_cross_tenant_violations` == 0. If non-zero, STOP. File P0.
+**Pass/Fail thresholds** (ZERO TOLERANCE — abort entire suite on breach):
+
+| Metric | Pass | Abort |
+|--------|------|-------|
+| Cross-tenant violations | == 0 | > 0 — STOP ALL. File P0. |
+| p95 Latency | < 500ms | >= 500ms |
+| Error Rate | < 2% | >= 2% |
 
 ### 4. Connector Load
 
@@ -95,7 +136,12 @@ k6 run \
   2>&1 | tee "$REPORT_DIR/connector-load.log"
 ```
 
-**Check**: p95 < 800ms, Error < 3%
+**Pass/Fail thresholds** (abort on any breach):
+
+| Metric | Pass | Abort |
+|--------|------|-------|
+| p95 | < 800ms | >= 800ms |
+| Error Rate | < 3% | >= 3% |
 
 ### 5. Intelligence Loop Stress
 
@@ -108,7 +154,12 @@ k6 run \
   2>&1 | tee "$REPORT_DIR/intelligence-loop-stress.log"
 ```
 
-**Check**: Cycle p95 < 1000ms, Error < 5%
+**Pass/Fail thresholds** (abort on any breach):
+
+| Metric | Pass | Abort |
+|--------|------|-------|
+| Cycle p95 | < 1000ms | >= 1000ms |
+| Error Rate | < 5% | >= 5% |
 
 ## Option C: Run via Docker (No Local k6)
 
@@ -160,8 +211,8 @@ After a successful run, copy results into the repository:
 ```bash
 # Tag the baseline
 COMMIT_SHA=$(git rev-parse --short HEAD)
-cp -r "$REPORT_DIR" "docs/testing/baselines/$COMMIT_SHA/"
-git add "docs/testing/baselines/$COMMIT_SHA/"
+cp -r "$REPORT_DIR" "docs/performance/baselines/$COMMIT_SHA/"
+git add "docs/performance/baselines/$COMMIT_SHA/"
 git commit -m "perf: record staging baseline at $COMMIT_SHA"
 ```
 

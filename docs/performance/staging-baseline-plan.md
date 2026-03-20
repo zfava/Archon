@@ -32,13 +32,29 @@ Five scenarios selected for staging baseline. These cover the critical paths tha
 
 ## Pass/Fail Criteria
 
-| Scenario | Pass Condition | Abort Condition |
-|----------|---------------|-----------------|
-| API CRUD | Read p95 < 300ms, Write p95 < 500ms, Error < 2% | p95 breach |
-| Governance | p95 < 500ms, Error < 1% | Error breach |
-| Multi-Tenant Isolation | Cross-tenant violations == 0 | Any violation |
-| Connector Load | p95 < 800ms, Error < 3% | p95 breach |
-| Intelligence Loop | Cycle p95 < 1000ms, Error < 5% | Either breach |
+Every threshold below is enforced by k6 — the runner exits non-zero on any breach.
+
+| Scenario | Metric | Pass (strict) | Abort (immediate) |
+|----------|--------|---------------|-------------------|
+| API CRUD | Read p95 | < 300ms | >= 300ms |
+| API CRUD | Write p95 | < 500ms | >= 500ms |
+| API CRUD | Error Rate | < 2% | >= 2% |
+| Governance | p95 | < 500ms | >= 500ms |
+| Governance | Error Rate | < 1% | >= 1% |
+| Multi-Tenant Isolation | Cross-tenant violations | == 0 | > 0 — **STOP ALL. File P0.** |
+| Multi-Tenant Isolation | p95 | < 500ms | >= 500ms |
+| Multi-Tenant Isolation | Error Rate | < 2% | >= 2% |
+| Connector Load | p95 | < 800ms | >= 800ms |
+| Connector Load | Error Rate | < 3% | >= 3% |
+| Intelligence Loop | Cycle p95 | < 1000ms | >= 1000ms |
+| Intelligence Loop | Error Rate | < 5% | >= 5% |
+
+**Regression thresholds** (applied to future runs against this baseline):
+
+| Metric | Regression if |
+|--------|--------------|
+| p95 Latency | Increases by > 20% from baseline |
+| Error Rate | Increases by > 0.5 percentage points from baseline |
 
 ## Environment Prerequisites
 
@@ -66,27 +82,31 @@ If multi-tenant isolation fails, do not proceed. File a P0 bug.
 
 ## Output Artifacts
 
-Each run produces per `docs/testing/staging-baseline-results.md`:
+Each run produces a timestamped artifact tree per `docs/performance/staging-baseline-results.md`:
 
 ```
-results/
-  api-crud-{timestamp}.json
-  api-crud-{timestamp}-summary.json
-  api-crud-{timestamp}.log
-  governance-load-{timestamp}.json
-  governance-load-{timestamp}-summary.json
-  governance-load-{timestamp}.log
-  multi-tenant-isolation-{timestamp}.json
-  multi-tenant-isolation-{timestamp}-summary.json
-  multi-tenant-isolation-{timestamp}.log
-  connector-load-{timestamp}.json
-  connector-load-{timestamp}-summary.json
-  connector-load-{timestamp}.log
-  intelligence-loop-stress-{timestamp}.json
-  intelligence-loop-stress-{timestamp}-summary.json
-  intelligence-loop-stress-{timestamp}.log
-  summary-{timestamp}.json
+results/baseline-{YYYYMMDD-HHMMSS}/
+  baseline-summary.json                        # consolidated pass/fail + full run metadata
+  scenarios/
+    api-crud.json                              # k6 raw JSON output (per-request data)
+    api-crud-summary.json                      # k6 summary export (aggregate metrics)
+    governance-load.json
+    governance-load-summary.json
+    multi-tenant-isolation.json
+    multi-tenant-isolation-summary.json
+    connector-load.json
+    connector-load-summary.json
+    intelligence-loop-stress.json
+    intelligence-loop-stress-summary.json
+  logs/
+    api-crud.log                               # stdout + stderr captured via tee
+    governance-load.log
+    multi-tenant-isolation.log
+    connector-load.log
+    intelligence-loop-stress.log
 ```
+
+The `baseline-summary.json` includes: git commit SHA, branch, environment name, deployment image tags, migration version, AI provider mode, connector config mode, k6 version, and per-scenario pass/fail status.
 
 ## Baseline Ownership
 

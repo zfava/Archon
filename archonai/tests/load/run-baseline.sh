@@ -6,6 +6,20 @@
 # Usage:
 #   BASE_URL=http://staging:8080 ./run-baseline.sh
 #   BASE_URL=http://staging:8080 ./run-baseline.sh --quick   # 30s durations for dry-run
+#
+# Artifact tree produced:
+#   $RESULTS_DIR/
+#     baseline-summary.json          # consolidated pass/fail + run metadata
+#     scenarios/
+#       api-crud.json                # k6 raw JSON output
+#       api-crud-summary.json        # k6 summary export
+#       governance-load.json
+#       governance-load-summary.json
+#       ...
+#     logs/
+#       api-crud.log                 # stdout + stderr per scenario
+#       governance-load.log
+#       ...
 
 set -euo pipefail
 
@@ -15,7 +29,19 @@ RESULTS_DIR="${REPORT_DIR:-$SCRIPT_DIR/results/baseline-$TIMESTAMP}"
 BASE_URL="${BASE_URL:-http://localhost:8080}"
 QUICK_MODE="${1:-}"
 
-mkdir -p "$RESULTS_DIR"
+# ── Capture run identity metadata ────────────────────────────────
+GIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+K6_VER=$(k6 version 2>/dev/null || echo "unknown")
+ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-unknown}"
+DEPLOY_IMAGE_TAG="${DEPLOY_IMAGE_TAG:-unknown}"
+MIGRATION_VERSION="${MIGRATION_VERSION:-unknown}"
+AI_PROVIDER_MODE="${AI_PROVIDER_MODE:-unknown}"
+CONNECTOR_CONFIG_MODE="${CONNECTOR_CONFIG_MODE:-unknown}"
+
+# ── Create artifact directory tree ───────────────────────────────
+mkdir -p "$RESULTS_DIR/scenarios"
+mkdir -p "$RESULTS_DIR/logs"
 
 K6_EXTRA_ARGS=""
 if [[ "$QUICK_MODE" == "--quick" ]]; then
@@ -47,9 +73,16 @@ RESULTS_SUMMARY=()
 
 echo "=============================================="
 echo " ArchonAI Staging Baseline"
-echo " Target: $BASE_URL"
-echo " Timestamp: $TIMESTAMP"
-echo " Scenarios: ${#BASELINE_SCENARIOS[@]}"
+echo " Target:      $BASE_URL"
+echo " Environment: $ENVIRONMENT_NAME"
+echo " Commit:      $GIT_SHA"
+echo " Branch:      $GIT_BRANCH"
+echo " Image Tag:   $DEPLOY_IMAGE_TAG"
+echo " AI Provider: $AI_PROVIDER_MODE"
+echo " Connectors:  $CONNECTOR_CONFIG_MODE"
+echo " Timestamp:   $TIMESTAMP"
+echo " Output:      $RESULTS_DIR"
+echo " Scenarios:   ${#BASELINE_SCENARIOS[@]}"
 echo "=============================================="
 
 # Preflight: check gateway health
@@ -77,9 +110,9 @@ for i in "${!BASELINE_SCENARIOS[@]}"; do
   echo " [$((i+1))/${#BASELINE_SCENARIOS[@]}] $label"
   echo "=============================================="
 
-  JSON_REPORT="$RESULTS_DIR/${scenario}.json"
-  SUMMARY_EXPORT="$RESULTS_DIR/${scenario}-summary.json"
-  LOG_FILE="$RESULTS_DIR/${scenario}.log"
+  JSON_REPORT="$RESULTS_DIR/scenarios/${scenario}.json"
+  SUMMARY_EXPORT="$RESULTS_DIR/scenarios/${scenario}-summary.json"
+  LOG_FILE="$RESULTS_DIR/logs/${scenario}.log"
 
   set +e
   k6 run \
@@ -134,32 +167,50 @@ echo "=============================================="
 echo " Reports: $RESULTS_DIR"
 echo "=============================================="
 
-# Generate consolidated summary JSON
+# ── Generate consolidated summary JSON with full metadata ────────
 cat > "$RESULTS_DIR/baseline-summary.json" <<JSONEOF
 {
   "type": "staging-baseline",
   "timestamp": "$TIMESTAMP",
-  "baseUrl": "$BASE_URL",
+  "metadata": {
+    "gitCommitSha": "$GIT_SHA",
+    "gitBranch": "$GIT_BRANCH",
+    "environment": "$ENVIRONMENT_NAME",
+    "deployImageTag": "$DEPLOY_IMAGE_TAG",
+    "migrationVersion": "$MIGRATION_VERSION",
+    "aiProviderMode": "$AI_PROVIDER_MODE",
+    "connectorConfigMode": "$CONNECTOR_CONFIG_MODE",
+    "baseUrl": "$BASE_URL",
+    "k6Version": "$K6_VER",
+    "quickMode": $(if [[ "$QUICK_MODE" == "--quick" ]]; then echo "true"; else echo "false"; fi)
+  },
   "passed": $PASS_COUNT,
   "failed": $FAIL_COUNT,
   "total": $((PASS_COUNT + FAIL_COUNT)),
   "scenarios": [
 $(printf '    "%s",\n' "${RESULTS_SUMMARY[@]}" | sed '$ s/,$//')
-  ]
+  ],
+  "artifacts": {
+    "scenarioDir": "scenarios/",
+    "logsDir": "logs/",
+    "files": [
+$(find "$RESULTS_DIR" -type f -name "*.json" -o -name "*.log" | sort | sed "s|$RESULTS_DIR/||" | while read -r f; do printf '      "%s",\n' "$f"; done | sed '$ s/,$//')
+    ]
+  }
 }
 JSONEOF
 
 echo ""
 echo "Consolidated summary: $RESULTS_DIR/baseline-summary.json"
 
-# Extract key metrics from summary files if jq is available
+# ── Extract key metrics from summary files if jq is available ────
 if command -v jq &> /dev/null; then
   echo ""
   echo "=============================================="
   echo " KEY METRICS (from summary exports)"
   echo "=============================================="
   for scenario in "${BASELINE_SCENARIOS[@]}"; do
-    SUMMARY_FILE="$RESULTS_DIR/${scenario}-summary.json"
+    SUMMARY_FILE="$RESULTS_DIR/scenarios/${scenario}-summary.json"
     if [[ -f "$SUMMARY_FILE" ]]; then
       echo ""
       echo "--- $scenario ---"
@@ -175,7 +226,7 @@ if command -v jq &> /dev/null; then
   done
 
   # Special check for cross-tenant violations
-  MT_SUMMARY="$RESULTS_DIR/multi-tenant-isolation-summary.json"
+  MT_SUMMARY="$RESULTS_DIR/scenarios/multi-tenant-isolation-summary.json"
   if [[ -f "$MT_SUMMARY" ]]; then
     echo ""
     echo "--- TENANT ISOLATION ---"
@@ -188,6 +239,16 @@ if command -v jq &> /dev/null; then
     fi
   fi
 fi
+
+# ── Print artifact tree ──────────────────────────────────────────
+echo ""
+echo "=============================================="
+echo " ARTIFACT TREE"
+echo "=============================================="
+if command -v find &> /dev/null; then
+  find "$RESULTS_DIR" -type f | sort | sed "s|$RESULTS_DIR/|  |"
+fi
+echo "=============================================="
 
 if [[ $FAIL_COUNT -gt 0 ]]; then
   exit 1

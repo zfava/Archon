@@ -3,16 +3,20 @@
 > **Status**: AWAITING EXECUTION
 >
 > This document is the report template. Fill in measured values after running
-> the baseline suite per `staging-baseline-runbook.md`. Do not invent numbers.
+> the baseline suite per `docs/performance/staging-baseline-runbook.md`. Do not invent numbers.
 
 ## Run Metadata
 
 | Field | Value |
 |-------|-------|
 | Date | _YYYY-MM-DD HH:MM UTC_ |
-| Commit SHA | _xxxxxxx_ |
+| Commit SHA | _full 40-char SHA from `git rev-parse HEAD`_ |
 | Branch | _release/x.y.z_ |
-| Environment | Staging |
+| Environment | _staging / staging-2 / pre-prod_ |
+| Deployment Image Tags | _e.g. ghcr.io/archonai/api:1.2.3-rc1, ghcr.io/archonai/gateway:1.2.3-rc1_ |
+| Migration/Schema Version | _e.g. 20260315_001 — from last applied migration_ |
+| AI Provider Mode | _cloud-openai / cloud-anthropic / azure-openai / local-ollama / mixed_ |
+| Connector Config Mode | _live-sandbox / mock-stub / hybrid (specify per provider)_ |
 | Gateway Host | _staging-gateway.internal:8080_ |
 | k6 Version | _0.50.0_ |
 | Runner | _host or Docker_ |
