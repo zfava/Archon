@@ -103,15 +103,15 @@ public sealed class ProductionConfigValidationTests : IDisposable
     }
 
     [Fact]
-    public void MissingTotpKey_WithJwtFallback_Production_IsWarning()
+    public void MissingTotpKey_WithJwtFallback_Production_IsCritical()
     {
         var snapshot = CreateHealthyProductionSnapshot() with { TotpEncryptionKey = null };
 
         var result = ProductionConfigValidator.Validate(snapshot);
 
         var finding = Assert.Single(result.Findings, f => f.Component == "TOTP");
-        Assert.Equal(ConfigSeverity.Warning, finding.Severity);
-        Assert.Contains("JWT signing key as fallback", finding.Message);
+        Assert.Equal(ConfigSeverity.Critical, finding.Severity);
+        Assert.Contains("not configured in production", finding.Message);
     }
 
     [Fact]
@@ -443,8 +443,12 @@ public sealed class ProductionConfigValidationTests : IDisposable
     [Fact]
     public async Task HealthCheck_WarningsOnly_ReportsDegraded()
     {
-        var snapshot = CreateHealthyProductionSnapshot() with { TotpEncryptionKey = null };
+        // Use a warning-level finding (enabled OpenAI without API key) — not a critical one
+        var snapshot = CreateHealthyProductionSnapshot() with { OpenAiApiKey = null };
         var validationResult = ProductionConfigValidator.Validate(snapshot);
+        // Confirm the snapshot produces only warnings, not criticals
+        Assert.True(validationResult.HasWarnings, "Test setup: expected at least one warning");
+        Assert.False(validationResult.HasCriticalFindings, "Test setup: expected no critical findings");
         ProductionConfigHealthCheck.SetResult(validationResult);
 
         var check = new ProductionConfigHealthCheck();

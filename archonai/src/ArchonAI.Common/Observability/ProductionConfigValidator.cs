@@ -223,14 +223,18 @@ public static class ProductionConfigValidator
         {
             findings.Add(new("TOTP", ConfigSeverity.Critical,
                 "No TOTP encryption key and no JWT signing key available. MFA will fail at runtime.",
-                "Set ARCHONAI_TOTP_ENCRYPTION_KEY (preferred) or ensure ARCHONAI_JWT_SIGNING_KEY is set."));
+                "Set ARCHONAI_TOTP_ENCRYPTION_KEY (preferred) or ensure ARCHONAI_JWT_SIGNING_KEY is set (dev only)."));
         }
         else if (!hasDedicatedKey && config.IsProductionLike)
         {
-            findings.Add(new("TOTP", ConfigSeverity.Warning,
-                "TOTP encryption is using JWT signing key as fallback. " +
-                "Key rotation of JWT will break existing TOTP secrets.",
-                "Set ARCHONAI_TOTP_ENCRYPTION_KEY for independent TOTP key lifecycle."));
+            // Critical in production: JWT fallback creates lifecycle coupling where
+            // JWT key rotation destroys all TOTP secrets. The encryptor will refuse
+            // to operate without a dedicated key in production-like environments.
+            findings.Add(new("TOTP", ConfigSeverity.Critical,
+                "TOTP encryption key (ARCHONAI_TOTP_ENCRYPTION_KEY) is not configured in production. " +
+                "JWT key fallback is not permitted — TOTP enrollment and verification will fail. " +
+                "Rotating the JWT signing key would destroy all existing TOTP secrets.",
+                "Set ARCHONAI_TOTP_ENCRYPTION_KEY to a unique, high-entropy value: openssl rand -base64 48"));
         }
         else if (!hasDedicatedKey)
         {

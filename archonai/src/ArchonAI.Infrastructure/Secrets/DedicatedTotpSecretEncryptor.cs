@@ -23,9 +23,11 @@ namespace ArchonAI.Infrastructure.Secrets;
 /// - On successful TOTP verification, callers should re-encrypt with the current key.
 ///
 /// Security:
-/// - No hardcoded fallback key exists. In production-like environments, a dedicated
-///   TOTP encryption key MUST be configured. The JWT signing key is accepted as a
-///   secondary source but a warning is emitted.
+/// - No hardcoded fallback key exists.
+/// - In production-like environments, the dedicated <c>ARCHONAI_TOTP_ENCRYPTION_KEY</c>
+///   MUST be configured. JWT key fallback is rejected with a fatal error.
+/// - In development/test, JWT key fallback is accepted with a warning.
+/// - The key source is resolved once at construction time, not per-call.
 /// </summary>
 public sealed class DedicatedTotpSecretEncryptor : ITotpSecretEncryptor
 {
@@ -39,13 +41,68 @@ public sealed class DedicatedTotpSecretEncryptor : ITotpSecretEncryptor
 
     private readonly ISecretProvider _secretProvider;
     private readonly ILogger<DedicatedTotpSecretEncryptor> _logger;
+    private readonly bool _isProductionLike;
+
+    /// <summary>
+    /// True when the encryptor resolved a dedicated TOTP key (not the JWT fallback).
+    /// Consumed by health checks to report encryption posture.
+    /// </summary>
+    public bool HasDedicatedKey { get; }
+
+    /// <summary>
+    /// True when any usable key material was resolved (dedicated or JWT fallback in dev).
+    /// </summary>
+    public bool HasUsableKey { get; }
 
     public DedicatedTotpSecretEncryptor(
         ISecretProvider secretProvider,
-        ILogger<DedicatedTotpSecretEncryptor> logger)
+        ILogger<DedicatedTotpSecretEncryptor> logger,
+        ArchonAI.Common.EnvironmentPosture? environmentPosture = null)
     {
         _secretProvider = secretProvider;
         _logger = logger;
+        _isProductionLike = environmentPosture?.IsProductionLike ?? false;
+
+        // Resolve key source ONCE at construction — fail-fast in production
+        string? totpKey = secretProvider.GetSecret(TotpKeyEnvVar);
+        HasDedicatedKey = !string.IsNullOrWhiteSpace(totpKey);
+
+        if (HasDedicatedKey)
+        {
+            HasUsableKey = true;
+        }
+        else
+        {
+            string? jwtKey = secretProvider.GetSecret(JwtKeyEnvVar);
+            bool hasJwtFallback = !string.IsNullOrWhiteSpace(jwtKey);
+
+            if (_isProductionLike)
+            {
+                // Production: dedicated TOTP key is REQUIRED — JWT fallback is not acceptable
+                HasUsableKey = false;
+                _logger.LogCritical(
+                    "TOTP encryption key ({TotpKeyEnvVar}) is not configured in a production-like environment. " +
+                    "JWT key fallback is not permitted in production — TOTP enrollment and verification will fail. " +
+                    "Set {TotpKeyEnvVar} to a unique, high-entropy value (e.g., openssl rand -base64 48).",
+                    TotpKeyEnvVar, TotpKeyEnvVar);
+            }
+            else if (hasJwtFallback)
+            {
+                // Development: accept JWT fallback with a one-time warning
+                HasUsableKey = true;
+                _logger.LogWarning(
+                    "TOTP encryption using JWT signing key as fallback (acceptable for development). " +
+                    "Set {TotpKeyEnvVar} for independent key lifecycle.", TotpKeyEnvVar);
+            }
+            else
+            {
+                HasUsableKey = false;
+                _logger.LogCritical(
+                    "No TOTP encryption key and no JWT signing key available. MFA will be non-functional. " +
+                    "Set {TotpKeyEnvVar} (preferred) or {JwtKeyEnvVar} (dev-only fallback).",
+                    TotpKeyEnvVar, JwtKeyEnvVar);
+            }
+        }
     }
 
     public string Encrypt(string plaintext)
@@ -150,24 +207,27 @@ public sealed class DedicatedTotpSecretEncryptor : ITotpSecretEncryptor
     {
         string? rawKey = _secretProvider.GetSecret(TotpKeyEnvVar);
 
-        if (rawKey is null)
+        if (string.IsNullOrWhiteSpace(rawKey))
         {
-            // Fall back to JWT signing key — acceptable but not ideal.
-            rawKey = _secretProvider.GetSecret(JwtKeyEnvVar);
-
-            if (rawKey is not null)
+            if (_isProductionLike)
             {
-                _logger.LogWarning(
-                    "TOTP encryption using JWT signing key as fallback. " +
-                    "Set {EnvVar} for proper key separation.", TotpKeyEnvVar);
+                // Hard failure — production must never encrypt TOTP secrets with the JWT key.
+                // This prevents lifecycle coupling where JWT rotation destroys all TOTP credentials.
+                throw new InvalidOperationException(
+                    $"TOTP encryption key ({TotpKeyEnvVar}) is not configured. " +
+                    $"In production-like environments, a dedicated TOTP encryption key is required. " +
+                    $"JWT key fallback is not permitted — set {TotpKeyEnvVar} to a unique value.");
             }
+
+            // Development/test: fall back to JWT signing key
+            rawKey = _secretProvider.GetSecret(JwtKeyEnvVar);
         }
 
         if (string.IsNullOrWhiteSpace(rawKey))
         {
             throw new InvalidOperationException(
                 $"TOTP encryption key not configured. " +
-                $"Set the {TotpKeyEnvVar} environment variable (preferred) or {JwtKeyEnvVar} (fallback). " +
+                $"Set {TotpKeyEnvVar} (preferred) or {JwtKeyEnvVar} (dev-only fallback). " +
                 $"No hardcoded fallback key exists — this is a security requirement.");
         }
 

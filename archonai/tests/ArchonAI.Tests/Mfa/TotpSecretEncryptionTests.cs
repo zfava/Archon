@@ -170,24 +170,62 @@ public sealed class TotpSecretEncryptionTests
     // ── Fallback behavior ────────────────────────────────────────
 
     [Fact]
-    public void NoTotpKey_FallsBackToJwtKey()
+    public void NoTotpKey_FallsBackToJwtKey_InDevelopment()
     {
         string jwtKey = "jwt-fallback-key-at-least-32-bytes!!";
-        // No TOTP key set, only JWT key — encryptor falls back to JWT for new encryptions
-        var encryptor = CreateEncryptor(totpKey: null, jwtKey: jwtKey);
+        // No TOTP key set, only JWT key — encryptor falls back to JWT in development
+        var encryptor = CreateEncryptor(totpKey: null, jwtKey: jwtKey, isProductionLike: false);
 
         string ciphertext = encryptor.Encrypt("JBSWY3DPEHPK3PXP");
         Assert.StartsWith("v1:", ciphertext); // still versioned
         Assert.Equal("JBSWY3DPEHPK3PXP", encryptor.Decrypt(ciphertext));
+        Assert.False(encryptor.HasDedicatedKey);
+        Assert.True(encryptor.HasUsableKey);
+    }
+
+    [Fact]
+    public void NoTotpKey_ThrowsInProduction()
+    {
+        string jwtKey = "jwt-fallback-key-at-least-32-bytes!!";
+        // In production, missing TOTP key must cause Encrypt to throw — even if JWT key exists
+        var encryptor = CreateEncryptor(totpKey: null, jwtKey: jwtKey, isProductionLike: true);
+
+        Assert.False(encryptor.HasDedicatedKey);
+        Assert.False(encryptor.HasUsableKey);
+        Assert.Throws<InvalidOperationException>(() => encryptor.Encrypt("JBSWY3DPEHPK3PXP"));
+    }
+
+    [Fact]
+    public void DedicatedKey_WorksInProduction()
+    {
+        var encryptor = CreateEncryptor(
+            totpKey: "dedicated-totp-key-for-production!", jwtKey: "some-jwt-key", isProductionLike: true);
+
+        Assert.True(encryptor.HasDedicatedKey);
+        Assert.True(encryptor.HasUsableKey);
+
+        string ciphertext = encryptor.Encrypt("JBSWY3DPEHPK3PXP");
+        Assert.Equal("JBSWY3DPEHPK3PXP", encryptor.Decrypt(ciphertext));
+    }
+
+    [Fact]
+    public void NoKeys_ReportsNotUsable()
+    {
+        var encryptor = CreateEncryptor(totpKey: null, jwtKey: null, isProductionLike: false);
+
+        Assert.False(encryptor.HasDedicatedKey);
+        Assert.False(encryptor.HasUsableKey);
+        Assert.Throws<InvalidOperationException>(() => encryptor.Encrypt("JBSWY3DPEHPK3PXP"));
     }
 
     // ── Helpers ──────────────────────────────────────────────────
 
     private static DedicatedTotpSecretEncryptor CreateEncryptor(
-        string? totpKey = null, string? jwtKey = null)
+        string? totpKey = null, string? jwtKey = null, bool isProductionLike = false)
     {
         var provider = new StubSecretProvider(totpKey, jwtKey);
-        return new DedicatedTotpSecretEncryptor(provider, NullLogger<DedicatedTotpSecretEncryptor>.Instance);
+        var posture = new ArchonAI.Common.EnvironmentPosture { IsProductionLike = isProductionLike };
+        return new DedicatedTotpSecretEncryptor(provider, NullLogger<DedicatedTotpSecretEncryptor>.Instance, posture);
     }
 
     /// <summary>

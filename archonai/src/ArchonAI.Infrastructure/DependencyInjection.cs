@@ -80,7 +80,19 @@ public static class DependencyInjection
 
         // Secret provider and TOTP encryption (dedicated key, independent of JWT)
         services.TryAddSingleton<ISecretProvider, EnvironmentSecretProvider>();
-        services.AddSingleton<ITotpSecretEncryptor, DedicatedTotpSecretEncryptor>();
+        services.AddSingleton<DedicatedTotpSecretEncryptor>();
+        services.AddSingleton<ITotpSecretEncryptor>(sp =>
+        {
+            var encryptor = sp.GetRequiredService<DedicatedTotpSecretEncryptor>();
+
+            // Report TOTP encryption posture to the health check subsystem
+            ArchonAI.Common.Observability.FallbackPostureHealthCheck.RecordPosture(
+                "TotpEncryption",
+                encryptor.HasDedicatedKey ? "DedicatedKey" : "JwtKeyFallback",
+                isDurable: encryptor.HasDedicatedKey);
+
+            return encryptor;
+        });
 
         services.AddOptions<ClusterOptions>()
             .BindConfiguration(ClusterOptions.SectionName);
