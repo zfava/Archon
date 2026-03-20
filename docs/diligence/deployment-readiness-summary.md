@@ -1,5 +1,7 @@
 # Deployment Readiness Summary
 
+Last verified: 2026-03-20
+
 ## Purpose
 
 This document maps deployment artifacts to runtime reality. It tells operators, buyers, and diligence reviewers what deployment modes are supported, what has been tested, and where gaps remain.
@@ -68,7 +70,7 @@ This document maps deployment artifacts to runtime reality. It tells operators, 
 | Container registry | Customer mirror (ECR/GCR/ACR/Harbor) |
 | Secret provider | External vault integration (Helm templates exist) |
 
-**Additional gap:** No `ISecretProvider` implementation for HashiCorp Vault, AWS SM, or Azure KV. Helm templates support external-secrets operator and vault-injector sidecar, but the application code reads secrets from files/env vars only.
+**Vault integration:** Three `ISecretProvider` implementations exist (HashiCorp Vault, AWS Secrets Manager, Azure Key Vault) and are registered in the `ChainedSecretProvider` chain. Helm templates support external-secrets operator and vault-injector sidecar. Application code reads secrets from the full chain: Vault → AWS → Azure → File → Environment.
 
 ---
 
@@ -178,7 +180,7 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 | # | Gap | Impact | Mitigation Path |
 |---|---|---|---|
 | 1 | No live K8s deployment validated | Cannot confirm probe behavior, PDB eviction, network policy enforcement under real traffic | Deploy to staging cluster and run smoke tests |
-| 2 | No external vault `ISecretProvider` | Secrets in files/env vars. Helm has vault templates but app reads from chain only | Implement `VaultSecretProvider` for the `ChainedSecretProvider` |
+| 2 | Vault providers not live-validated | Three vault `ISecretProvider` implementations exist (HashiCorp Vault, AWS SM, Azure KV) and are registered in the chain. Tested with mocks only. | Validate against live vault instances in staging |
 | 3 | No load test baselines published | No evidence of behavior at scale | Execute k6 suite against staging, publish results |
 | 4 | Grafana dashboards not validated | Dashboard JSON exists but not confirmed against real Prometheus scrape | Deploy monitoring stack and verify queries |
 | 5 | Durable workflow is per-instance | Workflow step state in files, not shared across instances | Migrate to PostgreSQL-backed step persistence |

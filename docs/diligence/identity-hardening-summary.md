@@ -1,5 +1,7 @@
 # Identity/Security/Persistence Hardening Summary
 
+Last verified: 2026-03-20
+
 ## Objective
 
 Eliminate P0 identity/security risks and make ArchonAI's identity layer safe for enterprise multi-instance deployment.

@@ -1,5 +1,7 @@
 # ArchonAI — Technical Diligence Pack
 
+Last verified: 2026-03-20
+
 ## Purpose
 
 This pack provides everything a buyer, investor, enterprise pilot customer, or CTO needs to evaluate ArchonAI quickly and accurately. Every claim is linked to code, tests, or configuration — nothing requires trust.
@@ -83,19 +85,20 @@ These components have real implementations, test coverage, and configuration:
 
 ## What Is Partially Implemented or Stubbed
 
-- **LLM model providers** — 4 providers (OpenAI, Anthropic, Azure OpenAI, Local/Ollama) have real HTTP client code, but default to local echo fallback when API keys are absent. No AI-generated output in demo without live API keys.
-- **Database persistence** — PostgreSQL schema referenced in config but no migration files. Core services use `ConcurrentDictionary` in-memory stores.
-- **Generic connectors** — CRM, ERP, Financial, Messaging connectors use deterministic HTTP stubs.
+- **LLM model providers** — 4 providers (OpenAI, Anthropic, Azure OpenAI, Local/Ollama) have real HTTP client code. All return hard errors (`IsSuccess: false`) when API keys are absent — no fabricated output. `ModelProviderActivationService` logs `CRITICAL` at startup when no providers are active.
+- **Connector live validation** — All 10 connectors (6 specialized + 4 generic) use real HTTP clients with OAuth, retry, and circuit breakers. Tested with mock handlers only — no live sandbox validation.
 
-## What Is Not Implemented
+## Implemented Since Prior Audit (No Longer Gaps)
 
-- SSO/OIDC (Okta, Entra ID, Auth0)
-- MFA
-- Secret vault integration (keys in plaintext config)
-- Load/performance testing
-- Container security scanning
-- Dependency vulnerability scanning
-- Database migration framework
+The following were previously listed as "Not Implemented" and are now source-complete or runtime-proven:
+
+- **SSO/OIDC** — Full federation with JWKS verification, nonce validation, JIT provisioning, per-tenant IdP config. Tested with mock IdPs.
+- **MFA** — TOTP + WebAuthn (FIDO2) with enrollment, verification, recovery codes, org-level policy. 6 test classes.
+- **Secret vault integration** — Three vault-backed `ISecretProvider` implementations: HashiCorp Vault (AppRole), AWS Secrets Manager, Azure Key Vault. Full chain with graceful degradation.
+- **Database persistence** — 22 PostgreSQL-backed stores via `ReplaceWithFactory`. 25 numbered migration scripts with complete rollback coverage.
+- **Container security scanning** — Trivy in CI/CD pipeline.
+- **Dependency vulnerability scanning** — `dotnet list package --vulnerable` in CI.
+- **TOTP secret encryption** — `DedicatedTotpSecretEncryptor` with dedicated key, HKDF-derived AES-256-CBC + HMAC-SHA256, health-gated production enforcement.
 
 ---
 
@@ -144,8 +147,8 @@ docker compose -f archonai/docker-compose.yml up --build
 
 ## Weakest Diligence Impressions
 
-1. **No live AI output** — All 4 model providers fall back to echo stubs without API keys. The intelligence loop runs but produces no real reasoning.
-2. **In-memory persistence** — Core state (RBAC, audit, governance) lives in `ConcurrentDictionary`. Data is lost on restart. PostgreSQL is configured but lacks migration scripts.
-3. **No SSO** — JWT issuance works, but there's no enterprise identity provider integration.
-4. **Secrets in plaintext** — API keys and signing keys stored in `appsettings.json` and Helm values. No vault integration.
-5. **No load testing** — Zero evidence of behavior under concurrent load.
+1. **No live AI output** — All 4 model providers return hard errors (`IsSuccess: false`) without API keys. The platform produces no AI output without configuration — this is a deployment-time requirement.
+2. **No live IdP validation** — OIDC federation is implemented and tested with mock IdPs but not validated against Okta, Entra ID, or Auth0.
+3. **No published load test baselines** — k6 infrastructure with 12 scenarios exists, but no baseline results have been captured or published.
+4. **Vault providers not live-validated** — Three vault `ISecretProvider` implementations exist but have been tested only with mock handlers, not against live vault instances.
+5. **Durable workflow persistence is per-instance** — File-backed step state, not shared across instances in multi-replica deployments.

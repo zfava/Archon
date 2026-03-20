@@ -1,5 +1,7 @@
 # Runtime Truth Summary
 
+Last verified: 2026-03-20
+
 ## Purpose
 
 This document provides an honest, verifiable assessment of what ArchonAI can and cannot do at runtime. It distinguishes between source-complete (code exists), runtime-proven (tested under automated conditions), config-dependent (requires deployment-time configuration), and residual-risk items.
@@ -51,10 +53,10 @@ This document provides an honest, verifiable assessment of what ArchonAI can and
 | OpenAI provider | **Config-Dependent** | Real HTTP client with retry. Requires `OPENAI_API_KEY`. |
 | Anthropic provider | **Config-Dependent** | Real HTTP client with retry. Requires `ANTHROPIC_API_KEY`. |
 | Azure OpenAI provider | **Config-Dependent** | Real HTTP client with retry. Requires `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT`. |
-| Local (Ollama) provider | **Config-Dependent** | Falls back to echo stub when Ollama unavailable. |
-| Echo fallback labeling | **Runtime-Proven** | Stubs marked with `FinishReason: "echo_fallback"` and `DETERMINISTIC_ECHO` warning. |
+| Local (Ollama) provider | **Config-Dependent** | Returns `IsSuccess: false` with `provider_unavailable` when Ollama is unreachable. Does not echo or fabricate output. |
+| Echo guard in CompositeModelProvider | **Runtime-Proven** | `CompositeModelProvider` contains a guard that detects and logs `CRITICAL` if any external provider returns `FinishReason: "echo_fallback"`. This guard exists as a defensive check against third-party providers — it is not an output path used by ArchonAI's own providers. |
 
-**Critical truth:** Without API keys, all AI output is fake. The echo stubs are labeled but the intelligence loop produces misleading demo behavior. This is a deployment-time gap, not a code deficiency.
+**Critical truth:** Without API keys, AI endpoints return structured errors (`IsSuccess: false`). `ModelProviderActivationService` logs `CRITICAL` at startup when no providers are active. `AiRuntimeDiagnostics` reports readiness tier `"unconfigured"`. No provider fabricates responses — the platform produces no AI output without keys. This is a deployment-time configuration requirement, not a code deficiency.
 
 ---
 
@@ -68,7 +70,7 @@ This document provides an honest, verifiable assessment of what ArchonAI can and
 | OIDC against live IdPs | **Residual Risk** | Not validated against Okta, Entra ID, or Auth0. |
 | TOTP MFA | **Runtime-Proven** | Setup, verify, disable, recovery codes, org policy. 6 test classes. |
 | WebAuthn/FIDO2 | **Runtime-Proven** | Register, authenticate, delete. Tested in unit tests. |
-| TOTP secret encryption | **Source-Complete** | AES-256 encryption. Currently derives key from JWT signing key (stand-in for KMS). |
+| TOTP secret encryption | **Runtime-Proven** | `DedicatedTotpSecretEncryptor`: AES-256-CBC + HMAC-SHA256, HKDF-derived keys from `ARCHONAI_TOTP_ENCRYPTION_KEY`. JWT fallback permitted only in dev/test (emits Warning). In production, `ProductionConfigValidator` raises Critical and `DedicatedTotpSecretEncryptor` throws if dedicated key is absent. |
 | Multi-tenant isolation | **Runtime-Proven** | AsyncLocal scoping, cross-tenant prevention (9 tests), concurrent scope safety (50 parallel tasks). |
 
 ---
@@ -129,10 +131,12 @@ This document provides an honest, verifiable assessment of what ArchonAI can and
 
 | Capability | Evidence Tier | Detail |
 |---|---|---|
-| `ISecretProvider` abstraction | **Source-Complete** | Interface with `ChainedSecretProvider` (File → Environment chain). |
-| `RotatingJwtSecurityKeyProvider` | **Source-Complete** | JWT key rotation support. |
-| External vault integration | **Residual Risk** | No HashiCorp Vault, AWS SM, or Azure KV provider implemented. Helm chart has `external-secrets` and `vault-injector` secret templates but no corresponding `ISecretProvider` implementation. |
-| TOTP secret KMS | **Residual Risk** | Uses JWT signing key as encryption source. Production needs dedicated KMS. |
+| `ISecretProvider` abstraction | **Runtime-Proven** | Interface with `ChainedSecretProvider`. Full chain: HashiCorp Vault → AWS Secrets Manager → Azure Key Vault → File → Environment. |
+| `RotatingJwtSecurityKeyProvider` | **Source-Complete** | JWT key rotation support with dual-key validation during rollover. |
+| HashiCorp Vault provider | **Implemented in Source** | `HashiCorpVaultSecretProvider`: KV v2 via HTTP API, AppRole auth, token renewal at 75% TTL, version-based rotation polling. Tested with mock HTTP handlers. |
+| AWS Secrets Manager provider | **Implemented in Source** | `AwsSecretsManagerSecretProvider`: SDK credential chain (IAM/instance profile/env), JSON secret parsing, rotation detection via DescribeSecret. Tested with SDK-absent degradation. |
+| Azure Key Vault provider | **Implemented in Source** | `AzureKeyVaultSecretProvider`: `DefaultAzureCredential` (Managed Identity), version tracking, rotation polling. Tested with SDK-absent degradation. |
+| TOTP secret encryption | **Runtime-Proven** | `DedicatedTotpSecretEncryptor` with `ARCHONAI_TOTP_ENCRYPTION_KEY` (HKDF-derived AES-256-CBC + HMAC-SHA256). JWT fallback dev/test only. Health-gated via `ProductionConfigValidator`. |
 
 ---
 
@@ -161,5 +165,5 @@ This document provides an honest, verifiable assessment of what ArchonAI can and
 1. **Produce real AI output** — Requires API keys for at least one model provider.
 2. **Connect to real CRM/ERP/Financial APIs** — Requires credentials and endpoint configuration.
 3. **Federate with a live IdP** — OIDC is implemented but not tested against Okta/Entra/Auth0.
-4. **Protect secrets with an external vault** — Secrets are in files/env vars. Helm supports external-secrets operator but no `ISecretProvider` vault backend exists.
+4. **Protect secrets with an external vault at runtime** — Three vault `ISecretProvider` implementations exist (HashiCorp Vault, AWS Secrets Manager, Azure Key Vault) and are registered in the DI chain. Production deployment requires vault connectivity and credentials.
 5. **Aggregate logs centrally** — No EFK/Loki pipeline.

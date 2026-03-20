@@ -1,5 +1,7 @@
 # TOTP Key Management
 
+Last verified: 2026-03-20
+
 ## Overview
 
 ArchonAI encrypts TOTP secrets at rest using AES-256-CBC with HMAC-SHA256 (Encrypt-then-MAC), implemented in `DedicatedTotpSecretEncryptor`. Key material is derived via HKDF-SHA256 from a raw secret, producing separate 256-bit encryption and MAC keys.
@@ -30,12 +32,12 @@ Prior to this hardening, the encryptor contained a hardcoded development fallbac
 
 ## Production Requirements
 
-| Environment | TOTP Key Required? | JWT Key Acceptable as Fallback? |
-|---|---|---|
-| Production | Yes | Yes (with warning) |
-| Staging | Yes | Yes (with warning) |
-| Development | Yes | Yes (with warning) |
-| CI/Test | Yes — set in test configuration | Yes |
+| Environment | TOTP Key Required? | JWT Key Acceptable as Fallback? | Health Gate |
+|---|---|---|---|
+| Production | **Required** | **No** — `DedicatedTotpSecretEncryptor` throws, `ProductionConfigValidator` raises Critical, health check returns Unhealthy | K8s will not route traffic |
+| Staging | **Required** | **No** — same enforcement as production | K8s will not route traffic |
+| Development | Recommended | Yes (emits `LogWarning`) | No blocking |
+| CI/Test | Set in test configuration | Yes (emits `LogWarning`) | No blocking |
 
 **Generate a key:** `openssl rand -base64 48`
 

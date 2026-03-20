@@ -1,5 +1,7 @@
 # TOTP Secret Protection
 
+Last verified: 2026-03-20
+
 This document describes how TOTP (Time-based One-Time Password) secrets are protected at rest in ArchonAI.
 
 ## Overview
@@ -18,14 +20,33 @@ TOTP secrets are 20-byte random values (Base32-encoded) that serve as the shared
 - Key derivation: **HKDF-SHA256** from the raw secret, producing separate 256-bit encryption and MAC keys
 - IV: 16 random bytes per credential (generated via `RandomNumberGenerator`)
 
-### Key Material
+### Three-Tier Key Priority
 
-| Environment Variable | Purpose |
-|---------------------|---------|
-| `ARCHONAI_TOTP_ENCRYPTION_KEY` | **Primary** — dedicated TOTP encryption key |
-| `ARCHONAI_JWT_SIGNING_KEY` | **Fallback** — used if TOTP key is not set, and for decrypting legacy ciphertexts |
+| Priority | Source | Behavior |
+|----------|--------|----------|
+| 1. **Production required** | `ARCHONAI_TOTP_ENCRYPTION_KEY` | Dedicated TOTP key. HKDF-derived to separate encryption and MAC keys. Always used when set. |
+| 2. **Dev/test fallback** | `ARCHONAI_JWT_SIGNING_KEY` | Accepted only in non-production environments. `DedicatedTotpSecretEncryptor` emits `LogWarning`. In production, this fallback is **rejected** — the encryptor throws `InvalidOperationException`. |
+| 3. **No key available** | — | `DedicatedTotpSecretEncryptor` throws `InvalidOperationException`. MFA is non-functional. |
 
-In production, always set `ARCHONAI_TOTP_ENCRYPTION_KEY` to decouple TOTP encryption from JWT signing-key lifecycle.
+### Production Health Gate
+
+In production-like environments (`ASPNETCORE_ENVIRONMENT` = Production or Staging):
+- `ProductionConfigValidator` raises a **Critical** finding if `ARCHONAI_TOTP_ENCRYPTION_KEY` is absent
+- The health check returns **Unhealthy**, causing K8s readiness probes to fail
+- K8s will **not route traffic** to the pod
+- `DedicatedTotpSecretEncryptor.DeriveCurrentKeys()` throws `InvalidOperationException` if called without the dedicated key
+
+The JWT signing key is **not acceptable** as a TOTP encryption key in production. This prevents lifecycle coupling where JWT key rotation would destroy all TOTP credentials.
+
+### Recommended Setup
+
+Generate a dedicated TOTP encryption key:
+
+```bash
+openssl rand -base64 48
+```
+
+Set as `ARCHONAI_TOTP_ENCRYPTION_KEY` in your secrets configuration.
 
 ### Key Derivation
 

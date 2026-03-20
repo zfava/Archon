@@ -162,13 +162,15 @@ public sealed class PostgresControlPlaneAlertStore : IControlPlaneAlertStore
         await using var conn = new NpgsqlConnection(_connectionString);
         await conn.OpenAsync(ct);
 
-        // Delete oldest acknowledged alerts beyond the limit
+        // Keep the @keep most-recent acknowledged alerts; delete the rest.
+        // Business rule: only acknowledged alerts are eligible for eviction.
+        // Unacknowledged (active) alerts are never pruned by this method.
         await using var cmd = new NpgsqlCommand($@"
             DELETE FROM {AlertsTable}
             WHERE alert_id IN (
                 SELECT alert_id FROM {AlertsTable}
                 WHERE is_acknowledged
-                ORDER BY raised_at_utc ASC
+                ORDER BY raised_at_utc DESC
                 OFFSET @keep
             )
         ", conn);
@@ -207,7 +209,7 @@ public sealed class PostgresControlPlaneAlertStore : IControlPlaneAlertStore
             DELETE FROM {EventsTable}
             WHERE id NOT IN (
                 SELECT id FROM {EventsTable}
-                ORDER BY occurred_at_utc DESC
+                ORDER BY occurred_at_utc DESC, id DESC
                 LIMIT 200
             )
         ", conn);
@@ -224,7 +226,7 @@ public sealed class PostgresControlPlaneAlertStore : IControlPlaneAlertStore
 
         await using var cmd = new NpgsqlCommand($@"
             SELECT * FROM {EventsTable}
-            ORDER BY occurred_at_utc DESC
+            ORDER BY occurred_at_utc DESC, id DESC
             LIMIT @limit
         ", conn);
         cmd.Parameters.AddWithValue("limit", limit);

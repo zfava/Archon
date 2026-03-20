@@ -1,5 +1,7 @@
 # MFA Key Management
 
+Last verified: 2026-03-20
+
 This document describes the key management architecture for ArchonAI's multi-factor authentication subsystem.
 
 ## Key Inventory
@@ -94,15 +96,26 @@ vault kv put secret/archonai/jwt  signing_key=<value>
 | Scenario | Behavior |
 |----------|----------|
 | `ARCHONAI_TOTP_ENCRYPTION_KEY` set | Dedicated key used for all new encryptions |
-| `ARCHONAI_TOTP_ENCRYPTION_KEY` not set, `ARCHONAI_JWT_SIGNING_KEY` set | Falls back to JWT key for new encryptions (not recommended for production) |
-| Neither set | Uses hardcoded development fallback (non-production only) |
-| Legacy ciphertext encountered | Decrypted with JWT-derived key, re-encrypted with dedicated key on verification |
+| `ARCHONAI_TOTP_ENCRYPTION_KEY` not set, `ARCHONAI_JWT_SIGNING_KEY` set, **dev/test** | Falls back to JWT key with `LogWarning`. Acceptable for development only. |
+| `ARCHONAI_TOTP_ENCRYPTION_KEY` not set, **production-like** | `ProductionConfigValidator` raises `Critical` finding. `DedicatedTotpSecretEncryptor` throws `InvalidOperationException`. Health check returns Unhealthy. K8s will not route traffic. |
+| Neither set | `DedicatedTotpSecretEncryptor` throws `InvalidOperationException` at runtime. MFA is non-functional. |
+| Legacy ciphertext encountered | Decrypted with JWT-derived key (`SHA256(JWT_KEY)` as AES key), re-encrypted with dedicated key on next successful verification. |
+
+## Recommended Setup
+
+Generate a dedicated TOTP encryption key (minimum 32 bytes, cryptographically random):
+
+```bash
+openssl rand -base64 48
+```
+
+Set as `ARCHONAI_TOTP_ENCRYPTION_KEY` in your secrets configuration (K8s Secret, vault, or environment variable).
 
 ## Residual Risks
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| TOTP key not set in production | Medium | Log warning on startup; fallback to JWT key is functional but not recommended |
+| TOTP key not set in production | **Blocked** | `ProductionConfigValidator` raises Critical. `DedicatedTotpSecretEncryptor` throws. K8s will not route traffic to unhealthy pods. |
 | Legacy secrets not yet migrated | Low | Migration is lazy and transparent; no user impact |
-| No KMS integration | Low | HKDF derivation from environment/file-based secrets is acceptable; KMS can be added via `ISecretProvider` chain |
+| Vault-backed key delivery | Low | Three vault `ISecretProvider` implementations exist (HashiCorp, AWS, Azure). Key can be delivered via vault chain. |
 | Recovery codes use PBKDF2 (not encryption) | None | Recovery codes are one-way hashed, not encrypted; no key dependency |

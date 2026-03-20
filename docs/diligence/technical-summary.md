@@ -1,5 +1,7 @@
 # ArchonAI — Technical Summary
 
+Last verified: 2026-03-20
+
 ## For: Buyer, Investor, CTO, Solutions Architect
 
 This document provides a factual assessment of what ArchonAI implements today, what is partially built, and what remains on the roadmap. Every status is verifiable through code inspection or test execution.
@@ -46,10 +48,10 @@ This document provides a factual assessment of what ArchonAI implements today, w
 
 | Component | What Works | What's Missing | Risk Level |
 |---|---|---|---|
-| **LLM Model Providers** | 4 providers (OpenAI, Anthropic, Azure OpenAI, Local/Ollama) with real HTTP client code, retry logic, and error handling. Model router with task-type routing. Echo stubs explicitly labeled with `FinishReason: "echo_fallback"`. | Config-dependent — requires API keys at deployment. No AI-generated reasoning without keys. | **Critical** |
+| **LLM Model Providers** | 4 providers (OpenAI, Anthropic, Azure OpenAI, Local/Ollama) with real HTTP client code, retry logic, and error handling. Model router with task-type routing. All providers return hard errors (`IsSuccess: false`) when credentials are missing — no fabricated responses. `ModelProviderActivationService` logs `CRITICAL` at startup if zero providers are active. `AiRuntimeDiagnostics` reports readiness tier `"unconfigured"`. | Config-dependent — requires API keys at deployment. No AI-generated reasoning without keys. | **Critical** |
 | **Connector Live Validation** | 10 connectors (6 specialized + 4 generic) with real HTTP clients, OAuth, Polly circuit breakers, rate limiting, and audit events. | All tested with mock HTTP handlers only — no live API sandbox validation. | **Medium** |
 | **Observability Pipeline** | OpenTelemetry tracing + metrics, Serilog structured logging, Prometheus export, 5 API health checks, worker health endpoints, 10 Grafana dashboard JSON files, Prometheus alert rules. | Grafana dashboards not validated against live Prometheus scrape. No log aggregation pipeline (EFK/Loki). | **Low** |
-| **Secret Management** | `ISecretProvider` abstraction with `ChainedSecretProvider` (File → Environment chain) and `RotatingJwtSecurityKeyProvider`. | No external vault integration (HashiCorp Vault, AWS SM, Azure KV). Helm supports external-secrets operator but app reads from chain only. | **Medium** |
+| **Secret Management** | `ISecretProvider` abstraction with `ChainedSecretProvider` (Vault → AWS → Azure → File → Environment chain) and `RotatingJwtSecurityKeyProvider`. Three vault-backed providers implemented: `HashiCorpVaultSecretProvider`, `AwsSecretsManagerSecretProvider`, `AzureKeyVaultSecretProvider`. | Vault providers tested with mock handlers / SDK-absent degradation. Not yet validated against live vault instances. | **Low** |
 
 ### Implemented Since Prior Audit (No Longer Gaps)
 
@@ -157,8 +159,8 @@ This document provides a factual assessment of what ArchonAI implements today, w
 
 ### Known Limitations
 
-1. **No AI reasoning without API keys** — The intelligence loop, agent execution, and planning pipeline are structurally complete but produce echo-stub output without configured API keys. Stubs are labeled with `FinishReason: "echo_fallback"`.
-2. **No external vault integration** — `ISecretProvider` chain exists (File → Environment) but no HashiCorp Vault, AWS SM, or Azure KV provider. Helm supports external-secrets operator at the infrastructure level.
+1. **No AI reasoning without API keys** — The intelligence loop, agent execution, and planning pipeline are structurally complete but all AI endpoints return hard errors (`IsSuccess: false`) without configured API keys. `ModelProviderActivationService` logs `CRITICAL` and `AiRuntimeDiagnostics` reports readiness tier `"unconfigured"`. No echo or fabricated responses are produced.
+2. **Vault providers need live validation** — Three `ISecretProvider` vault implementations exist (HashiCorp Vault, AWS Secrets Manager, Azure Key Vault) and are registered in the chain. Tested with mock handlers but not validated against live vault instances.
 3. **No published load test baselines** — k6 test infrastructure exists with 4 scenarios but no baseline results have been captured or published.
 4. **OIDC not validated against live IdPs** — Federation is implemented and tested with mock IdPs. Not confirmed against Okta, Entra ID, or Auth0.
 5. **Durable workflow step persistence is per-instance** — `DurableWorkflowExecutionEngine` uses file-backed step state, not shared across instances in multi-replica deployments.

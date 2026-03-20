@@ -3,6 +3,41 @@ using ArchonAI.Enterprise.Tests.Infrastructure;
 
 namespace ArchonAI.Enterprise.Tests.Integration;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Test correctness manifest — PostgresControlPlaneAlertPersistenceTests
+// Last verified: 2026-03-20
+//
+// What each test proves:
+//   PauseState_DefaultsToUnpaused          — fresh DB has is_paused=false
+//   SetPauseState_PersistsAndRetrieves     — UPDATE + SELECT round-trip
+//   PauseState_SurvivesStoreReinstantiation— data outlives a store instance
+//   PauseState_VisibleAcrossInstances      — concurrent store instances share state
+//   UpsertAlert_PersistsAndRetrievesActive — INSERT + GetActiveAlertsAsync round-trip
+//   Alerts_VisibleAcrossInstances          — alert visible from second store instance
+//   AcknowledgeAlert_PersistsAcrossInstances — acknowledge hides alert from active list
+//   Alerts_SurviveStoreReinstantiation     — alert survives store re-creation
+//   EvictStaleAlerts_PrunesBeyondMax       — only acknowledged alerts are pruned;
+//       keeps the N most-recent acknowledged alerts, deletes the oldest beyond that
+//   AddEvent_PersistsAndRetrieves          — event INSERT + GetRecentEventsAsync
+//   Events_VisibleAcrossInstances          — event visible from second instance
+//   Events_SurviveStoreReinstantiation     — event outlives store instance
+//   GetRecentEvents_RespectsLimit           — LIMIT clause applied correctly
+//   MultiInstance_FullLifecycleAcrossInstances — end-to-end lifecycle
+//
+// Eviction business rule:
+//   EvictStaleAlertsAsync(maxAlerts) keeps the `maxAlerts` most-recent
+//   ACKNOWLEDGED alerts (ordered by raised_at_utc DESC) and deletes the rest.
+//   Unacknowledged (active) alerts are NEVER pruned by eviction.
+//
+// Fixes applied (2026-03-20):
+//   1. EvictStaleAlertsAsync SQL used ORDER BY raised_at_utc ASC — this kept the
+//      OLDEST acknowledged alerts and deleted the NEWEST. Changed to DESC so the
+//      most-recent acknowledged alerts are retained (pruning predicate mismatch).
+//   2. GetRecentEventsAsync and event-pruning queries added secondary sort on id
+//      for deterministic ordering when events share identical timestamps
+//      (event retrieval ordering).
+// ═══════════════════════════════════════════════════════════════════════════
+
 /// <summary>
 /// Real PostgreSQL integration tests for <see cref="ArchonAI.Persistence.Stores.PostgresControlPlaneAlertStore"/>.
 /// Uses Testcontainers to start an ephemeral PostgreSQL instance.

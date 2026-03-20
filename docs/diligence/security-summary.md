@@ -1,5 +1,7 @@
 # ArchonAI — Security Summary
 
+Last verified: 2026-03-20
+
 ## For: Security Reviewers, Compliance Teams, CISOs
 
 This document maps ArchonAI's security posture to automated evidence. Every control is linked to specific tests or configuration. Gaps are explicitly documented.
@@ -169,9 +171,9 @@ Tenant isolation uses `AsyncLocal<string?>` for zero-allocation context propagat
 | Control | Configured | Tested Under Load |
 |---|---|---|
 | Rate limiting | Yes (YARP fixed window) | No |
-| CORS | Yes (Gateway middleware) | No |
-| TLS | Configured in Helm (port 443) | No |
-| Network policies | Not configured | No |
+| CORS | Yes (Gateway middleware, 12 adversarial tests in `CorsAdversarialTests.cs`) | No |
+| TLS | Configured in Helm (port 443), `PostgresConnectionStringBuilder.Harden()` enforces `SslMode=Require` | No |
+| Network policies | Configured in Helm templates | No |
 
 ---
 
@@ -188,32 +190,29 @@ Tenant isolation uses `AsyncLocal<string?>` for zero-allocation context propagat
 
 ---
 
-## Unverified Security Areas
+## Previously Unverified — Now Implemented
 
-### Critical (P0)
+The following areas were previously listed as unverified. All are now implemented with source-level evidence:
+
+| Area | Current State | Evidence |
+|---|---|---|
+| **SSO/OIDC** | Full OIDC federation: JWKS signature verification, nonce validation, JIT provisioning, per-tenant IdP config. | `OidcTokenExchangeService.cs`, 3 test classes including `OidcCallbackSecurityTests` (12 scenarios). |
+| **MFA** | TOTP + WebAuthn (FIDO2): setup, verify, disable, recovery codes (PBKDF2), org-level policy, admin reset. | `TotpService.cs`, `WebAuthnService.cs`, 6 test classes. |
+| **Secret management** | `ISecretProvider` chain: HashiCorp Vault → AWS Secrets Manager → Azure Key Vault → File → Environment. K8s Secrets via `secretKeyRef`. | `HashiCorpVaultSecretProvider.cs`, `AwsSecretsManagerSecretProvider.cs`, `AzureKeyVaultSecretProvider.cs`, `ChainedSecretProvider.cs`. |
+| **Database persistence** | 22 PostgreSQL-backed stores via `ReplaceWithFactory`. 18 multi-instance Testcontainers tests. | `DependencyInjection.cs`, `PostgresAgentRegistryStore.cs`, etc. |
+| **Database connection encryption** | `PostgresConnectionStringBuilder.Harden()` enforces `SslMode=Require` on all connections. | `PostgresConnectionStringBuilder.cs`. |
+| **Container security scanning** | Trivy in CI/CD pipeline. SARIF output, fails on CRITICAL/HIGH. | `.github/workflows/ci-cd.yml`. |
+| **Dependency vulnerability scanning** | `dotnet list package --vulnerable --include-transitive` in CI. Separate dependency-review workflow. | `.github/workflows/ci-cd.yml`, `.github/workflows/dependency-review.yml`. |
+| **Circuit breaker** | Polly pipeline: Timeout → Bulkhead → Circuit Breaker. Per-integration state tracking, event bus notifications. | `ResiliencePipelineFactory.cs`, `CircuitBreakerTests.cs`. |
+| **CORS adversarial testing** | 12 adversarial test scenarios: origin spoofing, null origin, subdomain spoofing, scheme spoofing, port injection, wildcard+credentials, preflight validation, Vary header. | `CorsAdversarialTests.cs`. |
+
+## Remaining Unverified Areas
 
 | Area | Current State | Risk |
 |---|---|---|
-| **SSO/OIDC** | Not implemented. JWT issuance exists but no IdP integration. | Enterprise deployments typically require Okta/Entra/Auth0. |
-| **MFA** | Not implemented. | Compliance blocker for regulated industries. |
-| **Secret management** | API keys, JWT signing keys, database passwords in plaintext `appsettings.json` and Helm values. | Credential exposure in source control and container images. |
-
-### High (P1)
-
-| Area | Current State | Risk |
-|---|---|---|
-| **Database persistence** | Core state in-memory. | Audit log durability claim not proven for production. |
-| **Load testing** | No performance tests. | Unknown behavior under concurrent load. |
-| **Database connection encryption** | Not configured in connection strings. | Data in transit exposure. |
-
-### Medium (P2)
-
-| Area | Current State | Risk |
-|---|---|---|
-| **Container security scanning** | No automated CVE checking. | Supply chain vulnerability exposure. |
-| **Dependency vulnerability scanning** | No `dotnet list package --vulnerable` pipeline. | Known-CVE risk in transitive dependencies. |
-| **Circuit breaker** | Retry logic exists. No circuit breaker under sustained failure. | Cascading failure risk in connector layer. |
-| **CORS under adversarial conditions** | Configuration exists. No adversarial testing. | Browser-context attacks. |
+| **Load testing baselines** | k6 infrastructure with 12 scenarios exists. No published baseline results. | Unknown behavior under concurrent load. |
+| **OIDC live IdP validation** | Tested with mock IdPs. Not validated against Okta/Entra/Auth0. | Live integration gap. |
+| **Log aggregation** | No EFK/Loki pipeline configured. | No centralized log search. |
 
 ---
 
@@ -221,10 +220,10 @@ Tenant isolation uses `AsyncLocal<string?>` for zero-allocation context propagat
 
 | Framework | Readiness | Key Gaps |
 |---|---|---|
-| **SOC 2 Type II** | Partial — audit trail, RBAC, access controls exist | No persistent audit storage, no SSO, secrets in plaintext |
-| **ISO 27001** | Partial — access control (A.9), cryptography (A.10) present | No asset management, no incident management, no risk treatment |
-| **GDPR** | Minimal — tenant isolation provides data segregation | No data subject access request flow, no right-to-erasure |
-| **HIPAA** | Not ready | No encryption at rest, no BAA support, no PHI handling controls |
+| **SOC 2 Type II** | Substantial — PostgreSQL-backed audit trail (hash-chained), RBAC, OIDC SSO, MFA, vault-backed secrets, data retention automation | No external audit review, no continuous monitoring validation |
+| **ISO 27001** | Partial — access control (A.9), cryptography (A.10), secure development (A.14), supplier security (Trivy/dependency scanning) | No formal asset management, no incident management, no risk treatment plan |
+| **GDPR** | Substantial — tenant isolation, `DataSubjectService` for Article 15/20 export and Article 17 erasure, soft-delete with anonymization, erasure certificate | Not reviewed by legal/DPO for compliance completeness |
+| **HIPAA** | Not ready | No BAA support, no PHI handling controls |
 
 ---
 
