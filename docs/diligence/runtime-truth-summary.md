@@ -25,7 +25,7 @@ This document provides an honest, verifiable assessment of what ArchonAI can and
 | Capability | Evidence Tier | Detail |
 |---|---|---|
 | PostgreSQL-backed domain stores | **Runtime-Proven** | 22 stores via `ReplaceWithFactory` in `DependencyInjection.cs`. Includes RBAC, Audit, Governance, Trust Tiers, Decisions, Financial, Scenarios, Exceptions, Outcomes, Operational Twin, Enterprise Memory, Monitoring, Hero Workflows, Policy Simulation, Proof Analytics, Action Safety, Inspection, Agent Registry, Control Plane, Agent Capability Registry, Control Plane Alerts. |
-| DbUp migration framework | **Runtime-Proven** | 24 numbered SQL scripts (001–024) with journal table, transaction-per-script, health check. Rollback scripts in `Down/`. |
+| DbUp migration framework | **Runtime-Proven** | 25 numbered SQL scripts (001–025) with journal table, transaction-per-script, health check. Rollback scripts in `Down/`. |
 | Multi-instance state consistency | **Runtime-Proven** | 18 Testcontainers integration tests verify cross-instance reads, upsert idempotency, cascade deletes, and pause-state sharing. |
 | In-memory fallback (dev only) | **Source-Complete** | All 22 stores fall back to in-memory/file-backed when `ArchonAIPersistence:ConnectionString` is not set. Fallbacks are labeled non-production. |
 | pgvector semantic search | **Source-Complete** | `PostgresMemoryRecordRepository` with vector embeddings. Requires PostgreSQL with pgvector extension. |

@@ -107,7 +107,7 @@ When `ArchonAIPersistence:ConnectionString` is not set:
 
 1. **Inspect DI registration**: Verify all 4 `ReplaceWithFactory` calls for Agent Registry, Control Plane, Agent Capability Registry, and Control Plane Alert Store in `DependencyInjection.cs`
 2. **Run integration tests**: `dotnet test --filter "Category=Integration&Database=PostgreSQL"` — all must pass
-3. **Verify migration scripts**: Check migrations 021–024 exist and are idempotent
+3. **Verify migration scripts**: Check migrations 021–025 exist and are idempotent
 4. **Confirm store count**: `DependencyInjection.cs` should register 21 PostgreSQL stores with 21 `ReplaceWithFactory` calls
 
 ### For Operators
@@ -117,7 +117,7 @@ Ensure `ArchonAIPersistence:ConnectionString` is set in production. Without it, 
 ## Residual Considerations
 
 - **In-memory fallback is non-production**: The fallback implementations are preserved for local development but should never be used in production multi-instance deployments
-- **Migration ordering**: Migrations 021–024 must run before the application starts with PostgreSQL persistence enabled
+- **Migration ordering**: Migrations 021–025 must run before the application starts with PostgreSQL persistence enabled
 - **No data migration**: Existing in-memory or file-backed state is not automatically migrated to PostgreSQL; a fresh start is required when switching backends
 - **IModelPerformanceTracker remains in-memory**: Model performance scoring (`ModelPerformanceTracker`) is still in-memory. This is acceptable because model scores are derived from live request telemetry and rebuild naturally on startup
 - **IClusterCoordinator state is transient**: Cluster node membership is inherently instance-specific and does not require shared persistence

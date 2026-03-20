@@ -143,8 +143,8 @@ Without API keys, every model request returns an echo stub response marked `Fini
 | Capability | Evidence |
 |---|---|
 | PostgreSQL-backed core stores (22) | RBAC, Audit, Governance, Trust Tiers, Decisions, Financial, Scenarios, Exceptions, Outcomes, Operational Twin, Enterprise Memory, Monitoring, Hero Workflows, Policy Simulation, Proof Analytics, Action Safety, Inspection, Agent Registry, Control Plane, Agent Capability Registry, Control Plane Alerts |
-| DbUp migration framework | 24 numbered SQL scripts (001–024), journal table, transaction-per-script, health check |
-| Rollback scripts | Complete `Down/` directory with rollback for all 19 data migrations |
+| DbUp migration framework | 25 numbered SQL scripts (001–025), journal table, transaction-per-script, health check |
+| Rollback scripts | Complete `Down/` directory with rollback for all 25 migrations (001–025) |
 | Config-driven factory pattern | `DependencyInjection.cs` — PostgreSQL when connection string configured, in-memory fallback otherwise |
 | Memory store with pgvector | `PostgresMemoryRecordRepository` with semantic search via vector embeddings |
 | Deterministic state machine (8 states) | 13 integration tests including invalid transition rejection |

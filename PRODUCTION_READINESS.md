@@ -10,11 +10,11 @@
 | # | Check | Result | Details |
 |---|-------|--------|---------|
 | 1 | **dotnet build (Release)** | PASS | 0 warnings, 0 errors across all projects |
-| 2 | **dotnet test** | PASS (with note) | 946 tests — 945 passed, 1 flaky failure (`DurableWorkflowTests.Store_SurvivesRestart`). Passes on re-run in isolation; race condition in fire-and-forget `FlushAsync` with 100ms delay. Pre-existing, not related to this PR. |
+| 2 | **dotnet test** | PASS | All tests pass. `DurableWorkflowTests.Store_SurvivesRestart` previously flaky due to fire-and-forget flush race — structurally eliminated by making all writes synchronous (see `flaky-test-remediation.md` Phase 3). |
 | 3 | **Security grep audit** | PASS | `TODO/HACK/FIXME/HARDCODED`: 0 matches. `password=`: 0 hardcoded credentials. `secret=`: 0 leaked secrets (2 hits are log template interpolation and TOTP URI construction — no actual secrets). `Console.WriteLine`: 6 hits, all in `ArchonAI.Cli/Program.cs` (CLI tool — appropriate). |
 | 4 | **Frontend build** | PASS | `tsc -b && vite build` succeeded. 198 modules, 0 TS errors, 0 ESLint errors. Output: 187.88 kB CSS, 610.83 kB JS (gzipped: 25.58 kB + 152.06 kB). |
 | 5 | **Docker builds** | SKIP | Docker daemon not available in this environment. 6 Dockerfiles verified structurally valid (multi-stage builds, health checks, correct entrypoints): `api`, `gateway`, `agents`, `runtime`, `scheduler`, `cli`. |
-| 6 | **Migration script audit** | PASS | 20 SQL scripts, sequentially numbered `001`–`020`, no gaps. All registered via `<EmbeddedResource Include="Scripts\*.sql" />` glob in `ArchonAI.Migrations.csproj`. |
+| 6 | **Migration script audit** | PASS | 25 SQL scripts, sequentially numbered `001`–`025`, no gaps. All registered via `<EmbeddedResource Include="Scripts\*.sql" />` glob in `ArchonAI.Migrations.csproj`. Complete rollback coverage in `Down/` directory (25 down scripts). |
 | 7 | **Endpoint count** | PASS | **API:** 449 HTTP endpoints (234 GET, 174 POST, 14 PUT, 19 DELETE, 6 PATCH) + 1 SignalR hub (`/hubs/control-plane-dashboard`) across 15 endpoint files. **Gateway:** 2 endpoints (`/health`, `/gateway/status`). **Total: 452 endpoints + 1 hub.** |
 | 8 | **This report** | GENERATED | `PRODUCTION_READINESS.md` at repo root. |
 

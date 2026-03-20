@@ -122,9 +122,9 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 
 | Aspect | Status | Detail |
 |---|---|---|
-| Migration framework | **Runtime-Proven** | DbUp with 24 numbered SQL scripts (001–024), journal table `schemaversions` |
+| Migration framework | **Runtime-Proven** | DbUp with 25 numbered SQL scripts (001–025), journal table `schemaversions` |
 | Migration health check | **Source-Complete** | `MigrationHealthCheck` reports pending migrations |
-| Rollback scripts | **Source-Complete** | `Down/` directory with rollback for all data migrations |
+| Rollback scripts | **Source-Complete** | `Down/` directory with rollback for all 25 migrations (001–025) |
 | Schema evolution | **Not Proven** | No real schema upgrade cycle has been executed in production |
 | pgvector extension | **Source-Complete** | Script 001 creates extension. Required for memory/semantic search. |
 
@@ -156,7 +156,7 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 | 6 | Connector credentials configured | Connector functionality |
 | 7 | OIDC IdP configured per tenant | SSO login |
 | 8 | TLS certificate on PostgreSQL server | DB connection encryption |
-| 9 | Migrations 001–024 applied | First deployment |
+| 9 | Migrations 001–025 applied | First deployment |
 
 ---
 
