@@ -74,6 +74,35 @@ interface EconomicBrief {
   outcomesDrifting: number;
   activeBottlenecks: number;
 }
+interface ProofBrief {
+  totalDecisions: number;
+  withOutcomes: number;
+  accuracyRate: number;
+  successRate: number;
+  overrideRate: number;
+}
+interface ActionSafetyBrief {
+  totalActions: number;
+  reversible: number;
+  irreversible: number;
+  rollbacksSucceeded: number;
+  rollbacksFailed: number;
+}
+interface WorkflowHeadline {
+  id: string;
+  workflowType: string;
+  title: string;
+  status: string;
+  completedSteps: number;
+  totalSteps: number;
+  updatedAtUtc: string;
+}
+interface WorkflowBrief {
+  active: number;
+  completed: number;
+  failed: number;
+  recent: WorkflowHeadline[];
+}
 interface ExecSummary {
   tenantId: string;
   exceptionBrief: ExceptionBrief;
@@ -83,6 +112,9 @@ interface ExecSummary {
   trustBrief: TrustTierBrief;
   scenarioBrief: ScenarioBrief;
   economicBrief: EconomicBrief;
+  proofBrief: ProofBrief;
+  actionSafetyBrief: ActionSafetyBrief;
+  workflowBrief: WorkflowBrief;
   generatedAtUtc: string;
 }
 
@@ -118,7 +150,8 @@ export function ExecutiveCommandView() {
   if (!data) return <div className="exec-view"><div className="exec-loading">Unable to load command summary.</div></div>;
 
   const { exceptionBrief: exc, approvalBrief: appr, calibrationBrief: cal,
-          operationalBrief: ops, trustBrief: trust, scenarioBrief: scen, economicBrief: econ } = data;
+          operationalBrief: ops, trustBrief: trust, scenarioBrief: scen, economicBrief: econ,
+          proofBrief: proof, actionSafetyBrief: safety, workflowBrief: wf } = data;
 
   return (
     <div className="exec-view">
@@ -273,9 +306,81 @@ export function ExecutiveCommandView() {
         </div>
       )}
 
-      {/* ── Post-elite quick links ──────────────────────────── */}
+      {/* ── Proof, Safety & Workflow metrics ─────────────────── */}
       <div className="exec-section">
-        <div className="exec-section-header">Governed Operations</div>
+        <Link to="/proof-analytics" className="exec-section-header" style={{ textDecoration: 'none', color: 'inherit' }}>Proof Analytics</Link>
+        <div className="exec-cal-grid">
+          <div className="exec-cal-item">
+            <div className="exec-cal-val">{proof.totalDecisions}</div>
+            <div className="exec-cal-lbl">Decisions</div>
+          </div>
+          <div className="exec-cal-item">
+            <div className="exec-cal-val">{proof.withOutcomes}</div>
+            <div className="exec-cal-lbl">With Outcomes</div>
+          </div>
+          <div className={`exec-cal-item ${proof.accuracyRate >= 0.7 ? 'exec-cal-good' : 'exec-cal-warn'}`}>
+            <div className="exec-cal-val">{(proof.accuracyRate * 100).toFixed(0)}%</div>
+            <div className="exec-cal-lbl">Accuracy</div>
+          </div>
+          <div className={`exec-cal-item ${proof.successRate >= 0.8 ? 'exec-cal-good' : 'exec-cal-warn'}`}>
+            <div className="exec-cal-val">{(proof.successRate * 100).toFixed(0)}%</div>
+            <div className="exec-cal-lbl">Exec Success</div>
+          </div>
+          <div className={`exec-cal-item ${proof.overrideRate <= 0.1 ? '' : 'exec-cal-bad'}`}>
+            <div className="exec-cal-val">{(proof.overrideRate * 100).toFixed(0)}%</div>
+            <div className="exec-cal-lbl">Override Rate</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="exec-section">
+        <Link to="/action-safety" className="exec-section-header" style={{ textDecoration: 'none', color: 'inherit' }}>Action Safety</Link>
+        <div className="exec-cal-grid">
+          <div className="exec-cal-item">
+            <div className="exec-cal-val">{safety.totalActions}</div>
+            <div className="exec-cal-lbl">Actions</div>
+          </div>
+          <div className="exec-cal-item exec-cal-good">
+            <div className="exec-cal-val">{safety.reversible}</div>
+            <div className="exec-cal-lbl">Reversible</div>
+          </div>
+          <div className={`exec-cal-item ${safety.irreversible > 0 ? 'exec-cal-bad' : ''}`}>
+            <div className="exec-cal-val">{safety.irreversible}</div>
+            <div className="exec-cal-lbl">Irreversible</div>
+          </div>
+          <div className="exec-cal-item exec-cal-good">
+            <div className="exec-cal-val">{safety.rollbacksSucceeded}</div>
+            <div className="exec-cal-lbl">Rollbacks OK</div>
+          </div>
+          <div className={`exec-cal-item ${safety.rollbacksFailed > 0 ? 'exec-cal-bad' : ''}`}>
+            <div className="exec-cal-val">{safety.rollbacksFailed}</div>
+            <div className="exec-cal-lbl">Rollbacks Failed</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="exec-section">
+        <Link to="/hero-workflows" className="exec-section-header" style={{ textDecoration: 'none', color: 'inherit' }}>
+          Hero Workflows
+          <span className="exec-section-count">{wf.active} active / {wf.completed} done / {wf.failed} failed</span>
+        </Link>
+        {wf.recent.length > 0 && (
+          <div className="exec-scenario-list">
+            {wf.recent.map(w => (
+              <Link to="/hero-workflows" key={w.id} className="exec-scenario-row" style={{ textDecoration: 'none' }}>
+                <span className={`exec-badge ${w.status === 'Failed' ? 'exec-sev-critical' : w.status === 'Completed' ? 'exec-sev-info' : 'exec-sev-high'}`}>{w.status}</span>
+                <span className="exec-scenario-title">{w.title}</span>
+                <span className="exec-scenario-meta">{w.completedSteps}/{w.totalSteps} steps</span>
+                <span className="exec-scenario-meta">{fmtDate(w.updatedAtUtc)}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Quick links ──────────────────────────────────────── */}
+      <div className="exec-section">
+        <div className="exec-section-header">More Views</div>
         <div className="exec-quick-links">
           <Link to="/hero-workflows" className="exec-quick-link">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>

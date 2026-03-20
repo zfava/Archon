@@ -1,7 +1,9 @@
 using System.Text.Json;
 using ArchonAI.Core.Interfaces;
+using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Governance;
 using ArchonAI.Core.Models.HumanOverride;
+using Microsoft.Extensions.Logging;
 
 namespace ArchonAI.Api.Security;
 
@@ -12,11 +14,19 @@ public sealed class GatedActionExecutor : IGatedActionExecutor
 {
     private readonly IAdminService _adminService;
     private readonly IHumanOverrideService _overrideService;
+    private readonly IEventBus _eventBus;
+    private readonly ILogger<GatedActionExecutor> _logger;
 
-    public GatedActionExecutor(IAdminService adminService, IHumanOverrideService overrideService)
+    public GatedActionExecutor(
+        IAdminService adminService,
+        IHumanOverrideService overrideService,
+        IEventBus eventBus,
+        ILogger<GatedActionExecutor> logger)
     {
         _adminService = adminService;
         _overrideService = overrideService;
+        _eventBus = eventBus;
+        _logger = logger;
     }
 
     public async Task<GatedActionResult> ExecuteAsync(ApprovalGate gate, CancellationToken ct = default)
@@ -27,13 +37,31 @@ public sealed class GatedActionExecutor : IGatedActionExecutor
         if (gate.ActionPayload is null)
             return new GatedActionResult(false, "No action payload stored.");
 
-        return gate.ActionType switch
+        var result = gate.ActionType switch
         {
             "workflow.cancel" => await ExecuteWorkflowCancelAsync(gate.ActionPayload, ct),
             "connector.disconnect" => await ExecuteConnectorDisconnectAsync(gate.ActionPayload, ct),
             "strategy.override" => await ExecuteStrategyOverrideAsync(gate.ActionPayload, ct),
             _ => new GatedActionResult(false, $"Unknown action type '{gate.ActionType}'.")
         };
+
+        // Publish action execution event for proof auto-emission
+        await _eventBus.PublishAsync(new SystemEvent(
+            Guid.NewGuid(),
+            "gated-action.executed",
+            nameof(GatedActionExecutor),
+            gate.Id,
+            new Dictionary<string, string>
+            {
+                ["actionType"] = gate.ActionType,
+                ["tenantId"] = gate.TenantId,
+                ["success"] = result.Success.ToString(),
+                ["detail"] = result.Error ?? "",
+                ["actor"] = gate.ReviewedBy ?? "system",
+            }.AsReadOnly(),
+            DateTimeOffset.UtcNow), ct);
+
+        return result;
     }
 
     private async Task<GatedActionResult> ExecuteWorkflowCancelAsync(string payload, CancellationToken ct)
@@ -46,14 +74,14 @@ public sealed class GatedActionExecutor : IGatedActionExecutor
         return new GatedActionResult(true);
     }
 
-    private Task<GatedActionResult> ExecuteConnectorDisconnectAsync(string payload, CancellationToken ct)
+    private global::System.Threading.Tasks.Task<GatedActionResult> ExecuteConnectorDisconnectAsync(string payload, CancellationToken ct)
     {
         // Connector disconnect is currently a no-op acknowledgment in the endpoint.
         // The gate approval itself authorises the disconnect.
-        return Task.FromResult(new GatedActionResult(true));
+        return global::System.Threading.Tasks.Task.FromResult(new GatedActionResult(true));
     }
 
-    private async Task<GatedActionResult> ExecuteStrategyOverrideAsync(string payload, CancellationToken ct)
+    private async global::System.Threading.Tasks.Task<GatedActionResult> ExecuteStrategyOverrideAsync(string payload, CancellationToken ct)
     {
         var req = JsonSerializer.Deserialize<ModifyStrategyRequest>(payload);
         if (req is null)

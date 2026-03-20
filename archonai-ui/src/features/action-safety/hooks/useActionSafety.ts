@@ -6,7 +6,7 @@ import type {
   RollbackSummary,
 } from '../types';
 
-export function useActionSafety() {
+export function useActionSafety(actionTypeFilter?: string) {
   const [classifications, setClassifications] = useState<ActionSafetyClassification[]>([]);
   const [actions, setActions] = useState<GovernedActionRecord[]>([]);
   const [summary, setSummary] = useState<RollbackSummary | null>(null);
@@ -22,15 +22,15 @@ export function useActionSafety() {
         api.getGovernedActions() as Promise<GovernedActionRecord[]>,
         api.getActionSafetySummary() as Promise<RollbackSummary>,
       ]);
-      setClassifications(cls);
-      setActions(acts);
+      setClassifications(actionTypeFilter ? cls.filter(c => c.actionType === actionTypeFilter) : cls);
+      setActions(actionTypeFilter ? acts.filter(a => a.actionType === actionTypeFilter) : acts);
       setSummary(sum);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load action safety data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [actionTypeFilter]);
 
   useEffect(() => { load(); }, [load]);
 

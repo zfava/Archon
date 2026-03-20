@@ -37,14 +37,17 @@ function LineageDetail({ decisionId }: { decisionId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     api.getTrustLineage(decisionId)
-      .then(setLineage)
+      .then((data) => { if (!cancelled) { setLineage(data); setError(null); } })
       .catch((e: unknown) => {
-        const message = e instanceof Error ? e.message : 'Failed to load lineage';
-        setError(message);
+        if (!cancelled) {
+          const message = e instanceof Error ? e.message : 'Failed to load lineage';
+          setError(message);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; setLoading(true); setLineage(null); setError(null); };
   }, [decisionId]);
 
   if (loading) return <div className="tl-loading">Loading trust lineage...</div>;
@@ -236,10 +239,10 @@ function LineageDetail({ decisionId }: { decisionId: string }) {
 
       {/* Cross-links */}
       <div className="tl-cross-links">
-        <Link to="/proof-analytics" className="tl-cross-link">Proof Analytics</Link>
+        <Link to={`/proof-analytics?decisionId=${encodeURIComponent(decisionId)}`} className="tl-cross-link">Proof Analytics</Link>
         <Link to="/action-safety" className="tl-cross-link">Action Safety</Link>
         <Link to="/trust-tiers" className="tl-cross-link">Trust Tiers</Link>
-        <Link to="/inspection" className="tl-cross-link">Inspect Decision</Link>
+        <Link to={`/inspection?subjectId=${encodeURIComponent(decisionId)}&subjectType=decision`} className="tl-cross-link">Inspect Decision</Link>
       </div>
     </div>
   );

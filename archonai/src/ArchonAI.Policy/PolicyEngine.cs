@@ -11,11 +11,13 @@ namespace ArchonAI.Policy;
 public sealed class PolicyEngine : IPolicyEngine
 {
     private readonly PolicyOptions _options;
+    private readonly IEventBus _eventBus;
     private readonly ILogger<PolicyEngine> _logger;
 
-    public PolicyEngine(IOptions<PolicyOptions> options, ILogger<PolicyEngine> logger)
+    public PolicyEngine(IOptions<PolicyOptions> options, IEventBus eventBus, ILogger<PolicyEngine> logger)
     {
         _options = options.Value;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -151,7 +153,7 @@ public sealed class PolicyEngine : IPolicyEngine
             }
         }
 
-        return global::System.Threading.Tasks.Task.FromResult(new PolicyDecision(
+        var decision = new PolicyDecision(
             IsAllowed: isAllowed,
             RiskScore: Math.Clamp(risk, 0, 100),
             ConfidenceScore: Math.Clamp(confidenceScore, 0, 1),
@@ -161,7 +163,39 @@ public sealed class PolicyEngine : IPolicyEngine
             ApprovalCheckpoint: approvalCheckpoint,
             GuardrailViolations: violations,
             Reason: reason,
-            EvaluatedAtUtc: DateTimeOffset.UtcNow));
+            EvaluatedAtUtc: DateTimeOffset.UtcNow);
+
+        // Publish inspection event via event bus — non-blocking for the caller,
+        // subscriber records the evaluation in InspectionService.
+        var tenantIdStr = context.Metadata.GetValueOrDefault("tenantId") ?? Guid.Empty.ToString();
+        _ = _eventBus.PublishAsync(new SystemEvent(
+            Guid.NewGuid(),
+            "inspection.policy-evaluation-recorded",
+            nameof(PolicyEngine),
+            task.Id,
+            new Dictionary<string, string>
+            {
+                ["subjectType"] = "task",
+                ["subjectId"] = task.Id.ToString(),
+                ["tenantId"] = tenantIdStr,
+                ["isAllowed"] = decision.IsAllowed.ToString(),
+                ["riskScore"] = decision.RiskScore.ToString(),
+                ["confidenceScore"] = decision.ConfidenceScore.ToString(),
+                ["requiresApproval"] = decision.RequiresApproval.ToString(),
+                ["approvalState"] = decision.ApprovalState,
+                ["manualOverrideState"] = decision.ManualOverrideState,
+                ["approvalCheckpoint"] = decision.ApprovalCheckpoint,
+                ["violations"] = string.Join(",", decision.GuardrailViolations),
+                ["reason"] = decision.Reason,
+            }.AsReadOnly(),
+            decision.EvaluatedAtUtc), cancellationToken).ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+                _logger.LogWarning(t.Exception,
+                    "Failed to publish inspection event for task {TaskId}", task.Id);
+        }, TaskScheduler.Default);
+
+        return global::System.Threading.Tasks.Task.FromResult(decision);
     }
 
     private string ResolveManualOverrideState(CoreTask task, CoreExecutionContext context)

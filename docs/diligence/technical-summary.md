@@ -59,7 +59,7 @@ This document provides a factual assessment of what ArchonAI implements today, w
 
 | Component | Current State | Evidence |
 |---|---|---|
-| **Database Persistence** | 22 PostgreSQL-backed stores via `ReplaceWithFactory`. Config-driven factory: PostgreSQL when connection string set, in-memory fallback otherwise. | `DependencyInjection.cs` — 22 registrations. Multi-instance tests pass. |
+| **Database Persistence** | 31 PostgreSQL-backed stores (22 domain + 9 identity) via `ReplaceWithFactory`. Config-driven factory: PostgreSQL when connection string set, in-memory fallback otherwise. | `DependencyInjection.cs` — 31 registrations. Multi-instance tests pass. |
 | **Database Migrations** | DbUp framework with 25 numbered SQL scripts (001–025), journal table, transaction-per-script, rollback scripts. | `ArchonAI.Migrations/Scripts/`, `MigrationRunner.cs`, `MigrationHealthCheck.cs` |
 | **SSO/OIDC** | Full OIDC federation: JWKS signature verification, nonce validation, JIT user provisioning, per-tenant IdP config, external identity linking. | `OidcTokenExchangeService.cs`, 3 test classes. Tested with mock IdPs — not validated against live Okta/Entra/Auth0. |
 | **MFA** | TOTP and WebAuthn (FIDO2): setup, verify, disable, recovery codes (PBKDF2), org-level policy, admin reset. | `TotpService.cs`, `WebAuthnService.cs`, 6 test classes. |

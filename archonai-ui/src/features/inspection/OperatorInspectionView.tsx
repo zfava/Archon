@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useInspection } from './hooks/useInspection';
 import { RationaleInspectionCard } from './components/RationaleInspectionCard';
 import { PolicyInspectionCard } from './components/PolicyInspectionCard';
@@ -9,6 +10,10 @@ import './inspection.css';
 type Tab = 'overview' | 'rationale' | 'policy' | 'memory' | 'diagnostics';
 
 export function OperatorInspectionView() {
+  const [searchParams] = useSearchParams();
+  const paramSubjectId = searchParams.get('subjectId');
+  const paramSubjectType = searchParams.get('subjectType');
+
   const {
     loading,
     error,
@@ -24,14 +29,22 @@ export function OperatorInspectionView() {
     inspectWorkflowDiagnostics,
   } = useInspection();
 
-  const [tab, setTab] = useState<Tab>('overview');
-  const [subjectId, setSubjectId] = useState('');
-  const [subjectType, setSubjectType] = useState('decision');
+  const [tab, setTab] = useState<Tab>(paramSubjectId ? 'rationale' : 'overview');
+  const [subjectId, setSubjectId] = useState(paramSubjectId ?? '');
+  const [subjectType, setSubjectType] = useState(paramSubjectType ?? 'decision');
   const [filterDomain, setFilterDomain] = useState('');
 
   useEffect(() => {
-    loadSummaries();
-  }, [loadSummaries]);
+    if (paramSubjectId) {
+      if (paramSubjectType === 'workflow') {
+        inspectWorkflowDiagnostics(paramSubjectId);
+      } else {
+        inspectDecisionRationale(paramSubjectId);
+      }
+    } else {
+      loadSummaries();
+    }
+  }, [paramSubjectId, paramSubjectType, loadSummaries, inspectDecisionRationale, inspectWorkflowDiagnostics]);
 
   const handleInspect = async () => {
     if (!subjectId) return;

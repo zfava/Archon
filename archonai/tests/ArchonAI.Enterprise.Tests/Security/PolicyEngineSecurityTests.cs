@@ -1,8 +1,10 @@
+using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Policy;
 using ArchonAI.Policy.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using NSubstitute;
 using CoreExecutionContext = ArchonAI.Core.Models.ExecutionContext;
 using CoreTask = ArchonAI.Core.Models.Task;
 
@@ -21,7 +23,7 @@ public sealed class PolicyEngineSecurityTests
     {
         var opts = new PolicyOptions();
         configure?.Invoke(opts);
-        return new PolicyEngine(Options.Create(opts), NullLogger<PolicyEngine>.Instance);
+        return new PolicyEngine(Options.Create(opts), Substitute.For<IEventBus>(), NullLogger<PolicyEngine>.Instance);
     }
 
     private static Agent MakeAgent(bool enabled = true, params string[] capabilities) =>

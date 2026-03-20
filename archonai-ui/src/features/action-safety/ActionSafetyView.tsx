@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useActionSafety } from './hooks/useActionSafety';
 import type { ActionSafetyClassification, GovernedActionRecord, RollbackAttempt } from './types';
 import './action-safety.css';
@@ -133,7 +133,10 @@ function ActionDetail({ action, onRollback, onBack }: {
 }
 
 export function ActionSafetyView() {
-  const { classifications, actions, summary, loading, error, refresh, triggerRollback } = useActionSafety();
+  const [searchParams] = useSearchParams();
+  const paramActionType = searchParams.get('actionType');
+
+  const { classifications, actions, summary, loading, error, refresh, triggerRollback } = useActionSafety(paramActionType ?? undefined);
   const [selectedAction, setSelectedAction] = useState<GovernedActionRecord | null>(null);
   const [rollbackError, setRollbackError] = useState<string | null>(null);
 

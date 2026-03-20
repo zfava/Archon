@@ -17,6 +17,10 @@ public sealed record ExecutiveCommandSummary(
     ScenarioBrief ScenarioBrief,
     // ── Where money is at stake ──────────────────────────
     EconomicBrief EconomicBrief,
+    // ── Governed operations ──────────────────────────────
+    ProofBrief ProofBrief,
+    ActionSafetyBrief ActionSafetyBrief,
+    WorkflowBrief WorkflowBrief,
     DateTimeOffset GeneratedAtUtc);
 
 // ── Exception brief ────────────────────────────────────────
@@ -103,3 +107,38 @@ public sealed record EconomicBrief(
     int DecisionsPendingApproval,
     int OutcomesDrifting,
     int ActiveBottlenecks);
+
+// ── Proof brief ──────────────────────────────────────────
+
+public sealed record ProofBrief(
+    int TotalDecisions,
+    int WithOutcomes,
+    double AccuracyRate,
+    double SuccessRate,
+    double OverrideRate);
+
+// ── Action safety brief ──────────────────────────────────
+
+public sealed record ActionSafetyBrief(
+    int TotalActions,
+    int Reversible,
+    int Irreversible,
+    int RollbacksSucceeded,
+    int RollbacksFailed);
+
+// ── Workflow brief ───────────────────────────────────────
+
+public sealed record WorkflowBrief(
+    int Active,
+    int Completed,
+    int Failed,
+    IReadOnlyList<WorkflowHeadline> Recent);
+
+public sealed record WorkflowHeadline(
+    Guid Id,
+    string WorkflowType,
+    string Title,
+    string Status,
+    int CompletedSteps,
+    int TotalSteps,
+    DateTimeOffset UpdatedAtUtc);

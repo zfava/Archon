@@ -137,7 +137,7 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 | Component | Horizontal Scaling | Constraint |
 |---|---|---|
 | Gateway | Safe (stateless proxy) | None |
-| API | Safe (22 PostgreSQL-backed stores) | None |
+| API | Safe (31 PostgreSQL-backed stores) | None |
 | Runtime Workers | Safe (shared task queue) | Durable workflow file persistence is per-instance |
 | Agents Workers | Safe (shared capability registry) | None |
 | Scheduler | **Not scalable** | Must be single-replica. Coordinates globally. |
@@ -166,7 +166,7 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 
 | Claim | Single-Instance | Multi-Instance (2+ API/Worker) | Evidence |
 |---|---|---|---|
-| State survives restart | **Yes** (with PostgreSQL) | **Yes** | 22 PostgreSQL stores, 18 multi-instance tests |
+| State survives restart | **Yes** (with PostgreSQL) | **Yes** | 31 PostgreSQL stores (22 domain + 9 identity), 18 multi-instance tests |
 | Agent selection is consistent | **Yes** | **Yes** | PostgreSQL-backed capability registry with SQL P95 |
 | Pause/resume is cluster-wide | N/A | **Yes** | Single-row pattern, cross-instance tests |
 | Workflow step persistence | **Yes** | **Per-instance only** | File-backed `DurableWorkflowExecutionEngine` |

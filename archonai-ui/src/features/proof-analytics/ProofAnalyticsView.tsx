@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useProofDashboard, useProofTimeline } from './hooks/useProofAnalytics';
 import type { PredictedVsActualEntry, TrustByActionType, ProofEvent } from './types';
 import './proof-analytics.css';
@@ -110,7 +110,7 @@ function TimelineDetail({ decisionId, onBack }: { decisionId: string; onBack: ()
 
       {/* Cross-system links */}
       <div className="proof-cross-links">
-        <Link to="/inspection" className="proof-cross-link">
+        <Link to={`/inspection?subjectId=${encodeURIComponent(decisionId)}&subjectType=decision`} className="proof-cross-link">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           Inspect Decision
         </Link>
@@ -128,8 +128,11 @@ function TimelineDetail({ decisionId, onBack }: { decisionId: string; onBack: ()
 }
 
 export function ProofAnalyticsView() {
+  const [searchParams] = useSearchParams();
+  const paramDecisionId = searchParams.get('decisionId');
+
   const { dashboard, loading, error, refresh } = useProofDashboard();
-  const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(null);
+  const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(paramDecisionId);
 
   if (selectedDecisionId) {
     return (

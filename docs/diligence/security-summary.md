@@ -199,7 +199,7 @@ The following areas were previously listed as unverified. All are now implemente
 | **SSO/OIDC** | Full OIDC federation: JWKS signature verification, nonce validation, JIT provisioning, per-tenant IdP config. | `OidcTokenExchangeService.cs`, 3 test classes including `OidcCallbackSecurityTests` (12 scenarios). |
 | **MFA** | TOTP + WebAuthn (FIDO2): setup, verify, disable, recovery codes (PBKDF2), org-level policy, admin reset. | `TotpService.cs`, `WebAuthnService.cs`, 6 test classes. |
 | **Secret management** | `ISecretProvider` chain: HashiCorp Vault → AWS Secrets Manager → Azure Key Vault → File → Environment. K8s Secrets via `secretKeyRef`. | `HashiCorpVaultSecretProvider.cs`, `AwsSecretsManagerSecretProvider.cs`, `AzureKeyVaultSecretProvider.cs`, `ChainedSecretProvider.cs`. |
-| **Database persistence** | 22 PostgreSQL-backed stores via `ReplaceWithFactory`. 18 multi-instance Testcontainers tests. | `DependencyInjection.cs`, `PostgresAgentRegistryStore.cs`, etc. |
+| **Database persistence** | 31 PostgreSQL-backed stores (22 domain + 9 identity) via `ReplaceWithFactory`. 18 multi-instance Testcontainers tests. | `DependencyInjection.cs`, `PostgresAgentRegistryStore.cs`, etc. |
 | **Database connection encryption** | `PostgresConnectionStringBuilder.Harden()` enforces `SslMode=Require` on all connections. | `PostgresConnectionStringBuilder.cs`. |
 | **Container security scanning** | Trivy in CI/CD pipeline. SARIF output, fails on CRITICAL/HIGH. | `.github/workflows/ci-cd.yml`. |
 | **Dependency vulnerability scanning** | `dotnet list package --vulnerable --include-transitive` in CI. Separate dependency-review workflow. | `.github/workflows/ci-cd.yml`, `.github/workflows/dependency-review.yml`. |

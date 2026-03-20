@@ -1,10 +1,31 @@
+import { useState } from 'react';
+import { api } from '../../../api/client';
 import type { WorkflowFailureDiagnostics } from '../types';
 
 interface Props {
   diagnostics: WorkflowFailureDiagnostics;
+  onRetryComplete?: () => void;
 }
 
-export function WorkflowDiagnosticsCard({ diagnostics }: Props) {
+export function WorkflowDiagnosticsCard({ diagnostics, onRetryComplete }: Props) {
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const [retrySuccess, setRetrySuccess] = useState(false);
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      await api.advanceHeroWorkflow(diagnostics.workflowId);
+      setRetrySuccess(true);
+      onRetryComplete?.();
+    } catch (e) {
+      setRetryError(e instanceof Error ? e.message : 'Retry failed');
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   return (
     <div className="ins-workflow-diagnostics">
       <section className="ins-card">
@@ -31,6 +52,27 @@ export function WorkflowDiagnosticsCard({ diagnostics }: Props) {
             </span>
           )}
         </div>
+
+        {diagnostics.isRetryable && (
+          <div style={{ marginTop: 12 }}>
+            {retrySuccess ? (
+              <span className="ins-badge ins-badge--completed">Retry initiated — workflow advancing</span>
+            ) : (
+              <button
+                className="ins-btn-primary"
+                onClick={handleRetry}
+                disabled={retrying}
+              >
+                {retrying ? (
+                  <><div className="phase-spinner" /> Retrying...</>
+                ) : (
+                  `Retry from Step${diagnostics.failedStepName ? `: ${diagnostics.failedStepName}` : ''}`
+                )}
+              </button>
+            )}
+            {retryError && <div className="ins-error-banner" style={{ marginTop: 8 }}><span>{retryError}</span></div>}
+          </div>
+        )}
 
         {diagnostics.suggestedRemediation && (
           <>

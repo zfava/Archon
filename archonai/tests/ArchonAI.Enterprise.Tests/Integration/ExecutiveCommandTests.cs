@@ -1,9 +1,12 @@
 using ArchonAI.Api.Security;
 using ArchonAI.Core.Interfaces;
+using ArchonAI.Core.Models.ActionSafety;
 using ArchonAI.Core.Models.Decisions;
 using ArchonAI.Core.Models.ExceptionIntelligence;
 using ArchonAI.Core.Models.Governance;
+using ArchonAI.Core.Models.HeroWorkflow;
 using ArchonAI.Core.Models.OperationalTwin;
+using ArchonAI.Core.Models.ProofAnalytics;
 using ArchonAI.Core.Models.Scenario;
 using NSubstitute;
 
@@ -20,9 +23,13 @@ public sealed class ExecutiveCommandTests
     private readonly IOperationalTwinService _twin = Substitute.For<IOperationalTwinService>();
     private readonly ITrustTierService _trustTiers = Substitute.For<ITrustTierService>();
     private readonly IScenarioService _scenarios = Substitute.For<IScenarioService>();
+    private readonly IProofAnalyticsService _proof = Substitute.For<IProofAnalyticsService>();
+    private readonly IActionSafetyService _actionSafety = Substitute.For<IActionSafetyService>();
+    private readonly IHeroWorkflowService _workflows = Substitute.For<IHeroWorkflowService>();
 
     private ExecutiveCommandService CreateService() =>
-        new(_exceptions, _governance, _outcomes, _twin, _trustTiers, _scenarios);
+        new(_exceptions, _governance, _outcomes, _twin, _trustTiers, _scenarios,
+            _proof, _actionSafety, _workflows);
 
     // ── Helpers ─────────────────────────────────────────────────────
 
@@ -77,6 +84,29 @@ public sealed class ExecutiveCommandTests
             Arg.Any<CancellationToken>())
             .Returns(Array.Empty<Scenario>().AsReadOnly()
                 as IReadOnlyList<Scenario>);
+
+        _proof.GetDashboardAsync(tenantId, null, Arg.Any<CancellationToken>())
+            .Returns(new ProofDashboard(
+                tenantId,
+                new PredictedVsActualSummary(tenantId, null, 0, 0, 0, 0, 0, 0, 0, 0m, 0m, 0m, 0,
+                    Array.Empty<PredictedVsActualEntry>()),
+                new ApprovalConversionSummary(tenantId, 0, 0, 0, 0, 0, 0, 0, null,
+                    new Dictionary<string, ApprovalConversionByType>()),
+                new ExecutionTrendSummary(tenantId, 0, 0, 0, 0,
+                    Array.Empty<ExecutionTrendBucket>()),
+                new OverrideRateSummary(tenantId, 0, 0, 0, 0, 0,
+                    new Dictionary<string, int>()),
+                new TrustAnalyticsSummary(tenantId,
+                    Array.Empty<TrustByActionType>()),
+                DateTimeOffset.UtcNow));
+
+        _actionSafety.GetRollbackSummaryAsync(tenantId, Arg.Any<CancellationToken>())
+            .Returns(new RollbackSummary(tenantId, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+
+        _workflows.ListAsync(tenantId, Arg.Any<string?>(), Arg.Any<HeroWorkflowStatus?>(),
+            10, Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<HeroWorkflowSummary>().AsReadOnly()
+                as IReadOnlyList<HeroWorkflowSummary>);
     }
 
     // ── Composition behavior ────────────────────────────────────────

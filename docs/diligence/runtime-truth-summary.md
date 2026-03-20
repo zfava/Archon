@@ -26,10 +26,10 @@ This document provides an honest, verifiable assessment of what ArchonAI can and
 
 | Capability | Evidence Tier | Detail |
 |---|---|---|
-| PostgreSQL-backed domain stores | **Runtime-Proven** | 22 stores via `ReplaceWithFactory` in `DependencyInjection.cs`. Includes RBAC, Audit, Governance, Trust Tiers, Decisions, Financial, Scenarios, Exceptions, Outcomes, Operational Twin, Enterprise Memory, Monitoring, Hero Workflows, Policy Simulation, Proof Analytics, Action Safety, Inspection, Agent Registry, Control Plane, Agent Capability Registry, Control Plane Alerts. |
+| PostgreSQL-backed stores | **Runtime-Proven** | 31 stores via `ReplaceWithFactory` in `DependencyInjection.cs` (22 domain + 9 identity). Domain: RBAC, Audit, Governance, Trust Tiers, Decisions, Financial, Scenarios, Exceptions, Outcomes, Operational Twin, Enterprise Memory, Monitoring, Hero Workflows, Policy Simulation, Proof Analytics, Action Safety, Inspection, Agent Registry, Control Plane, Agent Capability Registry, Control Plane Alerts. Identity stores added in identity-hardening pass. |
 | DbUp migration framework | **Runtime-Proven** | 25 numbered SQL scripts (001–025) with journal table, transaction-per-script, health check. Rollback scripts in `Down/`. |
 | Multi-instance state consistency | **Runtime-Proven** | 18 Testcontainers integration tests verify cross-instance reads, upsert idempotency, cascade deletes, and pause-state sharing. |
-| In-memory fallback (dev only) | **Source-Complete** | All 22 stores fall back to in-memory/file-backed when `ArchonAIPersistence:ConnectionString` is not set. Fallbacks are labeled non-production. |
+| In-memory fallback (dev only) | **Source-Complete** | All 31 stores fall back to in-memory/file-backed when `ArchonAIPersistence:ConnectionString` is not set. Fallbacks are labeled non-production. |
 | pgvector semantic search | **Source-Complete** | `PostgresMemoryRecordRepository` with vector embeddings. Requires PostgreSQL with pgvector extension. |
 | IModelPerformanceTracker | **Source-Complete** | In-memory only. Rebuilds from live telemetry on startup. Acceptable — not persistent state. |
 
@@ -37,7 +37,7 @@ This document provides an honest, verifiable assessment of what ArchonAI can and
 
 | Aspect | Single-Instance | Multi-Instance |
 |---|---|---|
-| All 22 PostgreSQL stores | Safe | Safe (ON CONFLICT upserts, single-row patterns) |
+| All 31 PostgreSQL stores | Safe | Safe (ON CONFLICT upserts, single-row patterns) |
 | Durable workflow execution | Safe | **Caution** — File-backed step persistence is per-instance. Workflow can resume on same instance only. |
 | Scheduler | Safe | **Caution** — Single-replica by design. Running >1 scheduler instance is not supported. |
 | IClusterCoordinator | N/A | Transient per-instance — by design. Not shared state. |
@@ -154,8 +154,8 @@ This document provides an honest, verifiable assessment of what ArchonAI can and
 
 ## What This Platform Can Honestly Do Today
 
-1. **Single-instance deployment with PostgreSQL**: All 22 stores are durable. Survives restarts. Full RBAC, governance, audit, trust, decisions, memory, observability.
-2. **Multi-instance deployment**: 22 PostgreSQL stores are concurrency-safe. Agent Registry, Control Plane, and capability profiles are shared across instances. Scheduler must remain single-replica.
+1. **Single-instance deployment with PostgreSQL**: All 31 stores (22 domain + 9 identity) are durable. Survives restarts. Full RBAC, governance, audit, trust, decisions, memory, observability.
+2. **Multi-instance deployment**: 31 PostgreSQL stores are concurrency-safe. Agent Registry, Control Plane, and capability profiles are shared across instances. Scheduler must remain single-replica.
 3. **Enterprise identity**: JWT auth, TOTP MFA, WebAuthn, OIDC federation (with mock IdPs), multi-tenant isolation.
 4. **Governance and trust**: Approval gates, trust tiers, trust lineage tracing, action safety classification, proof analytics.
 5. **Connector framework**: 10 connectors with real HTTP clients, Polly circuit breakers, rate limiting, audit events — all tested with mocks, none against live APIs.

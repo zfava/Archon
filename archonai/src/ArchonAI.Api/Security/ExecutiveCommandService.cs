@@ -2,6 +2,7 @@ using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.Decisions;
 using ArchonAI.Core.Models.ExecutiveCommand;
 using ArchonAI.Core.Models.ExceptionIntelligence;
+using ArchonAI.Core.Models.HeroWorkflow;
 using ArchonAI.Core.Models.Scenario;
 using Task = System.Threading.Tasks.Task;
 
@@ -15,6 +16,9 @@ public sealed class ExecutiveCommandService : IExecutiveCommandService
     private readonly IOperationalTwinService _twin;
     private readonly ITrustTierService _trustTiers;
     private readonly IScenarioService _scenarios;
+    private readonly IProofAnalyticsService _proof;
+    private readonly IActionSafetyService _actionSafety;
+    private readonly IHeroWorkflowService _workflows;
 
     public ExecutiveCommandService(
         IExceptionIntelligenceService exceptions,
@@ -22,7 +26,10 @@ public sealed class ExecutiveCommandService : IExecutiveCommandService
         IOutcomeLearningService outcomes,
         IOperationalTwinService twin,
         ITrustTierService trustTiers,
-        IScenarioService scenarios)
+        IScenarioService scenarios,
+        IProofAnalyticsService proof,
+        IActionSafetyService actionSafety,
+        IHeroWorkflowService workflows)
     {
         _exceptions = exceptions;
         _governance = governance;
@@ -30,6 +37,9 @@ public sealed class ExecutiveCommandService : IExecutiveCommandService
         _twin = twin;
         _trustTiers = trustTiers;
         _scenarios = scenarios;
+        _proof = proof;
+        _actionSafety = actionSafety;
+        _workflows = workflows;
     }
 
     public async Task<ExecutiveCommandSummary> GetCommandSummaryAsync(
@@ -48,11 +58,15 @@ public sealed class ExecutiveCommandService : IExecutiveCommandService
         var tierPoliciesTask = _trustTiers.ListPoliciesAsync(tenantStr, ct);
         var tierMapTask = _trustTiers.GetTierMapAsync(tenantStr, ct);
         var scenariosTask = _scenarios.ListScenariosAsync(tenantId, ct: ct);
+        var proofTask = _proof.GetDashboardAsync(tenantId, null, ct);
+        var rollbackTask = _actionSafety.GetRollbackSummaryAsync(tenantId, ct);
+        var workflowsTask = _workflows.ListAsync(tenantId, limit: 10, ct: ct);
 
         await Task.WhenAll(
             exSummaryTask, exPrioTask, exListTask,
             approvalsTask, calibrationTask, outcomesTask,
-            twinTask, tierPoliciesTask, tierMapTask, scenariosTask);
+            twinTask, tierPoliciesTask, tierMapTask, scenariosTask,
+            proofTask, rollbackTask, workflowsTask);
 
         var exSummary = await exSummaryTask;
         var exPrio = await exPrioTask;
@@ -64,6 +78,9 @@ public sealed class ExecutiveCommandService : IExecutiveCommandService
         var tierPolicies = await tierPoliciesTask;
         var tierMap = await tierMapTask;
         var allScenarios = await scenariosTask;
+        var proofDash = await proofTask;
+        var rollbackSummary = await rollbackTask;
+        var recentWorkflows = await workflowsTask;
 
         // ── Build exception brief ────────────────────────────
         var prioMap = exPrio.ToDictionary(p => p.ExceptionId, p => p.Score);
@@ -147,6 +164,37 @@ public sealed class ExecutiveCommandService : IExecutiveCommandService
             driftingOutcomes,
             twinOverview.ActiveBottlenecks.Count);
 
+        // ── Build proof brief ───────────────────────────────
+        var proofBrief = new ProofBrief(
+            proofDash.PredictedVsActual.TotalDecisions,
+            proofDash.PredictedVsActual.WithOutcomes,
+            proofDash.PredictedVsActual.AccuracyRate,
+            proofDash.ExecutionTrends.SuccessRate,
+            proofDash.OverrideRates.OverrideRate);
+
+        // ── Build action safety brief ──────────────────────
+        var actionSafetyBrief = new ActionSafetyBrief(
+            rollbackSummary.TotalActions,
+            rollbackSummary.Reversible,
+            rollbackSummary.Irreversible,
+            rollbackSummary.RollbacksSucceeded,
+            rollbackSummary.RollbacksFailed);
+
+        // ── Build workflow brief ───────────────────────────
+        var activeWf = recentWorkflows.Count(w =>
+            w.Status == HeroWorkflowStatus.InProgress || w.Status == HeroWorkflowStatus.Executing);
+        var completedWf = recentWorkflows.Count(w => w.Status == HeroWorkflowStatus.Completed);
+        var failedWf = recentWorkflows.Count(w => w.Status == HeroWorkflowStatus.Failed);
+        var workflowHeadlines = recentWorkflows
+            .OrderByDescending(w => w.UpdatedAtUtc)
+            .Take(5)
+            .Select(w => new WorkflowHeadline(
+                w.Id, w.WorkflowType, w.Title, w.Status.ToString(),
+                w.CompletedSteps, w.TotalSteps, w.UpdatedAtUtc))
+            .ToList();
+
+        var workflowBrief = new WorkflowBrief(activeWf, completedWf, failedWf, workflowHeadlines);
+
         return new ExecutiveCommandSummary(
             tenantId,
             exceptionBrief,
@@ -156,6 +204,9 @@ public sealed class ExecutiveCommandService : IExecutiveCommandService
             trustBrief,
             scenarioBrief,
             economicBrief,
+            proofBrief,
+            actionSafetyBrief,
+            workflowBrief,
             DateTimeOffset.UtcNow);
     }
 }

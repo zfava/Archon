@@ -74,6 +74,7 @@ builder.Services.AddSingleton<IProofAnalyticsService, ProofAnalyticsService>();
 builder.Services.AddSingleton<IActionSafetyService, ActionSafetyService>();
 builder.Services.AddSingleton<IInspectionService, InspectionService>();
 builder.Services.AddSingleton<InspectionService>();
+builder.Services.AddHostedService<GovernanceEventSubscriber>();
 
 // ── Demo configuration ──────────────────────────────────────────────────────
 builder.Services.Configure<ArchonAI.Api.Endpoints.DemoOptions>(builder.Configuration.GetSection("Demo"));

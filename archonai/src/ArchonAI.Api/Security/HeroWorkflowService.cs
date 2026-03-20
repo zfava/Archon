@@ -229,6 +229,20 @@ public sealed class HeroWorkflowService : IHeroWorkflowService
                 CompletedAtUtc = now,
             };
 
+            // Publish step-completed event for proof auto-emission
+            await _eventBus.PublishAsync(new SystemEvent(
+                Guid.NewGuid(), "hero_workflow.step-completed", "HeroWorkflowService",
+                instance.Id,
+                new Dictionary<string, string>
+                {
+                    ["workflowId"] = instance.Id.ToString(),
+                    ["tenantId"] = instance.TenantId.ToString(),
+                    ["stepId"] = stepDef.StepId,
+                    ["actor"] = actor,
+                    ["decisionId"] = artifacts.GetValueOrDefault("decisionId") ?? "",
+                }.AsReadOnly(),
+                now), ct);
+
             // Advance to next step if available
             var nextStatus = HeroWorkflowStatus.InProgress;
             if (currentIndex + 1 < steps.Count)
@@ -246,6 +260,19 @@ public sealed class HeroWorkflowService : IHeroWorkflowService
             else
             {
                 nextStatus = HeroWorkflowStatus.Completed;
+
+                // Publish workflow-completed event
+                await _eventBus.PublishAsync(new SystemEvent(
+                    Guid.NewGuid(), "hero_workflow.completed", "HeroWorkflowService",
+                    instance.Id,
+                    new Dictionary<string, string>
+                    {
+                        ["workflowId"] = instance.Id.ToString(),
+                        ["tenantId"] = instance.TenantId.ToString(),
+                        ["actor"] = actor,
+                        ["decisionId"] = artifacts.GetValueOrDefault("decisionId") ?? "",
+                    }.AsReadOnly(),
+                    now), ct);
             }
 
             return instance with
@@ -267,6 +294,21 @@ public sealed class HeroWorkflowService : IHeroWorkflowService
                 Status = HeroStepStatus.Failed,
                 Detail = ex.Message,
             };
+
+            // Publish workflow-failed event for proof auto-emission
+            await _eventBus.PublishAsync(new SystemEvent(
+                Guid.NewGuid(), "hero_workflow.failed", "HeroWorkflowService",
+                instance.Id,
+                new Dictionary<string, string>
+                {
+                    ["workflowId"] = instance.Id.ToString(),
+                    ["tenantId"] = instance.TenantId.ToString(),
+                    ["stepId"] = stepDef.StepId,
+                    ["actor"] = actor,
+                    ["reason"] = ex.Message,
+                    ["decisionId"] = artifacts.GetValueOrDefault("decisionId") ?? "",
+                }.AsReadOnly(),
+                now), ct);
 
             return instance with
             {
