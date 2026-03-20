@@ -160,17 +160,25 @@ public sealed class PostgresControlPlaneAlertPersistenceTests : IAsyncLifetime
     {
         var store = _fixture.CreateControlPlaneAlertStore();
 
-        // Create 5 alerts
+        // Create 5 alerts and acknowledge them so they are eligible for eviction.
+        // The production implementation only prunes acknowledged alerts.
         for (int i = 0; i < 5; i++)
         {
-            await store.UpsertAlertAsync(MakeAlert("info", "test", $"Alert {i}"));
+            var alert = MakeAlert("info", "test", $"Alert {i}");
+            await store.UpsertAlertAsync(alert);
+            await store.AcknowledgeAlertAsync(alert.AlertId);
         }
 
-        // Evict with max 3
+        // Evict with max 3 — should prune the 2 oldest acknowledged alerts
         await store.EvictStaleAlertsAsync(3);
 
-        var active = await store.GetActiveAlertsAsync();
-        Assert.True(active.Count <= 3);
+        // Verify via direct SQL: only 3 acknowledged alerts remain
+        await using var conn = new Npgsql.NpgsqlConnection(_fixture.ConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = new Npgsql.NpgsqlCommand(
+            "SELECT COUNT(*) FROM archonai.control_plane_alerts", conn);
+        var remaining = (long)(await cmd.ExecuteScalarAsync())!;
+        Assert.True(remaining <= 3, $"Expected at most 3 alerts after eviction, but found {remaining}");
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -293,7 +301,7 @@ public sealed class PostgresControlPlaneAlertPersistenceTests : IAsyncLifetime
     private static AgentActivityEvent MakeEvent(
         string agentId, string agentName, string eventType, string description) =>
         new(
-            AgentId: Guid.Parse(agentId.PadLeft(32, '0').Insert(8, "-").Insert(13, "-").Insert(18, "-").Insert(23, "-")),
+            AgentId: Guid.NewGuid(),
             AgentName: agentName,
             EventType: eventType,
             Description: description,
