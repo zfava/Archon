@@ -25,6 +25,7 @@ import { PolicySimulationView } from './features/simulation';
 import { ProofAnalyticsView } from './features/proof-analytics';
 import { ActionSafetyView } from './features/action-safety';
 import { OperatorInspectionView } from './features/inspection';
+import { TrustLineageView } from './features/trust-lineage';
 import { OrgAdminView } from './features/admin/OrgAdminView';
 import { SystemHealthView } from './features/admin/SystemHealthView';
 import { PermissionGate, UnauthorizedPage } from './shared/PermissionGate';
@@ -72,6 +73,7 @@ function App() {
           <Route path="/proof-analytics" element={<AdminGated permission="governance:read"><ProofAnalyticsView /></AdminGated>} />
           <Route path="/action-safety" element={<AdminGated permission="governance:read"><ActionSafetyView /></AdminGated>} />
           <Route path="/inspection" element={<AdminGated permission="governance:read"><OperatorInspectionView /></AdminGated>} />
+          <Route path="/trust-lineage" element={<AdminGated permission="governance:read"><TrustLineageView /></AdminGated>} />
           <Route path="/executive" element={<AdminGated permission="governance:read"><ExecutiveCommandView /></AdminGated>} />
           <Route path="/admin/org" element={<AdminGated permission="admin:read"><OrgAdminView /></AdminGated>} />
           <Route path="/admin/health" element={<AdminGated permission="monitoring:read"><SystemHealthView /></AdminGated>} />

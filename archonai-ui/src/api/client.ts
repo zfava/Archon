@@ -943,4 +943,12 @@ export const api = {
       body: JSON.stringify(body),
       signal,
     }),
+
+  // ── Trust Visibility ──────────────────────────────────────
+
+  getTrustLineage: (decisionId: string, signal?: AbortSignal) =>
+    request(`/trust-visibility/lineage/${decisionId}`, { signal }),
+
+  getTrustPosture: (signal?: AbortSignal) =>
+    request('/trust-visibility/posture', { signal }),
 };

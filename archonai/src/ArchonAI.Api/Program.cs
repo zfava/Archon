@@ -168,6 +168,7 @@ v1.MapInfraEndpoints();
 v1.MapIntelligenceEndpoints();
 v1.MapStrategyEndpoints();
 v1.MapOperatorEndpoints();
+v1.MapTrustVisibilityEndpoints();
 
 // ── API v2 endpoints ──────────────────────────────────────────
 var v2 = app.MapGroup("/api/v2")
