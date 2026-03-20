@@ -95,17 +95,80 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Verify Docker available (required for Testcontainers)
+        run: |
+          echo "── Docker availability check ──"
+          docker version
+          docker info --format '{{.ServerVersion}}'
+          echo "Docker is available for Testcontainers integration tests."
+
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_PATH }}
 
-      - name: Run tests
+      - name: Run unit tests
         run: >
           dotnet test ${{ env.SOLUTION_PATH }}
           --no-restore
           -c Release
-          --logger "trx;LogFileName=results.trx"
+          --filter "Category!=Integration&Category!=RuntimeProof"
+          --logger "trx;LogFileName=unit-results.trx"
           --results-directory ./test-results
           --collect:"XPlat Code Coverage"
+
+      - name: Run Testcontainers integration tests
+        run: >
+          dotnet test ${{ env.SOLUTION_PATH }}
+          --no-restore
+          -c Release
+          --filter "Category=Integration|Category=RuntimeProof"
+          --logger "trx;LogFileName=integration-results.trx"
+          --logger "console;verbosity=detailed"
+          --results-directory ./test-results
+
+      - name: Verify integration tests actually executed
+        if: always()
+        run: |
+          echo "── Integration Test Execution Proof ──"
+          TRX_FILE=$(find ./test-results -name "integration-results.trx" -type f | head -1)
+          if [ -z "$TRX_FILE" ]; then
+            echo "::error::No integration test TRX file found — Testcontainers tests did not execute."
+            exit 1
+          fi
+
+          echo "TRX file found: $TRX_FILE"
+
+          # Extract test counts from TRX XML
+          TOTAL=$(grep -oP 'total="\K[0-9]+' "$TRX_FILE" | head -1)
+          PASSED=$(grep -oP 'passed="\K[0-9]+' "$TRX_FILE" | head -1)
+          FAILED=$(grep -oP 'failed="\K[0-9]+' "$TRX_FILE" | head -1)
+          EXECUTED=$(grep -oP 'executed="\K[0-9]+' "$TRX_FILE" | head -1)
+
+          echo "Total:    ${TOTAL:-0}"
+          echo "Executed: ${EXECUTED:-0}"
+          echo "Passed:   ${PASSED:-0}"
+          echo "Failed:   ${FAILED:-0}"
+
+          # Fail if no integration tests were discovered
+          if [ "${TOTAL:-0}" -eq 0 ]; then
+            echo "::error::Zero integration tests discovered. Testcontainers tests may have been silently skipped."
+            exit 1
+          fi
+
+          # Fail if none passed (all skipped or all failed)
+          if [ "${PASSED:-0}" -eq 0 ]; then
+            echo "::error::Zero integration tests passed. Container-backed tests are not executing correctly."
+            exit 1
+          fi
+
+          # Fail if any test failed
+          if [ "${FAILED:-0}" -gt 0 ]; then
+            echo "::error::${FAILED} integration test(s) failed."
+            exit 1
+          fi
+
+          echo ""
+          echo "✓ ${PASSED} Testcontainers integration tests executed and passed."
+          echo "✓ Container-backed persistence verified in CI."
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
