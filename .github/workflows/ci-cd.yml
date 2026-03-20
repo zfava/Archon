@@ -105,70 +105,125 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_PATH }}
 
-      - name: Run unit tests
-        run: >
-          dotnet test ${{ env.SOLUTION_PATH }}
-          --no-restore
-          -c Release
-          --filter "Category!=Integration&Category!=RuntimeProof"
-          --logger "trx;LogFileName=unit-results.trx"
-          --results-directory ./test-results
-          --collect:"XPlat Code Coverage"
-
-      - name: Run Testcontainers integration tests
-        run: >
-          dotnet test ${{ env.SOLUTION_PATH }}
-          --no-restore
-          -c Release
-          --filter "Category=Integration|Category=RuntimeProof"
-          --logger "trx;LogFileName=integration-results.trx"
-          --logger "console;verbosity=detailed"
-          --results-directory ./test-results
-
-      - name: Verify integration tests actually executed
-        if: always()
+      - name: Run unit tests (per-project to avoid filter noise)
         run: |
-          echo "── Integration Test Execution Proof ──"
-          TRX_FILE=$(find ./test-results -name "integration-results.trx" -type f | head -1)
-          if [ -z "$TRX_FILE" ]; then
-            echo "::error::No integration test TRX file found — Testcontainers tests did not execute."
-            exit 1
-          fi
+          set -euo pipefail
+          echo "── Unit Tests ──"
 
-          echo "TRX file found: $TRX_FILE"
+          # Projects that contain ONLY unit tests — run without filter (no noise)
+          UNIT_ONLY_PROJECTS=(
+            "archonai/tests/ArchonAI.ActionSafety.Tests/ArchonAI.ActionSafety.Tests.csproj"
+            "archonai/tests/ArchonAI.AdminAPI.Tests/ArchonAI.AdminAPI.Tests.csproj"
+            "archonai/tests/ArchonAI.Agents.Finance.Tests/ArchonAI.Agents.Finance.Tests.csproj"
+            "archonai/tests/ArchonAI.Agents.Marketing.Tests/ArchonAI.Agents.Marketing.Tests.csproj"
+            "archonai/tests/ArchonAI.Agents.Operations.Tests/ArchonAI.Agents.Operations.Tests.csproj"
+            "archonai/tests/ArchonAI.Agents.Sales.Tests/ArchonAI.Agents.Sales.Tests.csproj"
+            "archonai/tests/ArchonAI.Agents.Support.Tests/ArchonAI.Agents.Support.Tests.csproj"
+            "archonai/tests/ArchonAI.Connectors.Tests/ArchonAI.Connectors.Tests.csproj"
+            "archonai/tests/ArchonAI.ProofAnalytics.Tests/ArchonAI.ProofAnalytics.Tests.csproj"
+            "archonai/tests/ArchonAI.WorkflowDesigner.Tests/ArchonAI.WorkflowDesigner.Tests.csproj"
+          )
 
-          # Extract test counts from TRX XML
-          TOTAL=$(grep -oP 'total="\K[0-9]+' "$TRX_FILE" | head -1)
-          PASSED=$(grep -oP 'passed="\K[0-9]+' "$TRX_FILE" | head -1)
-          FAILED=$(grep -oP 'failed="\K[0-9]+' "$TRX_FILE" | head -1)
-          EXECUTED=$(grep -oP 'executed="\K[0-9]+' "$TRX_FILE" | head -1)
+          for proj in "${UNIT_ONLY_PROJECTS[@]}"; do
+            NAME=$(basename "$(dirname "$proj")")
+            echo "── $NAME ──"
+            dotnet test "$proj" --no-restore -c Release \
+              --logger "trx;LogFileName=${NAME}.trx" \
+              --results-directory ./test-results \
+              --collect:"XPlat Code Coverage"
+          done
 
-          echo "Total:    ${TOTAL:-0}"
-          echo "Executed: ${EXECUTED:-0}"
-          echo "Passed:   ${PASSED:-0}"
-          echo "Failed:   ${FAILED:-0}"
+          # Projects with mixed categories — filter out Integration/RuntimeProof
+          echo "── ArchonAI.Tests (unit only) ──"
+          dotnet test archonai/tests/ArchonAI.Tests/ArchonAI.Tests.csproj \
+            --no-restore -c Release \
+            --filter "Category!=Integration&Category!=RuntimeProof" \
+            --logger "trx;LogFileName=ArchonAI.Tests-unit.trx" \
+            --results-directory ./test-results \
+            --collect:"XPlat Code Coverage"
 
-          # Fail if no integration tests were discovered
-          if [ "${TOTAL:-0}" -eq 0 ]; then
-            echo "::error::Zero integration tests discovered. Testcontainers tests may have been silently skipped."
-            exit 1
-          fi
+          echo "── ArchonAI.Enterprise.Tests (unit only) ──"
+          dotnet test archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj \
+            --no-restore -c Release \
+            --filter "Category!=Integration&Category!=RuntimeProof" \
+            --logger "trx;LogFileName=ArchonAI.Enterprise.Tests-unit.trx" \
+            --results-directory ./test-results \
+            --collect:"XPlat Code Coverage"
 
-          # Fail if none passed (all skipped or all failed)
-          if [ "${PASSED:-0}" -eq 0 ]; then
-            echo "::error::Zero integration tests passed. Container-backed tests are not executing correctly."
-            exit 1
-          fi
+      - name: Run Testcontainers integration tests (targeted)
+        run: |
+          set -euo pipefail
+          echo "── Integration Tests (Testcontainers) ──"
 
-          # Fail if any test failed
-          if [ "${FAILED:-0}" -gt 0 ]; then
-            echo "::error::${FAILED} integration test(s) failed."
-            exit 1
-          fi
+          # Only target the project that has Integration-category tests
+          dotnet test archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj \
+            --no-restore -c Release \
+            --filter "Category=Integration" \
+            --logger "trx;LogFileName=enterprise-integration.trx" \
+            --logger "console;verbosity=normal" \
+            --results-directory ./test-results
 
           echo ""
-          echo "✓ ${PASSED} Testcontainers integration tests executed and passed."
-          echo "✓ Container-backed persistence verified in CI."
+          echo "── RuntimeProof Tests ──"
+
+          # Enterprise RuntimeProof (Testcontainers-backed)
+          dotnet test archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj \
+            --no-restore -c Release \
+            --filter "Category=RuntimeProof" \
+            --logger "trx;LogFileName=enterprise-runtimeproof.trx" \
+            --logger "console;verbosity=normal" \
+            --results-directory ./test-results
+
+          # AI RuntimeProof (no containers needed)
+          dotnet test archonai/tests/ArchonAI.Tests/ArchonAI.Tests.csproj \
+            --no-restore -c Release \
+            --filter "Category=RuntimeProof" \
+            --logger "trx;LogFileName=ai-runtimeproof.trx" \
+            --logger "console;verbosity=normal" \
+            --results-directory ./test-results
+
+      - name: Verify container-backed tests actually executed
+        if: always()
+        run: |
+          echo "── Container Execution Proof ──"
+          GATE_PASS=true
+
+          for TRX_NAME in enterprise-integration enterprise-runtimeproof ai-runtimeproof; do
+            TRX_FILE=$(find ./test-results -name "${TRX_NAME}.trx" -type f | head -1)
+            if [ -z "$TRX_FILE" ]; then
+              echo "::error::Missing TRX: ${TRX_NAME}.trx — tests did not execute."
+              GATE_PASS=false
+              continue
+            fi
+
+            TOTAL=$(grep -oP 'total="\K[0-9]+' "$TRX_FILE" | head -1 || echo "0")
+            PASSED=$(grep -oP 'passed="\K[0-9]+' "$TRX_FILE" | head -1 || echo "0")
+            FAILED=$(grep -oP 'failed="\K[0-9]+' "$TRX_FILE" | head -1 || echo "0")
+
+            echo "${TRX_NAME}: total=${TOTAL:-0} passed=${PASSED:-0} failed=${FAILED:-0}"
+
+            if [ "${TOTAL:-0}" -eq 0 ]; then
+              echo "::error::${TRX_NAME}: Zero tests discovered."
+              GATE_PASS=false
+            fi
+            if [ "${PASSED:-0}" -eq 0 ]; then
+              echo "::error::${TRX_NAME}: Zero tests passed."
+              GATE_PASS=false
+            fi
+            if [ "${FAILED:-0}" -gt 0 ]; then
+              echo "::error::${TRX_NAME}: ${FAILED} test(s) failed."
+              GATE_PASS=false
+            fi
+          done
+
+          echo ""
+          if [ "$GATE_PASS" = true ]; then
+            echo "✓ All integration/RuntimeProof tests executed and passed."
+            echo "✓ Container-backed persistence verified in CI."
+          else
+            echo "✗ Test execution proof gate FAILED."
+            exit 1
+          fi
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
