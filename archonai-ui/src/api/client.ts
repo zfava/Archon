@@ -1,4 +1,5 @@
 import { ApiError, mapHttpError } from './errors';
+import type { TrustLineageResponse, TrustPostureResponse } from '../features/trust-lineage/trust-lineage.types';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -947,8 +948,8 @@ export const api = {
   // ── Trust Visibility ──────────────────────────────────────
 
   getTrustLineage: (decisionId: string, signal?: AbortSignal) =>
-    request(`/trust-visibility/lineage/${decisionId}`, { signal }),
+    request<TrustLineageResponse>(`/trust-visibility/lineage/${decisionId}`, { signal }),
 
   getTrustPosture: (signal?: AbortSignal) =>
-    request('/trust-visibility/posture', { signal }),
+    request<TrustPostureResponse>('/trust-visibility/posture', { signal }),
 };

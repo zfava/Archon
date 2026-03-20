@@ -1,9 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
+import type {
+  TrustLineageResponse,
+  TrustPostureResponse,
+  ApprovalGate,
+  GovernedAction,
+  ProofEvent,
+  ReversibilityLevel,
+} from './trust-lineage.types';
 import './trust-lineage.css';
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -21,12 +27,12 @@ function fmtCurrency(n: number): string {
 
 function pct(n: number): string { return `${Math.round(n * 100)}%`; }
 
-function reversibilityClass(level: string): string {
+function reversibilityClass(level: ReversibilityLevel): string {
   return level === 'Reversible' ? 'safe' : level === 'Compensatable' ? 'caution' : 'danger';
 }
 
 function LineageDetail({ decisionId }: { decisionId: string }) {
-  const [lineage, setLineage] = useState<any>(null);
+  const [lineage, setLineage] = useState<TrustLineageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,7 +40,10 @@ function LineageDetail({ decisionId }: { decisionId: string }) {
     setLoading(true);
     api.getTrustLineage(decisionId)
       .then(setLineage)
-      .catch((e: any) => setError(e?.message ?? 'Failed to load lineage'))
+      .catch((e: unknown) => {
+        const message = e instanceof Error ? e.message : 'Failed to load lineage';
+        setError(message);
+      })
       .finally(() => setLoading(false));
   }, [decisionId]);
 
@@ -99,7 +108,7 @@ function LineageDetail({ decisionId }: { decisionId: string }) {
       {lineage.approvalGates.length > 0 && (
         <div className="tl-section">
           <div className="tl-section-title">Approval Gates</div>
-          {lineage.approvalGates.map((gate: any) => (
+          {lineage.approvalGates.map((gate: ApprovalGate) => (
             <div key={gate.id} className="tl-gate-card">
               <div className="tl-gate-header">
                 <span className={`tl-badge ${gate.status === 'Approved' ? 'safe' : gate.status === 'Denied' ? 'danger' : 'pending'}`}>
@@ -136,7 +145,7 @@ function LineageDetail({ decisionId }: { decisionId: string }) {
       {lineage.governedActions.length > 0 && (
         <div className="tl-section">
           <div className="tl-section-title">Governed Actions</div>
-          {lineage.governedActions.map((action: any) => (
+          {lineage.governedActions.map((action: GovernedAction) => (
             <div key={action.id} className="tl-action-card">
               <div className="tl-action-header">
                 <span className="tl-action-type">{action.actionType}</span>
@@ -185,7 +194,7 @@ function LineageDetail({ decisionId }: { decisionId: string }) {
             </div>
             <div className="tl-outcome-cell">
               <div className="tl-outcome-label">Variance</div>
-              <div className={`tl-outcome-value ${lineage.outcome.valueVariance >= 0 ? 'tl-success' : 'tl-failure'}`}>
+              <div className={`tl-outcome-value ${lineage.outcome.valueVariance != null && lineage.outcome.valueVariance >= 0 ? 'tl-success' : 'tl-failure'}`}>
                 {lineage.outcome.valueVariance != null ? fmtCurrency(lineage.outcome.valueVariance) : '--'}
                 {lineage.outcome.variancePercent != null && (
                   <span className="tl-dim"> ({lineage.outcome.variancePercent > 0 ? '+' : ''}{lineage.outcome.variancePercent.toFixed(1)}%)</span>
@@ -208,7 +217,7 @@ function LineageDetail({ decisionId }: { decisionId: string }) {
         <div className="tl-section">
           <div className="tl-section-title">Proof Event Trail ({lineage.proofTimeline.totalEvents} events)</div>
           <div className="tl-proof-timeline">
-            {lineage.proofTimeline.events.map((evt: any, i: number) => (
+            {lineage.proofTimeline.events.map((evt: ProofEvent, i: number) => (
               <div key={i} className="tl-proof-event">
                 <div className="tl-proof-time">{fmtDate(evt.occurredAtUtc)}</div>
                 <div className="tl-proof-type">{evt.eventType.replace(/([A-Z])/g, ' $1').trim()}</div>
@@ -237,14 +246,17 @@ function LineageDetail({ decisionId }: { decisionId: string }) {
 }
 
 function PostureSummary() {
-  const [posture, setPosture] = useState<any>(null);
+  const [posture, setPosture] = useState<TrustPostureResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.getTrustPosture()
       .then(setPosture)
-      .catch((e: any) => setError(e?.message ?? 'Failed'))
+      .catch((e: unknown) => {
+        const message = e instanceof Error ? e.message : 'Failed';
+        setError(message);
+      })
       .finally(() => setLoading(false));
   }, []);
 
