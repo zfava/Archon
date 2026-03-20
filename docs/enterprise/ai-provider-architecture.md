@@ -18,7 +18,7 @@ IModelProvider (CompositeModelProvider)
       ├── AnthropicModelProvider   ── HTTP → api.anthropic.com/v1/messages
       ├── AzureOpenAiModelProvider ── HTTP → {endpoint}/openai/deployments/{dep}/chat/completions
       └── LocalModelProvider       ── HTTP → localhost:11434/api/generate (Ollama)
-                                        └── echo fallback if server unreachable
+                                        └── explicit failure if server unreachable
 ```
 
 ## Provider Adapters
@@ -28,14 +28,14 @@ IModelProvider (CompositeModelProvider)
 | OpenAI | Real HTTP | Chat Completions v1 | Bearer token |
 | Anthropic | Real HTTP | Messages v1 | x-api-key header |
 | Azure OpenAI | Real HTTP | Azure Chat Completions | api-key header |
-| Local (Ollama) | Real HTTP with echo fallback | Ollama generate API | None |
+| Local (Ollama) | Real HTTP, fails explicitly if unreachable | Ollama generate API | None |
 
 ### Configuration
 
 ```json
 {
   "ModelProviders": {
-    "DefaultModel": "local.default",
+    "DefaultModel": "openai.gpt-4.1-mini",
     "OpenAI": { "ApiKey": "<key>", "Endpoint": "https://api.openai.com" },
     "Anthropic": { "ApiKey": "<key>", "Endpoint": "https://api.anthropic.com" },
     "AzureOpenAI": { "ApiKey": "<key>", "Endpoint": "<url>", "Deployment": "gpt-4o-mini" },
@@ -44,7 +44,18 @@ IModelProvider (CompositeModelProvider)
 }
 ```
 
-API keys must be provided via secure configuration or environment variables. Providers with missing keys return explicit errors — never silent fallbacks.
+API keys are bound from environment variables at startup (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `AZURE_OPENAI_API_KEY`) and take precedence over appsettings values. Providers with missing keys return explicit errors — never silent fallbacks or echo responses.
+
+### Default Provider Selection
+
+The default routing targets `openai.gpt-4.1-mini`. If only Anthropic credentials are available, update `ModelProviders:DefaultModel` to `anthropic.claude-haiku-4-5` or `anthropic.claude-sonnet-4-6`.
+
+### No Echo Fallback Policy
+
+No provider returns simulated, echoed, or stub content. If a provider is unreachable or unconfigured:
+- Cloud providers (OpenAI, Anthropic, Azure): Return `IsSuccess: false` with descriptive error
+- Local provider: Returns `IsSuccess: false` with `FinishReason: "provider_unavailable"`
+- `CompositeModelProvider`: Logs `CRITICAL` if any response carries `echo_fallback` finish reason (residual detection guard)
 
 ## Model Capability Registry
 

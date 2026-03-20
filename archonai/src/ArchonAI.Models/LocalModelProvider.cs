@@ -11,12 +11,7 @@ namespace ArchonAI.Models;
 
 /// <summary>
 /// Local model provider that calls an Ollama-compatible API at the configured endpoint.
-/// Falls back to a deterministic echo response when the local server is unreachable,
-/// making it safe as the ultimate fallback in the routing chain.
-/// <para>
-/// LABELING: When no local server is running, responses are deterministic echo — NOT AI-generated.
-/// The <c>FinishReason</c> will be "echo_fallback" to distinguish from real inference.
-/// </para>
+/// Fails explicitly when the local server is unreachable — no echo or simulated output.
 /// </summary>
 public sealed class LocalModelProvider : IModelProvider
 {
@@ -72,22 +67,21 @@ public sealed class LocalModelProvider : IModelProvider
         catch (Exception ex)
         {
             sw.Stop();
-            _logger.LogWarning(ex,
-                "Local model server unreachable at {Endpoint}, using deterministic echo fallback for {CorrelationId}",
+            _logger.LogError(ex,
+                "Local model server unreachable at {Endpoint} for {CorrelationId}. No fallback — failing explicitly.",
                 _options.Local.Endpoint, request.CorrelationId);
 
-            // Deterministic echo fallback — explicitly labeled as NOT AI-generated
             return new ModelResponse(
                 Provider: ProviderName,
                 Model: modelName,
-                IsSuccess: true,
-                Content: $"[local:echo:{modelName}] {request.Prompt}",
-                Warnings: new[] { "DETERMINISTIC_ECHO: Local model server unavailable. This is NOT an AI-generated response." },
-                Errors: Array.Empty<string>(),
+                IsSuccess: false,
+                Content: string.Empty,
+                Warnings: Array.Empty<string>(),
+                Errors: new[] { $"Local model server unavailable at {_options.Local.Endpoint}. Configure a cloud provider (OpenAI/Anthropic) or start the local Ollama server." },
                 CompletedAtUtc: DateTimeOffset.UtcNow)
             {
                 CorrelationId = request.CorrelationId,
-                FinishReason = "echo_fallback",
+                FinishReason = "provider_unavailable",
                 LatencyMs = sw.Elapsed.TotalMilliseconds,
             };
         }

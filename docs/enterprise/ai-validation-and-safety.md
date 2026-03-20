@@ -36,7 +36,7 @@ ModelResponse
 | `SCHEMA_MISSING_FIELD: {field}` | Required field absent from response |
 | `SCHEMA_MISMATCH` | Expected JSON object, got different type |
 | `SCHEMA_PARSE_ERROR` | Validation schema itself is malformed |
-| `DETERMINISTIC_ECHO` | Response is not AI-generated (local fallback) |
+| ~~`DETERMINISTIC_ECHO`~~ | *Removed* — echo fallback eliminated; local provider now fails explicitly |
 
 ### Repair Strategies
 
@@ -54,7 +54,7 @@ Validation metadata is informational. Callers must decide how to handle:
 ## Safety Invariants
 
 1. **No silent success on failure**: Every provider failure returns `IsSuccess=false` with specific error
-2. **No mocked success paths**: Echo fallback is explicitly labeled `echo_fallback`
+2. **No echo/stub/mock paths**: All providers either return real AI-generated content or explicit failure. No provider simulates output.
 3. **All invocations observable**: CorrelationId traces every request end-to-end
 4. **All invocations attributable**: `RequestedBy` identifies the calling agent/service
 5. **Token spend tracked**: Usage returned from providers, cost estimated via capability registry
@@ -71,4 +71,4 @@ Validation metadata is informational. Callers must decide how to handle:
 | Timeout | Fail after configured timeout, report latency |
 | Caller cancellation | Propagate immediately, no retry |
 | Malformed response | Parse error with details |
-| Local server unreachable | Echo fallback with DETERMINISTIC_ECHO warning |
+| Local server unreachable | Explicit failure with `provider_unavailable` finish reason and guidance to configure cloud provider |

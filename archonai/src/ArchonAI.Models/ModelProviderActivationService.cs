@@ -94,16 +94,29 @@ public sealed class ModelProviderActivationService : IHostedService
 
         int activeCount = statuses.Count(kv => kv.Value.IsActive);
 
+        // Check if any cloud (non-local) provider is active
+        bool hasCloudProvider = statuses
+            .Where(kv => kv.Key != "Local")
+            .Any(kv => kv.Value.IsActive);
+
         if (activeCount == 0)
         {
             _logger.LogCritical(
                 "ZERO model providers are active. AI endpoints will return errors. " +
-                "Configure at least one provider API key via environment variables or appsettings.json. " +
+                "Configure at least one provider API key via environment variables: " +
+                "OPENAI_API_KEY, ANTHROPIC_API_KEY, or AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT. " +
                 "Non-AI endpoints remain functional.");
+        }
+        else if (!hasCloudProvider)
+        {
+            _logger.LogWarning(
+                "No cloud AI providers are active. Only the local provider (Ollama) is available. " +
+                "If the local model server is unreachable, all AI requests will fail. " +
+                "Configure OPENAI_API_KEY or ANTHROPIC_API_KEY for production use.");
         }
         else
         {
-            _logger.LogInformation("Model provider activation complete: {ActiveCount}/{TotalCount} providers active",
+            _logger.LogInformation("Model provider activation complete: {ActiveCount}/{TotalCount} providers active (cloud providers available)",
                 activeCount, statuses.Count);
         }
 

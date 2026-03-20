@@ -2,7 +2,7 @@ namespace ArchonAI.Models;
 
 public sealed class ModelProviderOptions
 {
-    public string DefaultModel { get; set; } = "local.default";
+    public string DefaultModel { get; set; } = "openai.gpt-4.1-mini";
 
     public OpenAiOptions OpenAI { get; set; } = new();
 

@@ -92,6 +92,26 @@ public sealed class CompositeModelProvider : IModelProvider
                 "Provider {Provider} returned failure for {CorrelationId}: {Errors}",
                 provider.ProviderName, request.CorrelationId, string.Join("; ", response.Errors));
         }
+        else
+        {
+            _logger.LogInformation(
+                "Provider {Provider}/{Model} completed {CorrelationId} in {LatencyMs:F0}ms " +
+                "(tokens: {PromptTokens}→{CompletionTokens}, finish: {FinishReason})",
+                provider.ProviderName, model, request.CorrelationId,
+                response.LatencyMs ?? 0,
+                response.Usage?.PromptTokens ?? 0,
+                response.Usage?.CompletionTokens ?? 0,
+                response.FinishReason ?? "unknown");
+        }
+
+        // Guard: detect any residual echo/stub patterns in production responses
+        if (response.IsSuccess && response.FinishReason == "echo_fallback")
+        {
+            _logger.LogCritical(
+                "ECHO DETECTED: Provider {Provider} returned echo_fallback for {CorrelationId}. " +
+                "This response is NOT AI-generated and should not reach production consumers.",
+                provider.ProviderName, request.CorrelationId);
+        }
 
         return response;
     }

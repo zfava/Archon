@@ -41,7 +41,7 @@ public class ModelProviderTests
         var provider = CreateOpenAiProvider();
         Assert.True(provider.CanHandle("openai.gpt-4.1"));
         Assert.True(provider.CanHandle("OpenAI.gpt-4.1-mini"));
-        Assert.False(provider.CanHandle("anthropic.claude-3-5-sonnet"));
+        Assert.False(provider.CanHandle("anthropic.claude-sonnet-4-6"));
         Assert.False(provider.CanHandle("local.default"));
     }
 
@@ -128,28 +128,40 @@ public class ModelProviderTests
             provider.GenerateAsync(MakeRequest("anthropic.claude-sonnet-4-6"), cts.Token));
     }
 
-    // ── Local Provider Echo Fallback Tests ────────────────────────────
+    // ── Local Provider Failure Tests ────────────────────────────────
 
     [Fact]
-    public async Task Local_UnreachableServer_ReturnsLabeledEchoFallback()
+    public async Task Local_UnreachableServer_ReturnsExplicitFailure()
     {
         var provider = CreateLocalProvider();
         var request = MakeRequest("local.default", "Test prompt");
         var response = await provider.GenerateAsync(request);
 
-        Assert.True(response.IsSuccess);
-        Assert.Contains("local:echo:local.default", response.Content);
-        Assert.Equal("echo_fallback", response.FinishReason);
-        Assert.Contains(response.Warnings, w => w.Contains("DETERMINISTIC_ECHO"));
+        Assert.False(response.IsSuccess);
+        Assert.Equal(string.Empty, response.Content);
+        Assert.Equal("provider_unavailable", response.FinishReason);
+        Assert.Contains(response.Errors, e => e.Contains("Local model server unavailable"));
     }
 
     [Fact]
-    public async Task Local_EchoResponse_ContainsOriginalPrompt()
+    public async Task Local_UnreachableServer_NeverReturnsEchoContent()
     {
         var provider = CreateLocalProvider();
         var response = await provider.GenerateAsync(MakeRequest("local.default", "What is 2+2?"));
 
-        Assert.Contains("What is 2+2?", response.Content);
+        Assert.False(response.IsSuccess);
+        Assert.DoesNotContain("What is 2+2?", response.Content);
+        Assert.DoesNotContain("echo", response.Content);
+        Assert.NotEqual("echo_fallback", response.FinishReason);
+    }
+
+    [Fact]
+    public async Task Local_UnreachableServer_SuggestsCloudProvider()
+    {
+        var provider = CreateLocalProvider();
+        var response = await provider.GenerateAsync(MakeRequest("local.default", "Test"));
+
+        Assert.Contains(response.Errors, e => e.Contains("OpenAI/Anthropic") || e.Contains("cloud provider"));
     }
 
     // ── Correlation ID Tests ─────────────────────────────────────────
@@ -342,6 +354,51 @@ public class ModelProviderTests
         var input = "{\"a\":1, \"b\":2,}";
         var result = ModelOutputValidator.AttemptJsonRepair(input);
         Assert.Equal("{\"a\":1, \"b\":2}", result);
+    }
+
+    // ── Default Routing Configuration Tests ─────────────────────────
+
+    [Fact]
+    public void DefaultModel_IsCloudProvider_NotLocal()
+    {
+        var options = new ModelProviderOptions();
+        Assert.DoesNotContain("local", options.DefaultModel, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith("openai", options.DefaultModel, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ModelRouterDefaults_PreferCloudProviders()
+    {
+        var options = new ArchonAI.ModelRouter.ModelRouterOptions();
+        Assert.NotEqual("local", options.DefaultProvider);
+        Assert.DoesNotContain("local", options.DefaultModel, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("local", options.CostOptimizedModel, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void FallbackChains_LocalIsLastResort()
+    {
+        var options = new ArchonAI.ModelRouter.ModelRouterOptions();
+        foreach (var (chainName, entries) in options.FallbackChains)
+        {
+            var localEntry = entries.FirstOrDefault(e => e.Provider == "local");
+            if (localEntry is not null)
+            {
+                var maxPriority = entries.Max(e => e.Priority);
+                Assert.Equal(maxPriority, localEntry.Priority);
+            }
+        }
+    }
+
+    [Fact]
+    public void TaskTypeModelMap_NoLocalForNonLightweight()
+    {
+        var options = new ArchonAI.ModelRouter.ModelRouterOptions();
+        foreach (var (taskType, model) in options.TaskTypeModelMap)
+        {
+            // No task type should route to local by default
+            Assert.DoesNotContain("local", model, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     // ── Helper methods ───────────────────────────────────────────────

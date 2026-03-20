@@ -41,7 +41,7 @@
 | CorrelationId | string | Matching request correlation ID |
 | Usage | TokenUsage? | Prompt/completion/total token counts |
 | LatencyMs | double? | Wall-clock latency |
-| FinishReason | string? | stop, length, content_filter, echo_fallback |
+| FinishReason | string? | stop, length, content_filter, provider_unavailable |
 | SchemaValid | bool? | JSON schema validation result |
 
 ## Flow Classification
@@ -49,12 +49,13 @@
 | Behavior | Label | Example |
 |----------|-------|---------|
 | Real provider HTTP call | AI-generated | OpenAI, Anthropic, Azure, Ollama responses |
-| Local echo fallback | DETERMINISTIC_ECHO | Local provider when Ollama server unreachable |
+| Provider unavailable | Explicit failure | Local provider when Ollama unreachable; cloud provider with missing key |
 | Rules-based logic | Not AI | RBAC checks, governance policy evaluation |
 
-Every response from the local echo fallback includes:
-- `FinishReason = "echo_fallback"`
-- Warning: `"DETERMINISTIC_ECHO: Local model server unavailable."`
+No provider produces echo, stub, or simulated output. When a provider is unavailable:
+- `IsSuccess = false`
+- `FinishReason = "provider_unavailable"` (local) or error message (cloud)
+- Errors array contains actionable guidance ("Configure a cloud provider...")
 
 ## Error Handling
 

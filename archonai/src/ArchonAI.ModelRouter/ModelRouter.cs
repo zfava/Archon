@@ -112,8 +112,8 @@ public sealed class ModelRouter : IModelRouter
             return BuildDecision(entry.Provider, entry.Model, $"fallback-chain:{chainName}:priority-{entry.Priority}", strategy);
         }
 
-        // Ultimate fallback — local always available
-        return BuildDecision("local", "local.default", "ultimate-fallback", strategy);
+        // Ultimate fallback — route to default provider; local will fail explicitly if unreachable
+        return BuildDecision(_options.DefaultProvider, _options.DefaultModel, "ultimate-fallback", strategy);
     }
 
     private ModelRouteDecision? TryAdaptiveRoute(string strategy)

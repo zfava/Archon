@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\src\ArchonAI.Identity\ArchonAI.Identity.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.Core\ArchonAI.Core.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.Models\ArchonAI.Models.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.ModelRouter\ArchonAI.ModelRouter.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.WorkflowRuntime\ArchonAI.WorkflowRuntime.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.Api\ArchonAI.Api.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.ControlPlane\ArchonAI.ControlPlane.csproj" />
