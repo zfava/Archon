@@ -76,6 +76,31 @@ jobs:
   # ═══════════════════════════════════════════════════════════════════════════
   unit-tests:
     name: "Stage 2: Unit Tests"
+    # ─────────────────────────────────────────────────────────────────────────
+    # RESTORE SAFETY — DO NOT REMOVE THE RESTORE STEP BELOW
+    #
+    # The explicit `dotnet restore` at solution level MUST run before the
+    # per-project test loop.  Each `dotnet test` call uses --no-restore to
+    # avoid redundant restores, but this means the NuGet assets file
+    # (obj/project.assets.json) must already exist for every project.
+    #
+    # If the restore step is removed or skipped:
+    #   - Every `dotnet test --no-restore` call fails with NETSDK1004:
+    #     "Assets file '<path>/obj/project.assets.json' not found.
+    #      Run a NuGet package restore to generate this file."
+    #   - ALL unit tests fail, and the entire stage is red.
+    #
+    # Why per-project targeting instead of solution-level `dotnet test`?
+    #   Running `dotnet test ArchonAI.slnx --filter ...` at the solution
+    #   level produces "No test matches the given testcase filter" warnings
+    #   for every project that has no tests matching the Category trait.
+    #   Per-project targeting eliminates this noise entirely.
+    #
+    # Lesson learned: The ci-cd.yml workflow previously had a bug where
+    # restore was missing before per-project test loops, causing NETSDK1004
+    # failures.  This pattern (solution restore + per-project --no-restore)
+    # is the correct approach.  See docs/testing/ci-restore-pattern.md.
+    # ─────────────────────────────────────────────────────────────────────────
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -88,6 +113,16 @@ jobs:
 
       - name: Restore
         run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Verify restore completed
+        run: |
+          # Confirm solution restore artifacts exist before running per-project tests
+          # If this check fails, the restore step above did not complete successfully
+          if [ ! -d "archonai/tests/ArchonAI.ActionSafety.Tests/obj" ]; then
+            echo "::error::Restore artifacts missing — obj/ directory not found. Do not remove the restore step above."
+            exit 1
+          fi
+          echo "✓ Restore artifacts confirmed present"
 
       - name: Run unit tests (targeted, no filter noise)
         run: |
@@ -103,6 +138,9 @@ jobs:
           PROJECTS_TESTED=0
 
           # ── Projects that contain ONLY unit tests (no Category trait) ──
+          # --no-restore is safe here: the explicit "Restore" step above already
+          # ran `dotnet restore` at solution level, so obj/project.assets.json
+          # exists for every project.  See the safety comment at the top of this job.
           UNIT_ONLY_PROJECTS=(
             "archonai/tests/ArchonAI.ActionSafety.Tests/ArchonAI.ActionSafety.Tests.csproj"
             "archonai/tests/ArchonAI.AdminAPI.Tests/ArchonAI.AdminAPI.Tests.csproj"
@@ -117,6 +155,8 @@ jobs:
           )
 
           # ── Projects with mixed categories (need filter to exclude Integration/RuntimeProof) ──
+          # --no-restore is safe here: same rationale as the unit-only loop above.
+          # The solution-level restore has already populated assets for all projects.
           MIXED_PROJECTS=(
             "archonai/tests/ArchonAI.Tests/ArchonAI.Tests.csproj"
             "archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj"

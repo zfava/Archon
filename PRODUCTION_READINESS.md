@@ -31,3 +31,5 @@ All code compiles cleanly, tests are green (1 pre-existing flaky test), no secur
 1. **Design Quality Uplift** — Complete CSS redesign with DM Sans/JetBrains Mono typography, deep navy color palette, mission-control sidebar, terminal-aesthetic CommandConsole, glassmorphism cards, and micro-interactions. Zero TS/component logic changes.
 
 2. **API Error Handling Hardening** — Normalized `ApiError` class with typed error codes, `useApiCall` hook with automatic AbortController lifecycle, 30s request timeouts, `auth:expired` event on 401, per-error-code UI states, and signal propagation through all API methods and hooks.
+
+3. **CI Pipeline NETSDK1004 Bug Fix** — Identified and resolved a bug in the CI pipeline where missing `dotnet restore` before per-project `dotnet test --no-restore` loops caused NETSDK1004 ("Assets file not found") failures across all test stages. The correct pattern (solution-level restore followed by per-project `--no-restore` test commands) is now enforced with a restore verification safety check in `rc-validate.yml`. Full details documented in [`docs/testing/ci-restore-pattern.md`](docs/testing/ci-restore-pattern.md).

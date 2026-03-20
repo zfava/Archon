@@ -75,6 +75,9 @@ builder.Services.AddSingleton<IActionSafetyService, ActionSafetyService>();
 builder.Services.AddSingleton<IInspectionService, InspectionService>();
 builder.Services.AddSingleton<InspectionService>();
 
+// ── Demo configuration ──────────────────────────────────────────────────────
+builder.Services.Configure<ArchonAI.Api.Endpoints.DemoOptions>(builder.Configuration.GetSection("Demo"));
+
 // ── HTTP client factory (used by OIDC token exchange) ─────────────────────────
 builder.Services.AddHttpClient();
 
@@ -296,6 +299,7 @@ v1.MapIntelligenceEndpoints();
 v1.MapStrategyEndpoints();
 v1.MapOperatorEndpoints();
 v1.MapTrustVisibilityEndpoints();
+v1.MapDemoEndpoints();
 
 // ── API v2 endpoints ──────────────────────────────────────────
 var v2 = app.MapGroup("/api/v2")

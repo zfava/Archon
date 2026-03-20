@@ -264,6 +264,99 @@ docker compose up --build -d
 
 ---
 
+## Governance Demo Endpoint
+
+### Overview
+
+`POST /api/v1/demo/governance-loop` provides a self-contained end-to-end governance demonstration that exercises the real platform components:
+
+1. **AI Reasoning** — Uses `IModelProvider` (routed through `IModelRouter`) for real LLM inference
+2. **Policy Evaluation** — Real `PolicyEngine.EvaluateAsync()` with trust tier evaluation and guardrail checks
+3. **Approval Gate** — Creates a real `ApprovalGate` via `IGovernanceService`
+4. **Gated Execution** — Executes via `IGatedActionExecutor` with audit trail
+5. **Outcome Recording** — Records via `IOutcomeLearningService` for calibration
+
+### Prerequisites
+
+| Requirement | Environment Variable | Purpose |
+|---|---|---|
+| At least one API key | `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | Real AI reasoning (without keys, AI phase returns error) |
+| Override signing key | `Policy:ManualOverrideSigningKey` in config | Required for `autoApprove=true` |
+| Demo enabled | `Demo:Enabled=true` in appsettings.json | Gates the endpoint |
+
+### Request Body
+
+```json
+{
+  "scenario": "finance-approval",
+  "trustTierThreshold": 500000,
+  "autoApprove": false
+}
+```
+
+| Field | Values | Default |
+|---|---|---|
+| `scenario` | `finance-approval`, `sales-anomaly`, `ops-escalation` | `finance-approval` |
+| `trustTierThreshold` | Any positive number | `500000` |
+| `autoApprove` | `true` / `false` | `false` |
+
+### Running via curl
+
+```bash
+# Manual approval flow
+curl -X POST http://localhost:5000/api/v1/demo/governance-loop \
+  -H "Content-Type: application/json" \
+  -d '{"scenario":"finance-approval","trustTierThreshold":500000,"autoApprove":false}'
+
+# Auto-approval with HMAC-signed override token
+curl -X POST http://localhost:5000/api/v1/demo/governance-loop \
+  -H "Content-Type: application/json" \
+  -d '{"scenario":"finance-approval","trustTierThreshold":500000,"autoApprove":true}'
+```
+
+### 5-Minute Technical Demo Script
+
+1. **Check provider readiness** (30s): `curl /api/v1/infra/ai/diagnostics | jq '.readinessTier'`
+2. **Run finance-approval with manual approval** (60s): Show pending approval gate
+3. **Run with auto-approve** (60s): Show HMAC-signed override token and execution result
+4. **Follow Trust Lineage URL** (60s): Show decision -> approval -> execution -> outcome chain
+5. **Run all three scenarios** (120s): Show consistent governance across business domains
+
+### 10-Minute Business Narrative Demo Script
+
+| Act | Duration | Focus |
+|---|---|---|
+| 1. The Platform | 2 min | Trust posture, provider readiness |
+| 2. A Financial Decision | 3 min | Run demo, walk through phases |
+| 3. The Approval Flow | 2 min | Auto-approve, HMAC token, execution |
+| 4. Trust Lineage | 2 min | Full audit trail visualization |
+| 5. Multi-Scenario | 1 min | sales-anomaly, ops-escalation |
+
+### Interpreting Trust Lineage Output
+
+The Trust Lineage endpoint (`/api/v1/trust-visibility/lineage/{decisionId}`) returns:
+
+| Section | What It Shows |
+|---------|--------------|
+| `decision` | Original decision with risk level and confidence |
+| `approvalGates` | Approval gates linked to this decision |
+| `governedActions` | Actions with safety classification and rollback info |
+| `outcome` | Predicted vs actual outcome with variance analysis |
+| `proofTimeline` | Chronological event log |
+| `lineageSummary` | Quick health indicators |
+
+### Common Failure Modes
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `"AI provider unavailable"` in ai-reasoning | No API key configured | Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` |
+| `overrideToken` is null when `autoApprove=true` | `ManualOverrideSigningKey` not set | Set `Policy:ManualOverrideSigningKey` |
+| `"Demo mode is disabled"` | `Demo:Enabled` is false | Set `Demo:Enabled=true` |
+| 429 status code | Concurrent demo limit reached | Wait or increase `Demo:MaxConcurrentDemos` |
+| AI reasoning contains `echo_fallback` | Echo stub returned | Configure a real API key |
+
+---
+
 ## Next Steps After Demo
 
 | Goal | Action |

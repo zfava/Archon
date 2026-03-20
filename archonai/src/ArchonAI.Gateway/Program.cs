@@ -11,6 +11,26 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// CORS — configured via Gateway:Cors:AllowedOrigins
+var corsSection = builder.Configuration.GetSection("Gateway:Cors");
+var allowedOrigins = corsSection.GetSection("AllowedOrigins").Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("GatewayPolicy", policy =>
+    {
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+                .WithHeaders("Authorization", "Content-Type", "X-Correlation-Id", "X-Tenant-Id")
+                .AllowCredentials()
+                .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
+        }
+        // When no origins configured, deny all cross-origin requests (no policy = no ACAO header)
+    });
+});
+
 // Logging
 builder.Host.UseSerilog((context, _, config) => config
     .ReadFrom.Configuration(context.Configuration)
@@ -160,6 +180,9 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 
 // Request logging and metrics
 app.UseMiddleware<GatewayRequestMiddleware>();
+
+// CORS must be before auth and rate limiting
+app.UseCors("GatewayPolicy");
 
 app.UseRateLimiter();
 app.UseAuthentication();
