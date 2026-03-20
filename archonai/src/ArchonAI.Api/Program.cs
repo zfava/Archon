@@ -85,11 +85,12 @@ builder.Services.AddHealthChecks()
     .AddCheck<ArchonAI.Common.Observability.ModelProviderHealthCheck>("model_providers", tags: ["ready"])
     .AddCheck<ArchonAI.Common.Observability.StartupReadinessCheck>("startup", tags: ["ready"])
     .AddCheck<ArchonAI.Common.Observability.IdentityPersistenceHealthCheck>("identity_persistence", tags: ["ready"])
-    .AddCheck<MigrationHealthCheck>("database_migrations", tags: ["ready"]);
+    .AddCheck<MigrationHealthCheck>("database_migrations", tags: ["ready"])
+    .AddCheck<ArchonAI.Common.Observability.ProductionConfigHealthCheck>("production_config", tags: ["ready"]);
 
 var app = builder.Build();
 
-// ── Identity/security startup validation ─────────────────────────────────────
+// ── Production configuration validation ──────────────────────────────────────
 {
     var env = app.Environment;
     var persistenceOpts = app.Services.GetService<IOptions<PersistenceOptions>>()?.Value;
@@ -100,23 +101,83 @@ var app = builder.Build();
     // Configure the identity persistence health check
     ArchonAI.Common.Observability.IdentityPersistenceHealthCheck.Configure(isProductionLike, hasDurablePersistence);
 
-    if (isProductionLike && !hasDurablePersistence)
+    // Build a snapshot of all configuration relevant to production validation
+    var jwtSection = app.Configuration.GetSection("Security:Jwt");
+    var modelSection = app.Configuration.GetSection("ModelProviders");
+    var oidcSection = app.Configuration.GetSection("Oidc");
+
+    var configSnapshot = new ArchonAI.Common.Observability.ConfigSnapshot
+    {
+        EnvironmentName = env.EnvironmentName,
+        IsProductionLike = isProductionLike,
+
+        JwtSigningKey = jwtSection["SigningKey"]
+            ?? Environment.GetEnvironmentVariable("ARCHONAI_JWT_SIGNING_KEY"),
+        TotpEncryptionKey = Environment.GetEnvironmentVariable("ARCHONAI_TOTP_ENCRYPTION_KEY"),
+        PersistenceConnectionString = persistenceOpts?.ConnectionString,
+
+        OpenAiEnabled = bool.TryParse(modelSection["OpenAI:Enabled"], out var oaiE) ? oaiE : true,
+        OpenAiApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+            ?? modelSection["OpenAI:ApiKey"],
+        AnthropicEnabled = bool.TryParse(modelSection["Anthropic:Enabled"], out var antE) ? antE : true,
+        AnthropicApiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")
+            ?? modelSection["Anthropic:ApiKey"],
+        AzureOpenAiEnabled = bool.TryParse(modelSection["AzureOpenAI:Enabled"], out var azE) && azE,
+        AzureOpenAiApiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY")
+            ?? modelSection["AzureOpenAI:ApiKey"],
+        AzureOpenAiEndpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")
+            ?? modelSection["AzureOpenAI:Endpoint"],
+
+        OidcCallbackBaseUrl = oidcSection["CallbackBaseUrl"],
+
+        Connectors = BuildConnectorStates(app.Configuration),
+    };
+
+    var validationResult = ArchonAI.Common.Observability.ProductionConfigValidator.Validate(configSnapshot);
+    ArchonAI.Common.Observability.ProductionConfigHealthCheck.SetResult(validationResult);
+    ArchonAI.Common.Observability.ProductionConfigValidator.LogResult(validationResult, app.Logger);
+
+    // In production mode, block startup if critical misconfigurations exist
+    if (validationResult.IsProductionMode && validationResult.HasCriticalFindings)
     {
         app.Logger.LogCritical(
-            "FATAL: Identity stores require PostgreSQL persistence in {Environment} environments. " +
-            "Set ArchonAIPersistence:ConnectionString to a valid PostgreSQL connection string. " +
-            "In-memory/file-backed identity persistence is not safe for production deployment.",
-            env.EnvironmentName);
+            "FATAL: Production startup blocked due to {Count} critical configuration error(s). " +
+            "Resolve the issues above and restart. The readiness endpoint will report unhealthy.",
+            validationResult.Findings.Count(f =>
+                f.Severity == ArchonAI.Common.Observability.ConfigSeverity.Critical));
         return;
     }
 
-    if (!hasDurablePersistence)
+    if (!hasDurablePersistence && !isProductionLike)
     {
         app.Logger.LogWarning(
             "Identity stores are using in-memory persistence. This is acceptable for local " +
             "development but NOT safe for production or multi-instance deployment. " +
             "Set ArchonAIPersistence:ConnectionString for durable identity persistence.");
     }
+}
+
+static Dictionary<string, ArchonAI.Common.Observability.ConnectorConfigState> BuildConnectorStates(
+    IConfiguration configuration)
+{
+    var states = new Dictionary<string, ArchonAI.Common.Observability.ConnectorConfigState>();
+    var connectorNames = new[] { "Salesforce", "HubSpot", "QuickBooks", "Slack", "GoogleWorkspace", "Microsoft365" };
+
+    foreach (var name in connectorNames)
+    {
+        var section = configuration.GetSection($"Connectors:{name}");
+        if (!section.Exists()) continue;
+
+        states[name] = new ArchonAI.Common.Observability.ConnectorConfigState
+        {
+            Enabled = !bool.TryParse(section["Enabled"], out var disabled) || !disabled,
+            HasClientId = !string.IsNullOrWhiteSpace(section["ClientId"]),
+            HasClientSecret = !string.IsNullOrWhiteSpace(section["ClientSecret"]),
+            HasEndpoint = !string.IsNullOrWhiteSpace(section["LoginUrl"] ?? section["BaseUrl"]),
+        };
+    }
+
+    return states;
 }
 
 // ── Run database migrations before accepting traffic ──────────────────────────
