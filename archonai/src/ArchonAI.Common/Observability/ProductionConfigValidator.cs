@@ -64,6 +64,12 @@ public sealed record ConfigSnapshot
     // PostgreSQL persistence
     public string? PersistenceConnectionString { get; init; }
 
+    // Subsystem persistence — each independently configurable
+    public string? MemoryPersistenceConnectionString { get; init; }
+    public string? KnowledgeGraphConnectionString { get; init; }
+    public string? TelemetryConnectionString { get; init; }
+    public bool EventBusUseNats { get; init; }
+
     // Model providers
     public bool OpenAiEnabled { get; init; }
     public string? OpenAiApiKey { get; init; }
@@ -111,6 +117,7 @@ public static class ProductionConfigValidator
         ValidateJwt(config, findings);
         ValidateTotp(config, findings);
         ValidatePersistence(config, findings);
+        ValidateSubsystemPersistence(config, findings);
         ValidateModelProviders(config, findings);
         ValidateOidc(config, findings);
         ValidateConnectors(config, findings);
@@ -247,6 +254,65 @@ public static class ProductionConfigValidator
         {
             findings.Add(new("Persistence", ConfigSeverity.Info,
                 "Using in-memory persistence (acceptable for local development)."));
+        }
+    }
+
+    private static void ValidateSubsystemPersistence(ConfigSnapshot config, List<ConfigValidationFinding> findings)
+    {
+        // Event Bus
+        if (!config.EventBusUseNats && config.IsProductionLike)
+        {
+            findings.Add(new("EventBus", ConfigSeverity.Critical,
+                "Event bus is configured to use in-memory transport in a production-like environment. " +
+                "Events will not be shared across instances and will be lost on restart.",
+                "Set EventBus:UseNats=true and configure EventBus:Url to a NATS server."));
+        }
+        else if (!config.EventBusUseNats)
+        {
+            findings.Add(new("EventBus", ConfigSeverity.Info,
+                "Using in-memory event bus (acceptable for local development)."));
+        }
+
+        // Memory store
+        if (string.IsNullOrWhiteSpace(config.MemoryPersistenceConnectionString) && config.IsProductionLike)
+        {
+            findings.Add(new("MemoryStore", ConfigSeverity.Critical,
+                "Agent memory store is using in-memory persistence in a production-like environment. " +
+                "Memory records and embeddings will be lost on restart.",
+                "Set MemoryPersistence:ConnectionString to a valid PostgreSQL connection string."));
+        }
+        else if (string.IsNullOrWhiteSpace(config.MemoryPersistenceConnectionString))
+        {
+            findings.Add(new("MemoryStore", ConfigSeverity.Info,
+                "Using in-memory memory store (acceptable for local development)."));
+        }
+
+        // Knowledge graph
+        if (string.IsNullOrWhiteSpace(config.KnowledgeGraphConnectionString) && config.IsProductionLike)
+        {
+            findings.Add(new("KnowledgeGraph", ConfigSeverity.Critical,
+                "Knowledge graph is using in-memory persistence in a production-like environment. " +
+                "Graph data will be lost on restart.",
+                "Set KnowledgeGraph:ConnectionString to a valid PostgreSQL connection string."));
+        }
+        else if (string.IsNullOrWhiteSpace(config.KnowledgeGraphConnectionString))
+        {
+            findings.Add(new("KnowledgeGraph", ConfigSeverity.Info,
+                "Using in-memory knowledge graph (acceptable for local development)."));
+        }
+
+        // Telemetry
+        if (string.IsNullOrWhiteSpace(config.TelemetryConnectionString) && config.IsProductionLike)
+        {
+            findings.Add(new("Telemetry", ConfigSeverity.Critical,
+                "Task telemetry store is using in-memory persistence in a production-like environment. " +
+                "Telemetry data will be lost on restart and bounded to a fixed queue size.",
+                "Set TelemetryPersistence:ConnectionString to a valid PostgreSQL connection string."));
+        }
+        else if (string.IsNullOrWhiteSpace(config.TelemetryConnectionString))
+        {
+            findings.Add(new("Telemetry", ConfigSeverity.Info,
+                "Using in-memory telemetry store (acceptable for local development)."));
         }
     }
 

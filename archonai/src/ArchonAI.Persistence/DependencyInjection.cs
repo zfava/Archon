@@ -1,7 +1,9 @@
+using ArchonAI.Common;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Persistence.Stores;
 using ArchonAI.Registry;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace ArchonAI.Persistence;
@@ -116,7 +118,17 @@ public static class DependencyInjection
                 return sp.GetRequiredService<TPostgres>();
             }
 
-            // Resolve the original in-memory implementation
+            // ── Environment-aware fallback gate ──────────────────────────
+            // In production-like environments, silently falling back to in-memory
+            // for enterprise-critical stores is a dangerous misconfiguration.
+            var posture = sp.GetService<EnvironmentPosture>();
+            var logger = sp.GetRequiredService<ILogger<PersistenceOptions>>();
+            posture?.GuardInMemoryFallback(
+                $"Persistence:{typeof(TInterface).Name}",
+                $"{PersistenceOptions.SectionName}:ConnectionString",
+                logger);
+
+            // Resolve the original in-memory implementation (dev/test only)
             if (inMemoryDescriptor?.ImplementationType is not null)
             {
                 return (TInterface)sp.GetRequiredService(inMemoryDescriptor.ImplementationType);

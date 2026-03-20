@@ -111,9 +111,22 @@ public static class DependencyInjection
         services.AddSingleton<IMemoryStore>(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<MemoryPersistenceOptions>>().Value;
-            IMemoryStore baseStore = string.IsNullOrWhiteSpace(options.ConnectionString)
-                ? serviceProvider.GetRequiredService<InMemoryStore>()
-                : serviceProvider.GetRequiredService<PersistentMemoryStore>();
+            IMemoryStore baseStore;
+            if (string.IsNullOrWhiteSpace(options.ConnectionString))
+            {
+                // ── Environment-aware fallback gate ──────────────────────────
+                var posture = serviceProvider.GetService<ArchonAI.Common.EnvironmentPosture>();
+                var memLogger = serviceProvider.GetRequiredService<ILogger<MemoryPersistenceOptions>>();
+                posture?.GuardInMemoryFallback(
+                    "MemoryStore",
+                    "MemoryPersistence:ConnectionString",
+                    memLogger);
+                baseStore = serviceProvider.GetRequiredService<InMemoryStore>();
+            }
+            else
+            {
+                baseStore = serviceProvider.GetRequiredService<PersistentMemoryStore>();
+            }
 
             var tenantContext = serviceProvider.GetRequiredService<IMultiTenantContext>();
             var tenantOptions = serviceProvider.GetRequiredService<IOptions<MultiTenantOptions>>();
@@ -125,9 +138,22 @@ public static class DependencyInjection
         services.AddSingleton<IEventBus>(serviceProvider =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<EventBusOptions>>().Value;
-            IEventBus inner = options.UseNats
-                ? serviceProvider.GetRequiredService<NatsEventBus>()
-                : serviceProvider.GetRequiredService<InMemoryEventBus>();
+            IEventBus inner;
+            if (options.UseNats)
+            {
+                inner = serviceProvider.GetRequiredService<NatsEventBus>();
+            }
+            else
+            {
+                // ── Environment-aware fallback gate ──────────────────────────
+                var posture = serviceProvider.GetService<ArchonAI.Common.EnvironmentPosture>();
+                var ebLogger = serviceProvider.GetRequiredService<ILogger<EventBusOptions>>();
+                posture?.GuardInMemoryFallback(
+                    "EventBus",
+                    "EventBus:UseNats",
+                    ebLogger);
+                inner = serviceProvider.GetRequiredService<InMemoryEventBus>();
+            }
 
             // Wrap with circuit breaker and timeout
             var pipelineFactory = serviceProvider.GetRequiredService<ResiliencePipelineFactory>();

@@ -38,6 +38,13 @@ using Microsoft.Extensions.Options;
 var builder = WebApplication.CreateBuilder(args)
     .AddArchonAIObservability();
 
+// ── Environment posture — gates in-memory fallbacks in production-like environments ──
+{
+    bool isProdLike = builder.Environment.IsProduction()
+        || string.Equals(builder.Environment.EnvironmentName, "Staging", StringComparison.OrdinalIgnoreCase);
+    builder.Services.AddSingleton(new ArchonAI.Common.EnvironmentPosture { IsProductionLike = isProdLike });
+}
+
 builder.Services.AddArchonAISecurity(builder.Configuration);
 builder.Services.AddArchonAIInfrastructure();
 builder.Services.AddArchonAIConnectors(builder.Configuration);
@@ -86,7 +93,8 @@ builder.Services.AddHealthChecks()
     .AddCheck<ArchonAI.Common.Observability.StartupReadinessCheck>("startup", tags: ["ready"])
     .AddCheck<ArchonAI.Common.Observability.IdentityPersistenceHealthCheck>("identity_persistence", tags: ["ready"])
     .AddCheck<MigrationHealthCheck>("database_migrations", tags: ["ready"])
-    .AddCheck<ArchonAI.Common.Observability.ProductionConfigHealthCheck>("production_config", tags: ["ready"]);
+    .AddCheck<ArchonAI.Common.Observability.ProductionConfigHealthCheck>("production_config", tags: ["ready"])
+    .AddCheck<ArchonAI.Common.Observability.FallbackPostureHealthCheck>("fallback_posture", tags: ["ready"]);
 
 var app = builder.Build();
 
@@ -106,6 +114,12 @@ var app = builder.Build();
     var modelSection = app.Configuration.GetSection("ModelProviders");
     var oidcSection = app.Configuration.GetSection("Oidc");
 
+    // Subsystem persistence configuration
+    var memorySection = app.Configuration.GetSection("MemoryPersistence");
+    var knowledgeSection = app.Configuration.GetSection("KnowledgeGraph");
+    var telemetrySection = app.Configuration.GetSection("TelemetryPersistence");
+    var eventBusSection = app.Configuration.GetSection("EventBus");
+
     var configSnapshot = new ArchonAI.Common.Observability.ConfigSnapshot
     {
         EnvironmentName = env.EnvironmentName,
@@ -115,6 +129,12 @@ var app = builder.Build();
             ?? Environment.GetEnvironmentVariable("ARCHONAI_JWT_SIGNING_KEY"),
         TotpEncryptionKey = Environment.GetEnvironmentVariable("ARCHONAI_TOTP_ENCRYPTION_KEY"),
         PersistenceConnectionString = persistenceOpts?.ConnectionString,
+
+        // Subsystem persistence
+        MemoryPersistenceConnectionString = memorySection["ConnectionString"],
+        KnowledgeGraphConnectionString = knowledgeSection["ConnectionString"],
+        TelemetryConnectionString = telemetrySection["ConnectionString"],
+        EventBusUseNats = bool.TryParse(eventBusSection["UseNats"], out var natsE) && natsE,
 
         OpenAiEnabled = bool.TryParse(modelSection["OpenAI:Enabled"], out var oaiE) ? oaiE : true,
         OpenAiApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
@@ -133,6 +153,9 @@ var app = builder.Build();
         Connectors = BuildConnectorStates(app.Configuration),
     };
 
+    // Set fallback posture health check environment
+    ArchonAI.Common.Observability.FallbackPostureHealthCheck.SetEnvironment(isProductionLike);
+
     var validationResult = ArchonAI.Common.Observability.ProductionConfigValidator.Validate(configSnapshot);
     ArchonAI.Common.Observability.ProductionConfigHealthCheck.SetResult(validationResult);
     ArchonAI.Common.Observability.ProductionConfigValidator.LogResult(validationResult, app.Logger);
@@ -148,13 +171,25 @@ var app = builder.Build();
         return;
     }
 
-    if (!hasDurablePersistence && !isProductionLike)
-    {
-        app.Logger.LogWarning(
-            "Identity stores are using in-memory persistence. This is acceptable for local " +
-            "development but NOT safe for production or multi-instance deployment. " +
-            "Set ArchonAIPersistence:ConnectionString for durable identity persistence.");
-    }
+    // Fallback posture summary — record subsystem durability for health check reporting
+    ArchonAI.Common.Observability.FallbackPostureHealthCheck.RecordPosture(
+        "Persistence", hasDurablePersistence ? "PostgreSQL" : "InMemory", hasDurablePersistence);
+    ArchonAI.Common.Observability.FallbackPostureHealthCheck.RecordPosture(
+        "EventBus",
+        bool.TryParse(eventBusSection["UseNats"], out var ebNats) && ebNats ? "NATS" : "InMemory",
+        bool.TryParse(eventBusSection["UseNats"], out var ebNats2) && ebNats2);
+    ArchonAI.Common.Observability.FallbackPostureHealthCheck.RecordPosture(
+        "MemoryStore",
+        !string.IsNullOrWhiteSpace(memorySection["ConnectionString"]) ? "PostgreSQL" : "InMemory",
+        !string.IsNullOrWhiteSpace(memorySection["ConnectionString"]));
+    ArchonAI.Common.Observability.FallbackPostureHealthCheck.RecordPosture(
+        "KnowledgeGraph",
+        !string.IsNullOrWhiteSpace(knowledgeSection["ConnectionString"]) ? "PostgreSQL" : "InMemory",
+        !string.IsNullOrWhiteSpace(knowledgeSection["ConnectionString"]));
+    ArchonAI.Common.Observability.FallbackPostureHealthCheck.RecordPosture(
+        "Telemetry",
+        !string.IsNullOrWhiteSpace(telemetrySection["ConnectionString"]) ? "PostgreSQL" : "InMemory",
+        !string.IsNullOrWhiteSpace(telemetrySection["ConnectionString"]));
 }
 
 static Dictionary<string, ArchonAI.Common.Observability.ConnectorConfigState> BuildConnectorStates(
