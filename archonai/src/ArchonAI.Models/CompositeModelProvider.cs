@@ -1,3 +1,4 @@
+using ArchonAI.Common.Observability;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.Models;
 using Microsoft.Extensions.Logging;
@@ -64,6 +65,32 @@ public sealed class CompositeModelProvider : IModelProvider
             request.CorrelationId, provider.ProviderName, model, route.Reason);
 
         var response = await provider.GenerateAsync(normalizedRequest, cancellationToken);
+
+        // Emit structured telemetry for every model invocation
+        var tags = new KeyValuePair<string, object?>[]
+        {
+            new("provider", provider.ProviderName),
+            new("model", model),
+            new("success", response.IsSuccess),
+        };
+        Telemetry.ModelInvocationsTotal.Add(1, tags);
+        if (!response.IsSuccess)
+        {
+            Telemetry.ModelInvocationsFailed.Add(1, tags);
+            ModelProviderHealthCheck.RecordFailure(provider.ProviderName);
+        }
+        else
+        {
+            ModelProviderHealthCheck.RecordSuccess(provider.ProviderName);
+        }
+        if (response.LatencyMs.HasValue)
+            Telemetry.ModelInvocationDurationMs.Record(response.LatencyMs.Value, tags);
+        if (response.Usage is not null)
+        {
+            Telemetry.ModelInvocationTokensInput.Record(response.Usage.PromptTokens, tags);
+            Telemetry.ModelInvocationTokensOutput.Record(response.Usage.CompletionTokens, tags);
+            Telemetry.ModelInvocationTokensTotal.Add(response.Usage.TotalTokens, tags);
+        }
 
         // Record outcome for adaptive routing
         var taskType = request.Parameters.TryGetValue("taskType", out var tt) ? tt : null;

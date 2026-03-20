@@ -2,6 +2,7 @@ using ArchonAI.Api.Dtos;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.Cluster;
 using ArchonAI.Core.Models.ControlPlane;
+using ArchonAI.Models;
 
 namespace ArchonAI.Api.Endpoints;
 
@@ -13,7 +14,27 @@ public static class InfraEndpoints
         MapStandaloneObservabilityEndpoints(v1);
         MapMonitoringEndpoints(v1);
         MapClusterEndpoints(v1);
+        MapAiRuntimeDiagnosticsEndpoints(v1);
         return v1;
+    }
+
+    private static void MapAiRuntimeDiagnosticsEndpoints(IEndpointRouteBuilder v1)
+    {
+        var diag = v1.MapGroup("/ai-runtime")
+            .RequireAuthorization("OperatorOrAdmin")
+            .WithTags("AI Runtime Diagnostics");
+
+        diag.MapGet("/environment", (AiRuntimeDiagnostics diagnostics) =>
+        {
+            var report = diagnostics.GetEnvironmentReport();
+            return Results.Ok(report);
+        });
+
+        diag.MapPost("/smoke-test", async (AiRuntimeDiagnostics diagnostics, CancellationToken ct) =>
+        {
+            var report = await diagnostics.RunSmokeTestAsync(ct);
+            return Results.Ok(report);
+        });
     }
 
     private static void MapControlPlaneEndpoints(IEndpointRouteBuilder v1)

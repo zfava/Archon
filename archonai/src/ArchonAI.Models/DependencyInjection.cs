@@ -46,6 +46,8 @@ public static class DependencyInjection
 
         services.AddHostedService<ModelProviderActivationService>();
 
+        services.AddSingleton<AiRuntimeDiagnostics>();
+
         return services;
     }
 }
