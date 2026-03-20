@@ -313,8 +313,8 @@ export function TrustLineageView() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
           </Link>
           <div>
-            <h1 className="tl-title">Trust & Lineage</h1>
-            <p className="tl-subtitle">Decision-to-outcome trace, safety indicators, and governance posture</p>
+            <h1 className="tl-title">Trust Lineage</h1>
+            <p className="tl-subtitle">Every decision traced from approval through execution to measured outcome</p>
           </div>
         </div>
       </header>

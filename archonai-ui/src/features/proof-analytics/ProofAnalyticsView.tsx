@@ -145,7 +145,7 @@ export function ProofAnalyticsView() {
         <div className="proof-header-left">
           <div>
             <h1 className="proof-title">Proof Analytics</h1>
-            <p className="proof-subtitle">Decision-to-outcome lineage, predicted vs actual, and trust evidence</p>
+            <p className="proof-subtitle">Immutable evidence chain: what was predicted, what happened, and why the variance</p>
           </div>
         </div>
         <button className="proof-refresh" onClick={refresh}>Refresh</button>

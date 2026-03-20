@@ -12,7 +12,6 @@ import { AttributionView } from './features/attribution';
 import { OnboardingWizard } from './features/onboarding';
 import { IntegrationMarketplace } from './features/integrations';
 import { HumanOverridesView } from './features/overrides';
-import { ExplanationView } from './features/explanations';
 import { DecisionsView } from './features/decisions';
 import { TrustTiersView } from './features/trust-tiers';
 import { MemoryExplorerView } from './features/memory';
@@ -61,7 +60,6 @@ function App() {
           <Route path="/audit" element={<AdminGated permission="monitoring:read"><AuditLogView /></AdminGated>} />
           <Route path="/impact" element={<Protected><ImpactDashboard /></Protected>} />
           <Route path="/overrides" element={<AdminGated permission="governance:read"><HumanOverridesView /></AdminGated>} />
-          <Route path="/explanations" element={<Protected><ExplanationView /></Protected>} />
           <Route path="/decisions" element={<Protected><DecisionsView /></Protected>} />
           <Route path="/trust-tiers" element={<AdminGated permission="governance:read"><TrustTiersView /></AdminGated>} />
           <Route path="/memory" element={<AdminGated permission="governance:read"><MemoryExplorerView /></AdminGated>} />

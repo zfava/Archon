@@ -73,7 +73,7 @@ export function OperatorInspectionView() {
       <header className="ins-header">
         <div className="ins-header-left">
           <h1 className="ins-page-title">Operator Inspection</h1>
-          <p className="ins-subtitle">Deep introspection into decisions, policies, memory context, and workflow diagnostics</p>
+          <p className="ins-subtitle">Open the black box: rationale, policy evaluation, memory context, and failure diagnostics</p>
         </div>
       </header>
 

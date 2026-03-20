@@ -37,7 +37,7 @@ export function ImpactDashboard() {
           </Link>
           <div>
             <h1 className="im-title">Business Impact</h1>
-            <p className="im-subtitle">Revenue, cost savings, and efficiency gains from ArchonAI</p>
+            <p className="im-subtitle">Governed decisions traced to revenue, cost, and efficiency outcomes</p>
           </div>
         </div>
         <div className="im-header-right">

@@ -21,8 +21,9 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/impact', label: 'Impact', icon: 'bar-chart', section: 'operations' },
   { to: '/hero-workflows', label: 'Workflows', icon: 'play', section: 'operations', permission: 'governance:read' },
   { to: '/simulation', label: 'Simulation', icon: 'eye', section: 'operations', permission: 'governance:read' },
-  { to: '/proof-analytics', label: 'Proof', icon: 'check-circle', section: 'operations', permission: 'governance:read' },
-  { to: '/action-safety', label: 'Safety', icon: 'shield-off', section: 'operations', permission: 'governance:read' },
+  { to: '/proof-analytics', label: 'Proof Analytics', icon: 'check-circle', section: 'operations', permission: 'governance:read' },
+  { to: '/action-safety', label: 'Reversibility', icon: 'shield-off', section: 'operations', permission: 'governance:read' },
+  { to: '/trust-lineage', label: 'Trust Lineage', icon: 'link', section: 'operations', permission: 'governance:read' },
   { to: '/scenarios', label: 'Scenarios', icon: 'compass', section: 'operations', permission: 'governance:read' },
   { to: '/exceptions', label: 'Exceptions', icon: 'alert-triangle', section: 'operations', permission: 'governance:read' },
   { to: '/inspection', label: 'Inspection', icon: 'search', section: 'operations', permission: 'governance:read' },
@@ -60,6 +61,7 @@ const ICONS: Record<string, ReactNode> = {
   'shield-off': <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9.5 9l5 5m0-5l-5 5" /></svg>,
   search: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   briefcase: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>,
+  link: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>,
   logout: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
 };
 
@@ -90,14 +92,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <path d="M2 12l10 5 10-5" />
           </svg>
           <span>ArchonAI</span>
-        </div>
-
-        {/* System pulse indicator */}
-        <div className="app-sidebar-pulse">
-          <span className="app-sidebar-pulse-dot" />
-          <span className="app-sidebar-pulse-label">
-            {visibleItems.length} active
-          </span>
         </div>
 
         {org && (

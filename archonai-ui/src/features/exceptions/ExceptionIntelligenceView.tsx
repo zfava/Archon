@@ -137,7 +137,7 @@ export function ExceptionIntelligenceView() {
           </Link>
           <div>
             <h1 className="exc-title">Exception Intelligence</h1>
-            <p className="exc-subtitle">Prioritized anomalies, failures, drift, and high-value intervention points</p>
+            <p className="exc-subtitle">AI-scored anomalies ranked by economic exposure and urgency</p>
           </div>
         </div>
       </header>

@@ -165,8 +165,8 @@ export function ActionSafetyView() {
       <header className="as-header">
         <div className="as-header-left">
           <div>
-            <h1 className="as-title">Action Safety</h1>
-            <p className="as-subtitle">Reversibility classifications, rollback eligibility, and compensation tracking</p>
+            <h1 className="as-title">Reversibility & Rollback</h1>
+            <p className="as-subtitle">Every action classified. Every rollback tracked. Every window enforced.</p>
           </div>
         </div>
         <button className="as-refresh" onClick={refresh}>Refresh</button>
