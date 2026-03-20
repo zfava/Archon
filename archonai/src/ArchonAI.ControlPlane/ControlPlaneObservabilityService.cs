@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.Cluster;
@@ -16,14 +15,8 @@ public sealed class ControlPlaneObservabilityService : IControlPlaneObservabilit
     private readonly IPerformanceAnalyzer _performanceAnalyzer;
     private readonly IClusterCoordinator _clusterCoordinator;
     private readonly ISystemInsightEngine _insightEngine;
+    private readonly IControlPlaneAlertStore _alertStore;
     private readonly ILogger<ControlPlaneObservabilityService> _logger;
-
-    private readonly ConcurrentQueue<AgentActivityEvent> _recentAgentEvents = new();
-    private readonly ConcurrentDictionary<Guid, SystemAlert> _activeAlerts = new();
-    private volatile bool _systemPaused;
-    private string? _pauseReason;
-
-    private const int MaxRecentEvents = 200;
 
     public ControlPlaneObservabilityService(
         IControlPlaneService controlPlane,
@@ -32,6 +25,7 @@ public sealed class ControlPlaneObservabilityService : IControlPlaneObservabilit
         IPerformanceAnalyzer performanceAnalyzer,
         IClusterCoordinator clusterCoordinator,
         ISystemInsightEngine insightEngine,
+        IControlPlaneAlertStore alertStore,
         ILogger<ControlPlaneObservabilityService> logger)
     {
         _controlPlane = controlPlane;
@@ -40,6 +34,7 @@ public sealed class ControlPlaneObservabilityService : IControlPlaneObservabilit
         _performanceAnalyzer = performanceAnalyzer;
         _clusterCoordinator = clusterCoordinator;
         _insightEngine = insightEngine;
+        _alertStore = alertStore;
         _logger = logger;
     }
 
@@ -79,7 +74,7 @@ public sealed class ControlPlaneObservabilityService : IControlPlaneObservabilit
             TotalFailures: totalFail,
             OverallSuccessRate: totalExec > 0 ? (double)(totalExec - totalFail) / totalExec : 1.0,
             Agents: entries,
-            RecentEvents: _recentAgentEvents.ToArray().TakeLast(50).Reverse().ToList(),
+            RecentEvents: await _alertStore.GetRecentEventsAsync(50, ct),
             GeneratedAtUtc: DateTimeOffset.UtcNow);
     }
 
@@ -122,7 +117,8 @@ public sealed class ControlPlaneObservabilityService : IControlPlaneObservabilit
                               (1.0 - Math.Min(1.0, systemPerf.CpuUsagePercent / 100.0)) * 0.3);
 
         string overallStatus = healthScore >= 0.8 ? "healthy" : healthScore >= 0.5 ? "degraded" : "critical";
-        if (_systemPaused) overallStatus = "paused";
+        var (isPaused, _) = await _alertStore.GetPauseStateAsync(ct);
+        if (isPaused) overallStatus = "paused";
 
         return new SystemHealthDashboard(
             OverallStatus: overallStatus,
@@ -146,7 +142,7 @@ public sealed class ControlPlaneObservabilityService : IControlPlaneObservabilit
                 ActiveThreads: systemPerf.ThreadPool.ActiveThreads,
                 PendingWorkItems: systemPerf.ThreadPool.PendingWorkItems),
             HealthChecks: healthChecks,
-            ActiveAlerts: _activeAlerts.Values.Where(a => !a.IsAcknowledged).OrderByDescending(a => a.RaisedAtUtc).ToList(),
+            ActiveAlerts: await _alertStore.GetActiveAlertsAsync(ct),
             GeneratedAtUtc: DateTimeOffset.UtcNow);
     }
 
@@ -276,29 +272,25 @@ public sealed class ControlPlaneObservabilityService : IControlPlaneObservabilit
     //  System Control
     // ══════════════════════════════════════════════════════════════
 
-    public global::System.Threading.Tasks.Task PauseSystemAsync(string reason, CancellationToken ct = default)
+    public async global::System.Threading.Tasks.Task PauseSystemAsync(string reason, CancellationToken ct = default)
     {
-        _systemPaused = true;
-        _pauseReason = reason;
+        await _alertStore.SetPauseStateAsync(true, reason, ct);
         _logger.LogWarning("System PAUSED: {Reason}", reason);
 
         RaiseAlert("warning", "system", $"System paused: {reason}");
-
-        return global::System.Threading.Tasks.Task.CompletedTask;
     }
 
-    public global::System.Threading.Tasks.Task ResumeSystemAsync(CancellationToken ct = default)
+    public async global::System.Threading.Tasks.Task ResumeSystemAsync(CancellationToken ct = default)
     {
-        _systemPaused = false;
-        _logger.LogInformation("System RESUMED from pause (was: {Reason})", _pauseReason);
-        _pauseReason = null;
-
-        return global::System.Threading.Tasks.Task.CompletedTask;
+        var (_, previousReason) = await _alertStore.GetPauseStateAsync(ct);
+        await _alertStore.SetPauseStateAsync(false, null, ct);
+        _logger.LogInformation("System RESUMED from pause (was: {Reason})", previousReason);
     }
 
-    public global::System.Threading.Tasks.Task<bool> IsSystemPausedAsync(CancellationToken ct = default)
+    public async global::System.Threading.Tasks.Task<bool> IsSystemPausedAsync(CancellationToken ct = default)
     {
-        return global::System.Threading.Tasks.Task.FromResult(_systemPaused);
+        var (isPaused, _) = await _alertStore.GetPauseStateAsync(ct);
+        return isPaused;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -308,22 +300,12 @@ public sealed class ControlPlaneObservabilityService : IControlPlaneObservabilit
     public global::System.Threading.Tasks.Task<IReadOnlyList<SystemAlert>> GetActiveAlertsAsync(
         CancellationToken ct = default)
     {
-        IReadOnlyList<SystemAlert> alerts = _activeAlerts.Values
-            .Where(a => !a.IsAcknowledged)
-            .OrderByDescending(a => a.RaisedAtUtc)
-            .ToList();
-
-        return global::System.Threading.Tasks.Task.FromResult(alerts);
+        return _alertStore.GetActiveAlertsAsync(ct);
     }
 
-    public global::System.Threading.Tasks.Task AcknowledgeAlertAsync(Guid alertId, CancellationToken ct = default)
+    public async global::System.Threading.Tasks.Task AcknowledgeAlertAsync(Guid alertId, CancellationToken ct = default)
     {
-        if (_activeAlerts.TryGetValue(alertId, out var alert))
-        {
-            _activeAlerts[alertId] = alert with { IsAcknowledged = true };
-        }
-
-        return global::System.Threading.Tasks.Task.CompletedTask;
+        await _alertStore.AcknowledgeAlertAsync(alertId, ct);
     }
 
     public void RaiseAlert(string severity, string component, string message)
@@ -336,20 +318,9 @@ public sealed class ControlPlaneObservabilityService : IControlPlaneObservabilit
             IsAcknowledged: false,
             RaisedAtUtc: DateTimeOffset.UtcNow);
 
-        _activeAlerts[alert.AlertId] = alert;
-
-        // Evict old acknowledged alerts
-        if (_activeAlerts.Count > 1000)
-        {
-            var stale = _activeAlerts.Values
-                .Where(a => a.IsAcknowledged)
-                .OrderBy(a => a.RaisedAtUtc)
-                .Take(_activeAlerts.Count - 500)
-                .ToList();
-
-            foreach (var s in stale)
-                _activeAlerts.TryRemove(s.AlertId, out _);
-        }
+        // Fire-and-forget: alert store handles persistence and eviction
+        _ = _alertStore.UpsertAlertAsync(alert);
+        _ = _alertStore.EvictStaleAlertsAsync();
     }
 
     private static string ClassifyModelHealth(ModelPerformanceScore score)

@@ -22,6 +22,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IControlPlaneRepository, DurableControlPlaneRepository>();
         services.AddSingleton<IControlPlaneService, ControlPlaneService>();
+        services.AddSingleton<IControlPlaneAlertStore, InMemoryControlPlaneAlertStore>();
         services.AddSingleton<IControlPlaneObservability, ControlPlaneObservabilityService>();
         services.AddSingleton<IOnboardingService, OnboardingService>();
 

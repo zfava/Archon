@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
+    <ProjectReference Include="..\ArchonAI.Registry\ArchonAI.Registry.csproj" />
   </ItemGroup>
 
   <ItemGroup>

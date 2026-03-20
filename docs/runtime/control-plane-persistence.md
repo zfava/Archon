@@ -45,17 +45,55 @@ With PostgreSQL persistence enabled:
 - Configuration upserts use the composite unique key `(tenant_id, scope, key)` for idempotent writes
 - Policy and workflow operations use `ON CONFLICT (id) DO UPDATE`
 
+## Control Plane Alert Store
+
+The **Control Plane Alert Store** manages system pause state, active alerts, and agent activity events. Prior to Phase 2, these were held as `volatile bool`, `ConcurrentDictionary`, and `ConcurrentQueue` fields inside `ControlPlaneObservabilityService` — meaning pause state and alerts were invisible to other instances.
+
+The durable state was extracted into a focused `IControlPlaneAlertStore` interface, keeping the dashboard computation logic in `ControlPlaneObservabilityService` (which delegates to multiple other services).
+
+### Tables (Migration 024)
+
+| Table | Purpose |
+|-------|---------|
+| `archonai.control_plane_system_state` | Single-row table for system pause state (`CHECK (id = 1)`) |
+| `archonai.control_plane_alerts` | Active system alerts with acknowledgement tracking |
+| `archonai.control_plane_agent_events` | Recent agent activity event history |
+
+Key design decisions:
+- System state uses a single-row pattern with `CHECK (id = 1)` — no INSERT races
+- Alert eviction deletes oldest beyond a configurable max (default 500)
+- Events are pruned beyond 200 rows on each insert
+- `ControlPlaneObservabilityService` delegates all state to `IControlPlaneAlertStore` via fire-and-forget for alerts
+
+### Backend Selection
+
+```
+IControlPlaneAlertStore → PostgresControlPlaneAlertStore (when ConnectionString is set)
+                        → InMemoryControlPlaneAlertStore (in-memory fallback)
+```
+
 ## Integration Tests
 
 Run the PostgreSQL integration tests:
 
 ```bash
+# Core control plane (tenants, workflows, policies, config)
 dotnet test --filter "Category=Integration&Subsystem=ControlPlane"
+
+# Control plane alerts (pause state, alerts, events)
+dotnet test --filter "Category=Integration&Subsystem=ControlPlaneAlerts"
 ```
 
-Tests prove:
+Core control plane tests prove:
 - Tenant state survives store re-instantiation (restart proof)
 - Two store instances see the same tenant/workflow/policy state (multi-instance proof)
 - Full lifecycle across instances (create on A, modify on B, read on A)
 - List/filter/count operations work correctly
 - Configuration upsert-on-conflict updates correctly
+
+Control plane alert tests prove:
+- System pause state is visible across instances
+- Alerts are consistent across instances
+- Acknowledgement persists and is visible to other instances
+- Agent activity events survive store re-instantiation
+- Full multi-instance lifecycle (pause, alert, resume across instances)

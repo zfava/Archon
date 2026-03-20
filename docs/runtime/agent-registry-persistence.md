@@ -61,17 +61,53 @@ With PostgreSQL persistence enabled:
 - Metrics are append-only with no conflict risk
 - Agent removal cascades to associated metrics via `ON DELETE CASCADE`
 
+## Agent Capability Registry
+
+In addition to the core agent registry, the **Agent Capability Registry** tracks agent performance profiles, execution samples, and composite scoring for intelligent agent selection. Prior to Phase 2, this was held entirely in `ConcurrentDictionary` in `InMemoryAgentCapabilityRegistry`, meaning each instance computed independent performance scores — causing agent selection divergence across pods.
+
+### Tables (Migration 023)
+
+| Table | Purpose |
+|-------|---------|
+| `archonai.agent_capability_profiles` | Per-agent profile: capabilities, tools, permissions, performance aggregates, suspension state |
+| `archonai.agent_execution_samples` | Rolling execution samples for P95 latency computation |
+
+Key design decisions:
+- P95 latency computed via SQL `PERCENTILE_CONT(0.95)` over a rolling window of 1000 samples
+- Composite agent score: 40% success rate + 30% latency + 20% cost + 10% throughput
+- GIN indexes on `capabilities` and `supported_task_types` for jsonb containment queries
+- Execution samples cascade-delete when an agent profile is removed
+
+### Backend Selection
+
+```
+IAgentCapabilityRegistry → PostgresAgentCapabilityRegistryStore (when ConnectionString is set)
+                         → InMemoryAgentCapabilityRegistry (in-memory fallback)
+```
+
 ## Integration Tests
 
 Run the PostgreSQL integration tests:
 
 ```bash
+# Core agent registry
 dotnet test --filter "Category=Integration&Subsystem=AgentRegistry"
+
+# Agent capability registry
+dotnet test --filter "Category=Integration&Subsystem=AgentCapabilityRegistry"
 ```
 
-Tests prove:
+Core agent registry tests prove:
 - Agent state survives store re-instantiation (restart proof)
 - Two store instances see the same state (multi-instance proof)
 - List/filter/count operations work correctly
 - Upsert is idempotent
 - Remove cascades to metrics
+
+Agent capability registry tests prove:
+- Capability profiles survive store re-instantiation
+- Two instances see the same agent performance data (multi-instance proof)
+- Execution reporting updates aggregates correctly (including P95)
+- Agent suspension/reinstatement is shared across instances
+- Query by capability and task type returns correct results
+- Best-agent selection is consistent across instances

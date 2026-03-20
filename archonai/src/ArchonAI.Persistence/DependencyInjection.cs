@@ -1,5 +1,6 @@
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Persistence.Stores;
+using ArchonAI.Registry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -8,7 +9,7 @@ namespace ArchonAI.Persistence;
 public static class DependencyInjection
 {
     /// <summary>
-    /// Registers all 19 PostgreSQL-backed stores as named singletons and wires
+    /// Registers all 21 PostgreSQL-backed stores as named singletons and wires
     /// config-driven factory delegates that select between Postgres and in-memory
     /// implementations based on the <see cref="PersistenceOptions.ConnectionString"/>.
     ///
@@ -43,6 +44,8 @@ public static class DependencyInjection
         services.AddSingleton<PostgresInspectionStore>();
         services.AddSingleton<PostgresAgentRegistryStore>();
         services.AddSingleton<PostgresControlPlaneStore>();
+        services.AddSingleton<PostgresAgentCapabilityRegistryStore>();
+        services.AddSingleton<PostgresControlPlaneAlertStore>();
 
         // Replace each interface registration with a config-driven factory.
         // When ConnectionString is set → Postgres store; otherwise → original in-memory impl.
@@ -65,6 +68,8 @@ public static class DependencyInjection
         ReplaceWithFactory<IInspectionService, PostgresInspectionStore>(services);
         ReplaceWithFactory<IAgentRegistryRepository, PostgresAgentRegistryStore>(services);
         ReplaceWithFactory<IControlPlaneRepository, PostgresControlPlaneStore>(services);
+        ReplaceWithFactory<IAgentCapabilityRegistry, PostgresAgentCapabilityRegistryStore>(services);
+        ReplaceWithFactory<IControlPlaneAlertStore, PostgresControlPlaneAlertStore>(services);
 
         return services;
     }
