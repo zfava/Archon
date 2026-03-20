@@ -284,6 +284,116 @@ public sealed class GovernanceEventSubscriberTests
             Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task MemoryReferenceEvent_RecordsInInspectionService()
+    {
+        var subscriber = CreateSubscriber();
+        await subscriber.StartAsync(CancellationToken.None);
+
+        var tenantId = Guid.NewGuid();
+        var memoryRecordId = Guid.NewGuid();
+
+        await _eventBus.PublishAsync(new SystemEvent(
+            Guid.NewGuid(),
+            "inspection.memory-reference-recorded",
+            "EnterpriseMemoryService",
+            memoryRecordId,
+            new Dictionary<string, string>
+            {
+                ["subjectType"] = "enterprise-memory-query",
+                ["subjectId"] = tenantId.ToString(),
+                ["memoryRecordId"] = memoryRecordId.ToString(),
+                ["tenantId"] = tenantId.ToString(),
+                ["scope"] = "Operational",
+                ["category"] = "performance",
+                ["summary"] = "Recent performance metrics for Q4",
+                ["relevanceScore"] = "0.95",
+            }.AsReadOnly(),
+            DateTimeOffset.UtcNow));
+
+        // Verify the memory reference was recorded in the inspection service
+        var refs = await _inspectionService.InspectMemoryReferencesAsync(
+            "enterprise-memory-query", tenantId.ToString(), tenantId);
+        Assert.NotNull(refs);
+        Assert.Single(refs);
+        Assert.Equal(memoryRecordId, refs[0].MemoryId);
+        Assert.Equal("Operational", refs[0].MemoryType);
+        Assert.Equal(0.95, refs[0].RelevanceScore);
+    }
+
+    [Fact]
+    public async Task EnterpriseMemoryQuery_PublishesMemoryReferenceEvent()
+    {
+        var mockEventBus = Substitute.For<IEventBus>();
+        var svc = new EnterpriseMemoryService(
+            mockEventBus,
+            NullLogger<EnterpriseMemoryService>.Instance);
+
+        var tenantId = Guid.NewGuid();
+
+        // Store a record so QueryAsync returns results
+        await svc.StoreAsync(new ArchonAI.Core.Models.Memory.EnterpriseMemoryRecord(
+            Id: Guid.NewGuid(),
+            TenantId: tenantId,
+            Layer: ArchonAI.Core.Models.Memory.MemoryLayer.Operational,
+            Category: "perf",
+            Subject: "CPU metrics",
+            Content: "CPU at 80%",
+            Metadata: new Dictionary<string, string>().AsReadOnly(),
+            LinkedEntities: Array.Empty<ArchonAI.Core.Models.Memory.MemoryEntityLink>(),
+            Tags: new[] { "infra" },
+            Importance: 0.8,
+            CreatedBy: "test",
+            CreatedAtUtc: DateTimeOffset.UtcNow,
+            ExpiresAtUtc: null));
+
+        // Reset call tracking after StoreAsync (which also publishes)
+        mockEventBus.ClearReceivedCalls();
+
+        await svc.QueryAsync(tenantId);
+
+        // Verify inspection event was published for the retrieved record
+        await mockEventBus.Received().PublishAsync(
+            Arg.Is<SystemEvent>(e => e.EventType == "inspection.memory-reference-recorded"
+                && e.Source == "EnterpriseMemoryService"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task MemoryReferenceSubscriberFailure_DoesNotBreakEventBus()
+    {
+        // Use a custom inspection service that throws on RecordMemoryReference
+        var throwingInspection = new InspectionService(
+            Substitute.For<IDecisionService>(),
+            Substitute.For<IHeroWorkflowService>(),
+            Substitute.For<IExceptionIntelligenceService>(),
+            NullLogger<InspectionService>.Instance);
+
+        var bus = new InMemoryTestEventBus();
+        var subscriber = new GovernanceEventSubscriber(
+            bus, throwingInspection, _proofAnalytics,
+            NullLogger<GovernanceEventSubscriber>.Instance);
+        await subscriber.StartAsync(CancellationToken.None);
+
+        // Publish an event with invalid data — the handler should catch and not throw
+        var ex = await Record.ExceptionAsync(() => bus.PublishAsync(new SystemEvent(
+            Guid.NewGuid(),
+            "inspection.memory-reference-recorded",
+            "test",
+            Guid.NewGuid(),
+            new Dictionary<string, string>
+            {
+                ["subjectType"] = "test",
+                ["subjectId"] = "test",
+                ["memoryRecordId"] = "not-a-guid",
+                ["scope"] = "test",
+                ["relevanceScore"] = "bad-number",
+            }.AsReadOnly(),
+            DateTimeOffset.UtcNow)));
+
+        Assert.Null(ex);
+    }
+
     /// <summary>
     /// Minimal in-memory event bus for testing — synchronously invokes handlers.
     /// </summary>

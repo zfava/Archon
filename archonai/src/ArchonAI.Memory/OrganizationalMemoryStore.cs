@@ -19,6 +19,7 @@ public sealed class OrganizationalMemoryStore : IOrganizationalMemoryStore
     private readonly IMemoryStore _memoryStore;
     private readonly IKnowledgeGraphStore _knowledgeStore;
     private readonly IMemoryRetrievalOptimizer _retriever;
+    private readonly IEventBus _eventBus;
     private readonly ILogger<OrganizationalMemoryStore> _logger;
 
     private const string MemoryScope = "org-memory";
@@ -31,11 +32,13 @@ public sealed class OrganizationalMemoryStore : IOrganizationalMemoryStore
         IMemoryStore memoryStore,
         IKnowledgeGraphStore knowledgeStore,
         IMemoryRetrievalOptimizer retriever,
+        IEventBus eventBus,
         ILogger<OrganizationalMemoryStore> logger)
     {
         _memoryStore = memoryStore;
         _knowledgeStore = knowledgeStore;
         _retriever = retriever;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -270,6 +273,35 @@ public sealed class OrganizationalMemoryStore : IOrganizationalMemoryStore
             .ToList();
 
         sw.Stop();
+
+        // Publish inspection events for each retrieved memory so the inspection system
+        // traces which organizational memories were surfaced during retrieval.
+        foreach (var match in topResults)
+        {
+            _ = _eventBus.PublishAsync(new SystemEvent(
+                Guid.NewGuid(),
+                "inspection.memory-reference-recorded",
+                "OrganizationalMemoryStore",
+                match.Entry.EntryId,
+                new Dictionary<string, string>
+                {
+                    ["subjectType"] = "org-memory-search",
+                    ["subjectId"] = queryText,
+                    ["memoryRecordId"] = match.Entry.EntryId.ToString(),
+                    ["scope"] = MemoryScope,
+                    ["category"] = match.Entry.Category,
+                    ["summary"] = match.Entry.Summary.Length <= 120
+                        ? match.Entry.Summary : match.Entry.Summary[..117] + "...",
+                    ["relevanceScore"] = match.FinalScore.ToString("F4"),
+                }.AsReadOnly(),
+                DateTimeOffset.UtcNow), cancellationToken).ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    _logger.LogWarning(t.Exception,
+                        "Failed to publish inspection.memory-reference-recorded for entry {EntryId}",
+                        match.Entry.EntryId);
+            }, global::System.Threading.Tasks.TaskScheduler.Default);
+        }
 
         return new OrganizationalMemorySearchResult(
             Matches: topResults,

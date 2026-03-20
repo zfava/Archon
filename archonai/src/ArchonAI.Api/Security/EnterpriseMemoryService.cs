@@ -62,7 +62,7 @@ public sealed class EnterpriseMemoryService : IEnterpriseMemoryService
         return Task.FromResult(record);
     }
 
-    public Task<EnterpriseMemoryQueryResult> QueryAsync(
+    public async Task<EnterpriseMemoryQueryResult> QueryAsync(
         Guid tenantId, MemoryLayer? layer = null, string? category = null,
         string? tag = null, int limit = 50, CancellationToken ct = default)
     {
@@ -86,7 +86,35 @@ public sealed class EnterpriseMemoryService : IEnterpriseMemoryService
 
         IReadOnlyList<EnterpriseMemoryRecord> records = all.Take(limit).ToList();
 
-        return Task.FromResult(new EnterpriseMemoryQueryResult(records, all.Count, layerCounts));
+        // Publish inspection events for each retrieved record so the inspection system
+        // can trace which memories influenced downstream decisions.
+        foreach (var record in records)
+        {
+            _ = _eventBus.PublishAsync(new SystemEvent(
+                Guid.NewGuid(),
+                "inspection.memory-reference-recorded",
+                "EnterpriseMemoryService",
+                record.Id,
+                new Dictionary<string, string>
+                {
+                    ["subjectType"] = "enterprise-memory-query",
+                    ["subjectId"] = tenantId.ToString(),
+                    ["memoryRecordId"] = record.Id.ToString(),
+                    ["tenantId"] = tenantId.ToString(),
+                    ["scope"] = record.Layer.ToString(),
+                    ["category"] = record.Category,
+                    ["summary"] = Truncate(record.Subject, 120),
+                    ["relevanceScore"] = "1.0",
+                }.AsReadOnly(),
+                DateTimeOffset.UtcNow), ct).ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    _logger.LogWarning(t.Exception,
+                        "Failed to publish inspection.memory-reference-recorded for record {RecordId}", record.Id);
+            }, TaskScheduler.Default);
+        }
+
+        return new EnterpriseMemoryQueryResult(records, all.Count, layerCounts);
     }
 
     public Task<EntityMemoryView> GetEntityMemoryAsync(
@@ -164,4 +192,7 @@ public sealed class EnterpriseMemoryService : IEnterpriseMemoryService
 
     private static bool IsExpired(EnterpriseMemoryRecord r)
         => r.ExpiresAtUtc.HasValue && r.ExpiresAtUtc.Value <= DateTimeOffset.UtcNow;
+
+    private static string Truncate(string text, int maxLength)
+        => text.Length <= maxLength ? text : text[..(maxLength - 3)] + "...";
 }
