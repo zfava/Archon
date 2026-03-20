@@ -15,7 +15,7 @@ public sealed class MfaChallengeServiceTests
     public MfaChallengeServiceTests()
     {
         _store = new InMemoryMfaStore();
-        _totp = new TotpService(_store, NullLogger<TotpService>.Instance);
+        _totp = new TotpService(_store, new TestTotpSecretEncryptor(), NullLogger<TotpService>.Instance);
         _webAuthn = new WebAuthnService(_store, NullLogger<WebAuthnService>.Instance);
         _challenge = new MfaChallengeService(
             _store, _totp, _webAuthn, NullLogger<MfaChallengeService>.Instance);

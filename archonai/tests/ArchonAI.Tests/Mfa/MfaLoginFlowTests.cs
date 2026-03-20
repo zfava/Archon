@@ -42,7 +42,7 @@ public sealed class MfaLoginFlowTests
             Options.Create(new AuthenticationOptions()),
             NullLogger<AuthenticationService>.Instance);
 
-        _totp = new TotpService(mfaStore, NullLogger<TotpService>.Instance);
+        _totp = new TotpService(mfaStore, new TestTotpSecretEncryptor(), NullLogger<TotpService>.Instance);
         var webAuthn = new WebAuthnService(mfaStore, NullLogger<WebAuthnService>.Instance);
         _mfaChallenge = new MfaChallengeService(
             mfaStore, _totp, webAuthn, NullLogger<MfaChallengeService>.Instance);

@@ -31,8 +31,10 @@ using ArchonAI.Identity;
 using ArchonAI.Context;
 using ArchonAI.Perception;
 using ArchonAI.Infrastructure.Cluster;
+using ArchonAI.Infrastructure.Secrets;
 using ArchonAI.Persistence;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -75,6 +77,10 @@ public static class DependencyInjection
         services.AddArchonAIIdentity();
         services.AddArchonAIContext();
         services.AddArchonAIPerception();
+
+        // Secret provider and TOTP encryption (dedicated key, independent of JWT)
+        services.TryAddSingleton<ISecretProvider, EnvironmentSecretProvider>();
+        services.AddSingleton<ITotpSecretEncryptor, DedicatedTotpSecretEncryptor>();
 
         services.AddOptions<ClusterOptions>()
             .BindConfiguration(ClusterOptions.SectionName);

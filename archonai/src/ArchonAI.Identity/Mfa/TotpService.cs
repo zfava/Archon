@@ -9,13 +9,15 @@ namespace ArchonAI.Identity.Mfa;
 public sealed class TotpService
 {
     private readonly IMfaStore _store;
+    private readonly ITotpSecretEncryptor _encryptor;
     private readonly ILogger<TotpService> _logger;
     private const string Issuer = "ArchonAI";
     private const int RecoveryCodeCount = 10;
 
-    public TotpService(IMfaStore store, ILogger<TotpService> logger)
+    public TotpService(IMfaStore store, ITotpSecretEncryptor encryptor, ILogger<TotpService> logger)
     {
         _store = store;
+        _encryptor = encryptor;
         _logger = logger;
     }
 
@@ -40,7 +42,7 @@ public sealed class TotpService
         // Generate secret
         byte[] secretBytes = RandomNumberGenerator.GetBytes(20);
         string base32Secret = Base32Encoding.ToString(secretBytes);
-        string encryptedSecret = EncryptSecret(base32Secret);
+        string encryptedSecret = _encryptor.Encrypt(base32Secret);
 
         var credential = new TotpCredential(
             Id: Guid.NewGuid(),
@@ -74,6 +76,7 @@ public sealed class TotpService
         if (!ValidateCode(credential, code))
             return false;
 
+        credential = await MigrateLegacySecretIfNeededAsync(credential, ct);
         await _store.UpdateTotpCredentialAsync(credential with { IsVerified = true }, ct);
         _logger.LogInformation("TOTP enrollment verified for user {UserId}", userId);
         return true;
@@ -89,6 +92,8 @@ public sealed class TotpService
             return false;
 
         bool valid = ValidateCode(credential, code);
+        if (valid)
+            _ = await MigrateLegacySecretIfNeededAsync(credential, ct);
         _logger.LogInformation("TOTP verification {Result} for user {UserId}", valid ? "succeeded" : "failed", userId);
         return valid;
     }
@@ -123,10 +128,30 @@ public sealed class TotpService
 
     private bool ValidateCode(TotpCredential credential, string code)
     {
-        string base32Secret = DecryptSecret(credential.EncryptedSecret);
+        string base32Secret = _encryptor.Decrypt(credential.EncryptedSecret);
         byte[] secretBytes = Base32Encoding.ToBytes(base32Secret);
         var totp = new Totp(secretBytes, step: 30, mode: OtpHashMode.Sha1, totpSize: 6);
         return totp.VerifyTotp(code, out _, new VerificationWindow(previous: 1, future: 1));
+    }
+
+    /// <summary>
+    /// If the credential was encrypted with the legacy JWT-derived key,
+    /// re-encrypts it with the dedicated TOTP key. Call after successful verification.
+    /// Returns the credential with the updated EncryptedSecret (or the original if no migration needed).
+    /// </summary>
+    private async Task<TotpCredential> MigrateLegacySecretIfNeededAsync(TotpCredential credential, CancellationToken ct)
+    {
+        if (!_encryptor.IsLegacyEncrypted(credential.EncryptedSecret))
+            return credential;
+
+        string plainSecret = _encryptor.Decrypt(credential.EncryptedSecret);
+        string reEncrypted = _encryptor.Encrypt(plainSecret);
+        var migrated = credential with { EncryptedSecret = reEncrypted };
+        await _store.UpdateTotpCredentialAsync(migrated, ct);
+        _logger.LogInformation(
+            "Migrated TOTP secret from legacy JWT-derived encryption to dedicated key for user {UserId}",
+            credential.UserId);
+        return migrated;
     }
 
     private (string[] PlainCodes, List<MfaRecoveryCode> HashedCodes) GenerateRecoveryCodes(Guid userId)
@@ -180,36 +205,4 @@ public sealed class TotpService
         return CryptographicOperations.FixedTimeEquals(expectedHash, actualHash);
     }
 
-    // Simple symmetric encryption for TOTP secrets at rest
-    // In production, use a KMS-backed key; for now, derive from the JWT signing key
-    private static string EncryptSecret(string plaintext)
-    {
-        string key = Environment.GetEnvironmentVariable("ARCHONAI_JWT_SIGNING_KEY") ?? "default-dev-key-not-for-production!!";
-        byte[] keyBytes = System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(key));
-        byte[] iv = RandomNumberGenerator.GetBytes(16);
-        using var aes = Aes.Create();
-        aes.Key = keyBytes;
-        aes.IV = iv;
-        using var encryptor = aes.CreateEncryptor();
-        byte[] plainBytes = System.Text.Encoding.UTF8.GetBytes(plaintext);
-        byte[] encrypted = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
-        return $"{Convert.ToBase64String(iv)}.{Convert.ToBase64String(encrypted)}";
-    }
-
-    private static string DecryptSecret(string ciphertext)
-    {
-        string key = Environment.GetEnvironmentVariable("ARCHONAI_JWT_SIGNING_KEY") ?? "default-dev-key-not-for-production!!";
-        byte[] keyBytes = System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(key));
-        var parts = ciphertext.Split('.');
-        byte[] iv = Convert.FromBase64String(parts[0]);
-        byte[] encrypted = Convert.FromBase64String(parts[1]);
-        using var aes = Aes.Create();
-        aes.Key = keyBytes;
-        aes.IV = iv;
-        using var decryptor = aes.CreateDecryptor();
-        byte[] plainBytes = decryptor.TransformFinalBlock(encrypted, 0, encrypted.Length);
-        return System.Text.Encoding.UTF8.GetString(plainBytes);
-    }
 }

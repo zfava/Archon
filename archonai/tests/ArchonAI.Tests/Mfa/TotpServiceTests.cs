@@ -13,7 +13,7 @@ public sealed class TotpServiceTests
     public TotpServiceTests()
     {
         _store = new InMemoryMfaStore();
-        _totp = new TotpService(_store, NullLogger<TotpService>.Instance);
+        _totp = new TotpService(_store, new TestTotpSecretEncryptor(), NullLogger<TotpService>.Instance);
     }
 
     private static string GenerateValidCode(string otpAuthUri)
