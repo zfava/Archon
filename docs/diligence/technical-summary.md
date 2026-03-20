@@ -17,7 +17,7 @@ This document provides a factual assessment of what ArchonAI implements today, w
 | Message broker | NATS JetStream | 2.10 |
 | Observability | OpenTelemetry + Serilog | Prometheus export |
 | Container runtime | Docker | Multi-stage builds |
-| Orchestration | Kubernetes + Helm | Chart v0.2.0 |
+| Orchestration | Kubernetes + Helm | Chart v0.3.0 |
 | Test framework | xUnit + NSubstitute + FluentAssertions | Latest |
 
 ---
@@ -46,23 +46,25 @@ This document provides a factual assessment of what ArchonAI implements today, w
 
 | Component | What Works | What's Missing | Risk Level |
 |---|---|---|---|
-| **LLM Model Providers** | 4 providers (OpenAI, Anthropic, Azure OpenAI, Local/Ollama) with real HTTP client code, retry logic, and error handling. Model router with task-type routing. | Default fallback is echo stub when API keys absent. No AI-generated reasoning in default demo. | **Critical** |
-| **Database Persistence** | PostgreSQL connection strings configured. pgvector extension for vector search. Memory persistence layer exists. | No migration files. Core services (RBAC, audit, governance) use `ConcurrentDictionary`. State lost on restart. | **Critical** |
-| **Generic Connectors** | CRM, ERP, Financial, Messaging connectors with standard interface, retry logic, and audit events. | HTTP responses are deterministic stubs, not connected to real APIs. | **Medium** |
-| **Observability** | OpenTelemetry tracing + metrics registered. Serilog structured logging. Prometheus export configured. Health checks for 5 subsystems. | No Grafana dashboards, no alerting rules, no log aggregation pipeline. | **Low** |
+| **LLM Model Providers** | 4 providers (OpenAI, Anthropic, Azure OpenAI, Local/Ollama) with real HTTP client code, retry logic, and error handling. Model router with task-type routing. Echo stubs explicitly labeled with `FinishReason: "echo_fallback"`. | Config-dependent — requires API keys at deployment. No AI-generated reasoning without keys. | **Critical** |
+| **Connector Live Validation** | 10 connectors (6 specialized + 4 generic) with real HTTP clients, OAuth, Polly circuit breakers, rate limiting, and audit events. | All tested with mock HTTP handlers only — no live API sandbox validation. | **Medium** |
+| **Observability Pipeline** | OpenTelemetry tracing + metrics, Serilog structured logging, Prometheus export, 5 API health checks, worker health endpoints, 10 Grafana dashboard JSON files, Prometheus alert rules. | Grafana dashboards not validated against live Prometheus scrape. No log aggregation pipeline (EFK/Loki). | **Low** |
+| **Secret Management** | `ISecretProvider` abstraction with `ChainedSecretProvider` (File → Environment chain) and `RotatingJwtSecurityKeyProvider`. | No external vault integration (HashiCorp Vault, AWS SM, Azure KV). Helm supports external-secrets operator but app reads from chain only. | **Medium** |
 
-### Not Implemented (Roadmap)
+### Implemented Since Prior Audit (No Longer Gaps)
 
-| Component | Current State | Impact |
+> **Note:** The following were previously listed as "Not Implemented" or "Partially Implemented" and are now source-complete or runtime-proven. See `/docs/diligence/runtime-truth-summary.md` for evidence tiers.
+
+| Component | Current State | Evidence |
 |---|---|---|
-| **SSO/OIDC** | JWT issuance exists. No Okta/Entra/Auth0 integration. | Blocks enterprise pilot without workaround. |
-| **MFA** | Not present. | Compliance gap for regulated industries. |
-| **Secret Management** | API keys and signing keys in `appsettings.json` and Helm values. | Security risk in production. |
-| **Database Migrations** | Schema uses `CREATE TABLE IF NOT EXISTS`. No version tracking. | Upgrade path undefined. |
-| **Load/Performance Testing** | Zero load tests. | No evidence of behavior at scale. |
-| **Container Security Scanning** | No CVE checking in CI/CD. | Supply chain risk. |
-| **Dependency Vulnerability Scanning** | No `dotnet list package --vulnerable`. | Known-CVE risk. |
-| **Circuit Breaker** | Retry logic exists. No circuit breaker under sustained failure. | Cascading failure risk. |
+| **Database Persistence** | 22 PostgreSQL-backed stores via `ReplaceWithFactory`. Config-driven factory: PostgreSQL when connection string set, in-memory fallback otherwise. | `DependencyInjection.cs` — 22 registrations. Multi-instance tests pass. |
+| **Database Migrations** | DbUp framework with 24 numbered SQL scripts (001–024), journal table, transaction-per-script, rollback scripts. | `ArchonAI.Migrations/Scripts/`, `MigrationRunner.cs`, `MigrationHealthCheck.cs` |
+| **SSO/OIDC** | Full OIDC federation: JWKS signature verification, nonce validation, JIT user provisioning, per-tenant IdP config, external identity linking. | `OidcTokenExchangeService.cs`, 3 test classes. Tested with mock IdPs — not validated against live Okta/Entra/Auth0. |
+| **MFA** | TOTP and WebAuthn (FIDO2): setup, verify, disable, recovery codes (PBKDF2), org-level policy, admin reset. | `TotpService.cs`, `WebAuthnService.cs`, 6 test classes. |
+| **Circuit Breaker** | Polly pipeline: Timeout → Bulkhead → Circuit Breaker. Per-integration state tracking, event bus notifications. | `ResiliencePipelineFactory.cs`, `CircuitBreakerTests.cs` |
+| **Container Security Scanning** | Trivy in CI/CD. Scans API and Agents images, SARIF output, fails on CRITICAL/HIGH. | `.github/workflows/ci-cd.yml` |
+| **Dependency Vulnerability Scanning** | `dotnet list package --vulnerable --include-transitive` in CI. Separate dependency-review workflow. | `.github/workflows/ci-cd.yml`, `.github/workflows/dependency-review.yml` |
+| **Load/Performance Testing** | k6 infrastructure with 4 scenarios (agent-execution-stress, connector-resilience, governance-load, soak-test). | `.github/workflows/load-test.yml`. **No published baselines** — infrastructure exists, results not captured. |
 
 ---
 
@@ -155,8 +157,9 @@ This document provides a factual assessment of what ArchonAI implements today, w
 
 ### Known Limitations
 
-1. **No AI reasoning without API keys** — This is the single largest truth gap. The intelligence loop, agent execution, and planning pipeline are structurally complete but produce no AI-generated output in default configuration.
-2. **State volatility** — Core services use in-memory stores. A restart loses all RBAC assignments, audit entries, governance decisions, and agent registrations.
-3. **No schema migration path** — Upgrading the database schema requires manual intervention.
-4. **Secrets exposure** — All credentials stored in plaintext configuration files.
-5. **No horizontal scaling proof** — Resource limits are configured but never tested under load.
+1. **No AI reasoning without API keys** — The intelligence loop, agent execution, and planning pipeline are structurally complete but produce echo-stub output without configured API keys. Stubs are labeled with `FinishReason: "echo_fallback"`.
+2. **No external vault integration** — `ISecretProvider` chain exists (File → Environment) but no HashiCorp Vault, AWS SM, or Azure KV provider. Helm supports external-secrets operator at the infrastructure level.
+3. **No published load test baselines** — k6 test infrastructure exists with 4 scenarios but no baseline results have been captured or published.
+4. **OIDC not validated against live IdPs** — Federation is implemented and tested with mock IdPs. Not confirmed against Okta, Entra ID, or Auth0.
+5. **Durable workflow step persistence is per-instance** — `DurableWorkflowExecutionEngine` uses file-backed step state, not shared across instances in multi-replica deployments.
+6. **PostgreSQL and NATS are single-instance** — Helm chart deploys single PostgreSQL and NATS instances. HA requires external managed services (RDS, Cloud SQL, NATS cluster).
