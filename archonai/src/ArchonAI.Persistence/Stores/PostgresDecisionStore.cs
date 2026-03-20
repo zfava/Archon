@@ -94,7 +94,7 @@ public sealed class PostgresDecisionStore : IDecisionService
 
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
-            "Decision.Created",
+            "decision.created",
             nameof(PostgresDecisionStore),
             decision.Id,
             new Dictionary<string, string>
@@ -206,7 +206,7 @@ public sealed class PostgresDecisionStore : IDecisionService
 
         await _eventBus.PublishAsync(new SystemEvent(
             Guid.NewGuid(),
-            "Decision.StatusUpdated",
+            "decision.status-updated",
             nameof(PostgresDecisionStore),
             decisionId,
             new Dictionary<string, string>

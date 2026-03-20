@@ -316,7 +316,7 @@ public static class OperatorEndpoints
     private static void MapScenariosEndpoints(IEndpointRouteBuilder v1)
     {
         var scenarios = v1.MapGroup("/scenarios")
-            .WithTags("Scenarios")
+            .WithTags("scenarios")
             .RequireRateLimiting("api");
 
         scenarios.MapPost("/", async (
@@ -474,7 +474,7 @@ public static class OperatorEndpoints
     private static void MapExceptionsEndpoints(IEndpointRouteBuilder v1)
     {
         var exceptions = v1.MapGroup("/exceptions")
-            .WithTags("Exceptions")
+            .WithTags("exceptions")
             .RequireRateLimiting("api");
 
         exceptions.MapPost("/", async (
@@ -648,7 +648,7 @@ public static class OperatorEndpoints
     private static void MapExecutiveCommandEndpoints(IEndpointRouteBuilder v1)
     {
         var execCmd = v1.MapGroup("/executive-command")
-            .WithTags("ExecutiveCommand")
+            .WithTags("executive-command")
             .RequireRateLimiting("api");
 
         execCmd.MapGet("/summary", async (
@@ -669,7 +669,7 @@ public static class OperatorEndpoints
     private static void MapHeroWorkflowEndpoints(IEndpointRouteBuilder v1)
     {
         var heroWorkflows = v1.MapGroup("/hero-workflows")
-            .WithTags("HeroWorkflows")
+            .WithTags("hero-workflows")
             .RequireRateLimiting("api");
 
         heroWorkflows.MapGet("/catalog", async (
@@ -773,7 +773,7 @@ public static class OperatorEndpoints
     private static void MapPolicySimulationEndpoints(IEndpointRouteBuilder v1)
     {
         var policySimulation = v1.MapGroup("/policy-simulation")
-            .WithTags("PolicySimulation")
+            .WithTags("policy-simulation")
             .RequireRateLimiting("api");
 
         policySimulation.MapPost("/simulate", async (
@@ -844,7 +844,7 @@ public static class OperatorEndpoints
     private static void MapInspectionEndpoints(IEndpointRouteBuilder v1)
     {
         var inspection = v1.MapGroup("/inspection")
-            .WithTags("Inspection")
+            .WithTags("inspection")
             .RequireRateLimiting("api");
 
         inspection.MapGet("/summaries", async (

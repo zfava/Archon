@@ -22,7 +22,7 @@ public static class InfraEndpoints
     {
         var diag = v1.MapGroup("/ai-runtime")
             .RequireAuthorization("OperatorOrAdmin")
-            .WithTags("AI Runtime Diagnostics");
+            .WithTags("ai-runtime-diagnostics");
 
         diag.MapGet("/environment", (AiRuntimeDiagnostics diagnostics) =>
         {

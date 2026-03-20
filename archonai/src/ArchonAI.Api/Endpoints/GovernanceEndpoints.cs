@@ -135,7 +135,7 @@ public static class GovernanceEndpoints
             }
         }).RequireAuthorization("GovernanceApprove");
 
-        governance.MapGet("/check/{actionType}", async (
+        governance.MapGet("/approval-required/{actionType}", async (
             string actionType,
             IGovernanceService gov,
             CancellationToken ct) =>
