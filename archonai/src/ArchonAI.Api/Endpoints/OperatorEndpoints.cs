@@ -737,6 +737,70 @@ public static class OperatorEndpoints
                 return Results.Ok<object?>(healthcareKpis);
             }
 
+            if (string.Equals(industry, "financial-services", StringComparison.OrdinalIgnoreCase))
+            {
+                var financialKpis = new
+                {
+                    Industry = "financial-services",
+                    GeneratedAtUtc = DateTimeOffset.UtcNow,
+                    Kpis = new object[]
+                    {
+                        new {
+                            Id = "reg-filing-ontime",
+                            Label = "Regulatory Filing On-Time Rate",
+                            Value = 97.8,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 1.2,
+                            Description = "Percentage of regulatory filings submitted before deadline"
+                        },
+                        new {
+                            Id = "surveillance-alerts",
+                            Label = "Surveillance Alert Volume",
+                            Value = 142,
+                            Unit = "count",
+                            Trend = "down",
+                            TrendDelta = -18,
+                            Description = "Transaction surveillance alerts this period; 72% false positive rate (down from 84%)"
+                        },
+                        new {
+                            Id = "rec-break-aging",
+                            Label = "Reconciliation Break Aging",
+                            Value = 23,
+                            Unit = "count",
+                            Description = "Open reconciliation breaks: 15 same-day, 6 at 1-3 days, 2 at 3+ days"
+                        },
+                        new {
+                            Id = "onboarding-cycle",
+                            Label = "Client Onboarding Cycle Time",
+                            Value = 14.2,
+                            Unit = "days",
+                            Trend = "down",
+                            TrendDelta = -8.3,
+                            PriorPeriodValue = 22.5,
+                            Description = "Average days from initial client contact to account activation"
+                        },
+                        new {
+                            Id = "oprisk-events",
+                            Label = "Operational Risk Events",
+                            Value = 7,
+                            Unit = "count",
+                            Severity = "medium",
+                            Description = "Operational risk events this period: 1 high, 4 medium, 2 low severity"
+                        },
+                        new {
+                            Id = "aum-monitored",
+                            Label = "AUM Under Active Monitoring",
+                            Value = 2400000000.0,
+                            Unit = "dollars",
+                            Trend = "up",
+                            Description = "Total assets under management with active portfolio drift monitoring"
+                        },
+                    }
+                };
+                return Results.Ok<object?>(financialKpis);
+            }
+
             if (!string.Equals(industry, "manufacturing", StringComparison.OrdinalIgnoreCase))
                 return Results.Ok<object?>(null);
 

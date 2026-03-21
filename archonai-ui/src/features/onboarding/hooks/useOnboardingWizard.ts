@@ -41,12 +41,22 @@ const HEALTHCARE_SYSTEMS: SystemConnection[] = [
   { id: 'nurse-scheduling', name: 'Staff Scheduling', category: 'erp', description: 'Nurse and staff scheduling system', connected: false, configuring: false },
 ];
 
+const FINANCIAL_SERVICES_SYSTEMS: SystemConnection[] = [
+  { id: 'bloomberg', name: 'Bloomberg', category: 'erp', description: 'Market data and trading systems', connected: false, configuring: false },
+  { id: 'refinitiv', name: 'Refinitiv / LSEG', category: 'erp', description: 'Market data and risk analytics', connected: false, configuring: false },
+  { id: 'custodian', name: 'Custodian / Prime Broker', category: 'finance', description: 'Custody and settlement systems', connected: false, configuring: false },
+  { id: 'core-banking', name: 'Core Banking', category: 'erp', description: 'Core banking platform (Temenos, FIS, Finastra)', connected: false, configuring: false },
+  { id: 'reg-reporting', name: 'Regulatory Reporting', category: 'erp', description: 'Regulatory filing platform (Axiom, Wolters Kluwer)', connected: false, configuring: false },
+  { id: 'kyc-platform', name: 'KYC / Screening', category: 'erp', description: 'Identity verification and sanctions screening', connected: false, configuring: false },
+];
+
 export function getSystemsForIndustry(
   businessType: BusinessType | null,
   templateId: string | null,
 ): SystemConnection[] {
   const industry = templateId === 'manufacturing' ? 'manufacturing'
     : templateId === 'healthcare' ? 'healthcare'
+    : templateId === 'financial-services' ? 'financial-services'
     : businessType;
   if (industry === 'manufacturing') {
     const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
@@ -56,6 +66,11 @@ export function getSystemsForIndustry(
   if (industry === 'healthcare') {
     const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
     const additions = HEALTHCARE_SYSTEMS.filter(s => !existingIds.has(s.id));
+    return [...DEFAULT_SYSTEMS, ...additions];
+  }
+  if (industry === 'financial-services') {
+    const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
+    const additions = FINANCIAL_SERVICES_SYSTEMS.filter(s => !existingIds.has(s.id));
     return [...DEFAULT_SYSTEMS, ...additions];
   }
   return DEFAULT_SYSTEMS;
