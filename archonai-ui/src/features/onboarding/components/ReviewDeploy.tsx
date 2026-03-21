@@ -20,6 +20,7 @@ const BIZ_LABELS: Record<string, string> = {
   'pest-control': 'Pest Control',
   landscaping: 'Landscaping',
   energy: 'Energy & Utilities',
+  defense: 'Defense & Government',
   other: 'Other',
 };
 
@@ -165,6 +166,8 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
             ? TEMPLATES.find(t => t.id === 'financial-services')?.complianceNotes
             : state.businessType === 'energy'
             ? TEMPLATES.find(t => t.id === 'energy')?.complianceNotes
+            : state.businessType === 'defense'
+            ? TEMPLATES.find(t => t.id === 'defense')?.complianceNotes
             : undefined);
         if (!complianceNotes || complianceNotes.length === 0) return null;
         return (
@@ -196,6 +199,8 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
             ? TEMPLATES.find(t => t.id === 'financial-services')?.shadowScenarios
             : state.businessType === 'energy'
             ? TEMPLATES.find(t => t.id === 'energy')?.shadowScenarios
+            : state.businessType === 'defense'
+            ? TEMPLATES.find(t => t.id === 'defense')?.shadowScenarios
             : undefined);
         if (!scenarios || scenarios.length === 0) return null;
         return <ShadowScenarios scenarios={scenarios} />;
@@ -212,6 +217,8 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
             ? TEMPLATES.find(t => t.id === 'financial-services')?.trustTierDefaults
             : state.businessType === 'energy'
             ? TEMPLATES.find(t => t.id === 'energy')?.trustTierDefaults
+            : state.businessType === 'defense'
+            ? TEMPLATES.find(t => t.id === 'defense')?.trustTierDefaults
             : undefined);
         if (!trustTierDefaults || trustTierDefaults.length === 0) return null;
         return (

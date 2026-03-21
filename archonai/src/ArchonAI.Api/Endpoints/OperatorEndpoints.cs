@@ -870,6 +870,76 @@ public static class OperatorEndpoints
                 return Results.Ok<object?>(energyKpis);
             }
 
+            if (string.Equals(industry, "defense", StringComparison.OrdinalIgnoreCase))
+            {
+                var defenseKpis = new
+                {
+                    Industry = "defense",
+                    GeneratedAtUtc = DateTimeOffset.UtcNow,
+                    Kpis = new object[]
+                    {
+                        new {
+                            Id = "mission-readiness",
+                            Label = "Mission Readiness",
+                            Value = 87.3,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 2.1,
+                            PriorPeriodValue = 85.2,
+                            Description = "Overall mission readiness score across personnel, equipment, and logistics"
+                        },
+                        new {
+                            Id = "supply-fill-rate",
+                            Label = "Supply Chain Fill Rate",
+                            Value = 94.1,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 1.8,
+                            Description = "Percentage of parts requisitions filled from available stock"
+                        },
+                        new {
+                            Id = "cert-currency",
+                            Label = "Personnel Certification Currency",
+                            Value = 91.7,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 3.4,
+                            PriorPeriodValue = 88.3,
+                            Description = "Percentage of personnel with current certifications and clearances"
+                        },
+                        new {
+                            Id = "cyber-posture",
+                            Label = "Cybersecurity Posture Score",
+                            Value = 82,
+                            Unit = "score",
+                            Trend = "up",
+                            TrendDelta = 5,
+                            Description = "Composite cybersecurity score from vulnerability, compliance, and incident metrics"
+                        },
+                        new {
+                            Id = "budget-execution",
+                            Label = "Budget Execution Rate",
+                            Value = 78.4,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 4.2,
+                            Description = "Percentage of planned budget obligated vs spend plan"
+                        },
+                        new {
+                            Id = "ig-findings",
+                            Label = "Open IG Findings",
+                            Value = 12,
+                            Unit = "count",
+                            Trend = "down",
+                            TrendDelta = -4,
+                            Severity = "medium",
+                            Description = "Open Inspector General findings: 2 high, 7 medium, 3 low severity"
+                        },
+                    }
+                };
+                return Results.Ok<object?>(defenseKpis);
+            }
+
             if (!string.Equals(industry, "manufacturing", StringComparison.OrdinalIgnoreCase))
                 return Results.Ok<object?>(null);
 

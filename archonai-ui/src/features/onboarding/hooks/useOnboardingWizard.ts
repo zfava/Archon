@@ -59,6 +59,15 @@ const ENERGY_SYSTEMS: SystemConnection[] = [
   { id: 'energy-trading', name: 'Energy Trading', category: 'finance', description: 'Energy trading platform (OpenLink, Allegro)', connected: false, configuring: false },
 ];
 
+const DEFENSE_SYSTEMS: SystemConnection[] = [
+  { id: 'gcss', name: 'GCSS / Logistics', category: 'erp', description: 'Global Combat Support System or equivalent', connected: false, configuring: false },
+  { id: 'siem', name: 'SIEM', category: 'erp', description: 'Security information and event management (Splunk, Elastic)', connected: false, configuring: false },
+  { id: 'vulnerability-scanner', name: 'Vulnerability Scanner', category: 'erp', description: 'ACAS/Nessus, Rapid7, Qualys', connected: false, configuring: false },
+  { id: 'hr-system', name: 'Personnel System', category: 'erp', description: 'HR and personnel management (DCPDS, MyPay)', connected: false, configuring: false },
+  { id: 'financial-system', name: 'Financial System', category: 'finance', description: 'Financial management (GFEBS, DEAMS, DAI)', connected: false, configuring: false },
+  { id: 'intel-platform', name: 'Intelligence Platform', category: 'erp', description: 'Intelligence analysis and dissemination', connected: false, configuring: false },
+];
+
 export function getSystemsForIndustry(
   businessType: BusinessType | null,
   templateId: string | null,
@@ -67,6 +76,7 @@ export function getSystemsForIndustry(
     : templateId === 'healthcare' ? 'healthcare'
     : templateId === 'financial-services' ? 'financial-services'
     : templateId === 'energy' ? 'energy'
+    : templateId === 'defense' ? 'defense'
     : businessType;
   if (industry === 'manufacturing') {
     const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
@@ -86,6 +96,11 @@ export function getSystemsForIndustry(
   if (industry === 'energy') {
     const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
     const additions = ENERGY_SYSTEMS.filter(s => !existingIds.has(s.id));
+    return [...DEFAULT_SYSTEMS, ...additions];
+  }
+  if (industry === 'defense') {
+    const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
+    const additions = DEFENSE_SYSTEMS.filter(s => !existingIds.has(s.id));
     return [...DEFAULT_SYSTEMS, ...additions];
   }
   return DEFAULT_SYSTEMS;

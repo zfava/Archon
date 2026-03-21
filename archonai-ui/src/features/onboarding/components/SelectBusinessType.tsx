@@ -43,6 +43,12 @@ const BUSINESS_TYPES: BusinessTypeOption[] = [
     description: 'Asset performance monitoring, outage response, grid operations, regulatory compliance, and safety management.',
     suggestedAgents: ['Asset Monitor', 'Outage Coordinator', 'Compliance Tracker'],
   },
+  {
+    id: 'defense',
+    label: 'Defense & Government',
+    description: 'Mission operations, logistics readiness, cybersecurity posture, and compliance management for defense and government agencies.',
+    suggestedAgents: ['Mission Planning Agent', 'Readiness Monitor', 'Compliance Agent'],
+  },
 ];
 
 interface Props {

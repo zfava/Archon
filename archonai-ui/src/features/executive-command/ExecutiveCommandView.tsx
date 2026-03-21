@@ -162,6 +162,8 @@ export function ExecutiveCommandView() {
   const [financialKpisLoading, setFinancialKpisLoading] = useState(false);
   const [energyKpis, setEnergyKpis] = useState<IndustryKpiResponse | null>(null);
   const [energyKpisLoading, setEnergyKpisLoading] = useState(false);
+  const [defenseKpis, setDefenseKpis] = useState<IndustryKpiResponse | null>(null);
+  const [defenseKpisLoading, setDefenseKpisLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -218,6 +220,18 @@ export function ExecutiveCommandView() {
         setEnergyKpis(kpis);
       } catch { /* ignore */ }
       finally { setEnergyKpisLoading(false); }
+    })();
+  }, []);
+
+  useEffect(() => {
+    // Attempt to load defense KPIs — hides section if null
+    setDefenseKpisLoading(true);
+    (async () => {
+      try {
+        const kpis = await api.getIndustryKpis('defense') as IndustryKpiResponse | null;
+        setDefenseKpis(kpis);
+      } catch { /* ignore */ }
+      finally { setDefenseKpisLoading(false); }
     })();
   }, []);
 
@@ -471,6 +485,55 @@ export function ExecutiveCommandView() {
                 {kpi.priorPeriodValue != null && (
                   <div style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--text-3)', marginTop: '2px' }}>
                     Prior: {kpi.priorPeriodValue}{kpi.unit === 'hours' ? 'h' : kpi.unit === 'minutes' ? 'm' : ''}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Mission Readiness Intelligence (defense) ─────── */}
+      {defenseKpisLoading && (
+        <div className="exec-section">
+          <div className="exec-section-header">Mission Readiness Intelligence</div>
+          <div className="exec-cal-grid">
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} className="exec-cal-item exec-shimmer" />
+            ))}
+          </div>
+        </div>
+      )}
+      {!defenseKpisLoading && defenseKpis && defenseKpis.kpis && (
+        <div className="exec-section">
+          <div className="exec-section-header">Mission Readiness Intelligence</div>
+          <div className="exec-cal-grid">
+            {defenseKpis.kpis.map(kpi => (
+              <div key={kpi.id} className={`exec-cal-item ${
+                kpi.trend === 'up' && kpi.unit === 'percent' ? 'exec-cal-good' :
+                kpi.trend === 'down' && kpi.unit === 'count' ? 'exec-cal-good' :
+                kpi.severity === 'high' || kpi.severity === 'critical' ? 'exec-cal-bad' :
+                ''
+              }`}>
+                <div className="exec-cal-val">
+                  {kpi.unit === 'percent' ? `${kpi.value}%` :
+                   kpi.unit === 'score' ? `${kpi.value}` :
+                   kpi.value}
+                  {kpi.trend && (
+                    <span className="exec-kpi-trend" style={{ fontSize: '12px', marginLeft: '4px' }}>
+                      {kpi.trend === 'up' ? '\u2191' : kpi.trend === 'down' ? '\u2193' : '\u2192'}
+                    </span>
+                  )}
+                </div>
+                <div className="exec-cal-lbl">{kpi.label}</div>
+                {kpi.trendDelta != null && (
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: kpi.trendDelta > 0 && kpi.unit === 'percent' ? '#34D399' : kpi.trendDelta < 0 && kpi.unit === 'count' ? '#34D399' : kpi.trendDelta > 0 ? '#34D399' : '#F87171', marginTop: '2px' }}>
+                    {kpi.trendDelta > 0 ? '+' : ''}{kpi.trendDelta}{kpi.unit === 'percent' ? 'pp' : ''}
+                  </div>
+                )}
+                {kpi.priorPeriodValue != null && (
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--text-3)', marginTop: '2px' }}>
+                    Prior: {kpi.priorPeriodValue}{kpi.unit === 'percent' ? '%' : ''}
                   </div>
                 )}
               </div>

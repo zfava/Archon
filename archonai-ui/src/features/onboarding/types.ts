@@ -17,6 +17,7 @@ export type BusinessType =
   | 'manufacturing'
   | 'professional-services'
   | 'energy'
+  | 'defense'
   | 'pool-service'
   | 'pest-control'
   | 'landscaping'
