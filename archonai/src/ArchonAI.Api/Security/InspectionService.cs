@@ -238,23 +238,31 @@ public sealed class InspectionService : IInspectionService
             .ToList();
     }
 
-    // ── Recording methods (called by other services to feed inspection data) ──
+    // ── Recording methods (IInspectionService interface) ──
 
-    public void RecordPolicyEvaluation(string subjectType, string subjectId, PolicyEvaluationResult eval)
+    public Task RecordPolicyEvaluationAsync(
+        string subjectType, string subjectId, PolicyEvaluationResult evaluation,
+        CancellationToken ct = default)
     {
-        _policyEvaluations[BuildSubjectKey(subjectType, subjectId)] = eval;
+        _policyEvaluations[BuildSubjectKey(subjectType, subjectId)] = evaluation;
+        return Task.CompletedTask;
     }
 
-    public void RecordMemoryReference(string subjectType, string subjectId, MemoryContextReference reference)
+    public Task RecordMemoryReferenceAsync(
+        Guid tenantId, string subjectType, string subjectId,
+        MemoryContextReference reference, CancellationToken ct = default)
     {
         var key = BuildSubjectKey(subjectType, subjectId);
         var refs = _memoryReferences.GetOrAdd(key, _ => new List<MemoryContextReference>());
         lock (refs) { refs.Add(reference); }
+        return Task.CompletedTask;
     }
 
-    public void RecordWorkflowDiagnostics(WorkflowFailureDiagnostics diagnostics)
+    public Task RecordWorkflowDiagnosticsAsync(
+        WorkflowFailureDiagnostics diagnostics, CancellationToken ct = default)
     {
         _workflowDiagnostics[diagnostics.WorkflowId] = diagnostics;
+        return Task.CompletedTask;
     }
 
     // ── Private helpers ─────────────────────────────────────────────

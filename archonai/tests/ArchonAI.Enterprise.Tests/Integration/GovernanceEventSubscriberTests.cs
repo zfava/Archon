@@ -1,6 +1,7 @@
 using ArchonAI.Api.Security;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
+using ArchonAI.Core.Models.Inspection;
 using ArchonAI.Core.Models.ProofAnalytics;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -392,6 +393,42 @@ public sealed class GovernanceEventSubscriberTests
             DateTimeOffset.UtcNow)));
 
         Assert.Null(ex);
+    }
+
+    [Fact]
+    public async Task GovernanceEventSubscriber_UsesInterfaceNotConcreteType()
+    {
+        var mockInspection = Substitute.For<IInspectionService>();
+        var bus = new InMemoryTestEventBus();
+        var subscriber = new GovernanceEventSubscriber(
+            bus, mockInspection, _proofAnalytics,
+            NullLogger<GovernanceEventSubscriber>.Instance);
+        await subscriber.StartAsync(CancellationToken.None);
+
+        var tenantId = Guid.NewGuid();
+        var taskId = Guid.NewGuid();
+
+        await bus.PublishAsync(new SystemEvent(
+            Guid.NewGuid(),
+            "inspection.policy-evaluation-recorded",
+            "PolicyEngine",
+            taskId,
+            new Dictionary<string, string>
+            {
+                ["subjectType"] = "task",
+                ["subjectId"] = taskId.ToString(),
+                ["tenantId"] = tenantId.ToString(),
+                ["isAllowed"] = "true",
+                ["riskScore"] = "10",
+                ["confidenceScore"] = "0.9",
+                ["reason"] = "Test",
+            }.AsReadOnly(),
+            DateTimeOffset.UtcNow));
+
+        await mockInspection.Received(1).RecordPolicyEvaluationAsync(
+            "task", taskId.ToString(),
+            Arg.Any<PolicyEvaluationResult>(),
+            Arg.Any<CancellationToken>());
     }
 
     /// <summary>

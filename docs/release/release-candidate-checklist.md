@@ -114,6 +114,19 @@ Go/no-go checklist for ArchonAI enterprise release candidate. Each item is eithe
 
 ---
 
+## Inspection Persistence
+
+| # | Check | Method | Status |
+|---|---|---|---|
+| 53 | IInspectionService has Record methods | Code inspection | **Pass** — RecordPolicyEvaluationAsync, RecordMemoryReferenceAsync, RecordWorkflowDiagnosticsAsync |
+| 54 | GovernanceEventSubscriber uses IInspectionService (interface) | `GovernanceEventSubscriber_UsesInterfaceNotConcreteType` test | **Pass** |
+| 55 | Record/retrieve roundtrip via interface | `InspectionPersistenceTests` (10 tests) | **Pass** |
+| 56 | Workflow diagnostics recorded on hero_workflow.failed | `GovernanceEventSubscriber_RecordsWorkflowDiagnostics_OnFailure` | **Pass** |
+| 57 | Inspection retention sweeps (3 tables, 90-day default) | Code inspection + `RetentionSweepResult_IncludesInspectionField` | **Pass** |
+| 58 | Migration 026 adds inspection_rows_deleted to retention_log | `Scripts/026_alter_retention_log_add_inspection.sql` | **Pass** |
+
+---
+
 ## Summary
 
 | Category | Total Checks | Pass | Partial | Gap | Pass Rate |
@@ -126,7 +139,8 @@ Go/no-go checklist for ArchonAI enterprise release candidate. Each item is eithe
 | Connectors | 4 | 4 | 0 | 0 | 100% |
 | Deployment | 6 | 6 | 0 | 0 | 100% |
 | Documentation | 5 | 5 | 0 | 0 | 100% |
-| **Total** | **52** | **52** | **0** | **0** | **100%** |
+| Inspection Persistence | 6 | 6 | 0 | 0 | 100% |
+| **Total** | **58** | **58** | **0** | **0** | **100%** |
 
 ---
 

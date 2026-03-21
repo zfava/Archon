@@ -87,7 +87,7 @@ public sealed class InspectionTenantIsolationTests
             RulesEvaluated: Array.Empty<PolicyRuleResult>(),
             Reason: "All checks passed.", EvaluatedAtUtc: DateTimeOffset.UtcNow);
 
-        svc.RecordPolicyEvaluation("action", "act-1", eval);
+        await svc.RecordPolicyEvaluationAsync("action", "act-1", eval);
 
         // Same tenant
         var resultA = await svc.InspectPolicyEvaluationAsync("action", "act-1", tenantA);
@@ -120,7 +120,7 @@ public sealed class InspectionTenantIsolationTests
             RelatedExceptions: Array.Empty<LinkedArtifactReference>(),
             FailedAtUtc: DateTimeOffset.UtcNow, InspectedAtUtc: DateTimeOffset.UtcNow);
 
-        svc.RecordWorkflowDiagnostics(diag);
+        await svc.RecordWorkflowDiagnosticsAsync(diag);
 
         // Same tenant
         var diagA = await svc.InspectWorkflowFailureAsync(workflowId, tenantA);
@@ -185,8 +185,8 @@ public sealed class InspectionTenantIsolationTests
             Guid.NewGuid(), "Pattern", "knowledge-graph", "Seasonal demand pattern",
             0.87, "Demand forecasting", DateTimeOffset.UtcNow);
 
-        svc.RecordMemoryReference("decision", "dec-1", ref1);
-        svc.RecordMemoryReference("decision", "dec-1", ref2);
+        await svc.RecordMemoryReferenceAsync(tenantId, "decision", "dec-1", ref1);
+        await svc.RecordMemoryReferenceAsync(tenantId, "decision", "dec-1", ref2);
 
         var refs = await svc.InspectMemoryReferencesAsync("decision", "dec-1", tenantId);
 

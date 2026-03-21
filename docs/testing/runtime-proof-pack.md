@@ -26,6 +26,13 @@ This document catalogs ArchonAI's runtime-proof artifacts — tests and verifica
 | 18 | Multi-tenant governance isolation under concurrency | `PostgresGovernanceStore.cs` (tenant_id WHERE clause) | `GovernanceLifecycleRuntimeTests.ConcurrentTenants_IsolatedGovernanceOperations` | Covered |
 | 19 | Approval policies persist and enforce across restart | `PostgresGovernanceStore.cs` | `GovernanceLifecycleRuntimeTests.PolicyPersistence_MultiplePolicies_SurviveRestart` | Covered |
 
+| 20 | Interface-based inspection record/retrieve roundtrip | `Api/Security/InspectionService.cs`, `Core/Interfaces/IInspectionService.cs` | `InspectionPersistenceTests.RecordAndRetrieve_PolicyEvaluation_ViaInterface`, `RecordAndRetrieve_MemoryReference_ViaInterface`, `RecordAndRetrieve_WorkflowDiagnostics_ViaInterface` | Covered |
+| 21 | Inspection tenant isolation via interface | `Api/Security/InspectionService.cs` | `InspectionPersistenceTests.RecordPolicyEvaluation_TenantIsolation` | Covered |
+| 22 | GovernanceEventSubscriber wires to IInspectionService | `Api/Security/GovernanceEventSubscriber.cs` | `InspectionPersistenceTests.GovernanceEventSubscriber_RecordsInspection_ViaInterface`, `GovernanceEventSubscriber_RecordsMemoryReference_ViaInterface` | Covered |
+| 23 | WorkflowFailureDiagnostics recorded on hero_workflow.failed | `Api/Security/GovernanceEventSubscriber.cs` | `InspectionPersistenceTests.GovernanceEventSubscriber_RecordsWorkflowDiagnostics_OnFailure` | Covered |
+| 24 | In-memory inspection data volatile across instances | `Api/Security/InspectionService.cs` | `InspectionPersistenceTests.InMemoryData_LostAfterNewInstance` | Covered |
+| 25 | RetentionSweepResult includes inspection rows | `Infrastructure/RetentionHostedService.cs` | `InspectionPersistenceTests.RetentionSweepResult_IncludesInspectionField` | Covered |
+
 ## Test Categories
 
 All runtime-proof tests are tagged with `[Trait("Category", "RuntimeProof")]` for selective execution:

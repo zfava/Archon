@@ -18,14 +18,14 @@ namespace ArchonAI.Api.Security;
 public sealed class GovernanceEventSubscriber : IHostedService
 {
     private readonly IEventBus _eventBus;
-    private readonly InspectionService _inspectionService;
+    private readonly IInspectionService _inspectionService;
     private readonly IProofAnalyticsService _proofAnalytics;
     private readonly IHubContext<InspectionHub>? _inspectionHub;
     private readonly ILogger<GovernanceEventSubscriber> _logger;
 
     public GovernanceEventSubscriber(
         IEventBus eventBus,
-        InspectionService inspectionService,
+        IInspectionService inspectionService,
         IProofAnalyticsService proofAnalytics,
         ILogger<GovernanceEventSubscriber> logger,
         IHubContext<InspectionHub>? inspectionHub = null)
@@ -91,7 +91,7 @@ public sealed class GovernanceEventSubscriber : IHostedService
     //  Inspection handlers
     // ══════════════════════════════════════════════════════════════
 
-    private Task HandlePolicyEvaluationRecordedAsync(SystemEvent evt, CancellationToken ct)
+    private async Task HandlePolicyEvaluationRecordedAsync(SystemEvent evt, CancellationToken ct)
     {
         try
         {
@@ -104,7 +104,7 @@ public sealed class GovernanceEventSubscriber : IHostedService
             var reason = evt.Payload.GetValueOrDefault("reason") ?? "";
 
             if (!Guid.TryParse(tenantIdStr, out var tenantId))
-                return Task.CompletedTask;
+                return;
 
             var evalResult = new PolicyEvaluationResult(
                 EvaluationId: evt.Id,
@@ -124,7 +124,7 @@ public sealed class GovernanceEventSubscriber : IHostedService
                 Reason: reason,
                 EvaluatedAtUtc: evt.OccurredAtUtc);
 
-            _inspectionService.RecordPolicyEvaluation(subjectType, subjectId, evalResult);
+            await _inspectionService.RecordPolicyEvaluationAsync(subjectType, subjectId, evalResult, ct);
 
             BroadcastToSubject(subjectType, subjectId, "PolicyEvaluationRecorded", new
             {
@@ -142,10 +142,9 @@ public sealed class GovernanceEventSubscriber : IHostedService
                 "GovernanceEventSubscriber: failed to handle policy evaluation event {EventId}",
                 evt.Id);
         }
-        return Task.CompletedTask;
     }
 
-    private Task HandleMemoryReferenceRecordedAsync(SystemEvent evt, CancellationToken ct)
+    private async Task HandleMemoryReferenceRecordedAsync(SystemEvent evt, CancellationToken ct)
     {
         try
         {
@@ -154,6 +153,9 @@ public sealed class GovernanceEventSubscriber : IHostedService
             var memoryRecordId = evt.Payload.GetValueOrDefault("memoryRecordId") ?? "";
             var scope = evt.Payload.GetValueOrDefault("scope") ?? "unknown";
             var relevance = double.TryParse(evt.Payload.GetValueOrDefault("relevanceScore"), out var rel) ? rel : 0;
+
+            if (!Guid.TryParse(evt.Payload.GetValueOrDefault("tenantId"), out var tenantId))
+                return;
 
             var reference = new MemoryContextReference(
                 MemoryId: Guid.TryParse(memoryRecordId, out var mrid) ? mrid : Guid.NewGuid(),
@@ -164,7 +166,7 @@ public sealed class GovernanceEventSubscriber : IHostedService
                 UsageContext: subjectType,
                 RetrievedAtUtc: evt.OccurredAtUtc);
 
-            _inspectionService.RecordMemoryReference(subjectType, subjectId, reference);
+            await _inspectionService.RecordMemoryReferenceAsync(tenantId, subjectType, subjectId, reference, ct);
 
             BroadcastToSubject(subjectType, subjectId, "MemoryReferenceRecorded", new
             {
@@ -182,7 +184,6 @@ public sealed class GovernanceEventSubscriber : IHostedService
                 "GovernanceEventSubscriber: failed to handle memory reference event {EventId}",
                 evt.Id);
         }
-        return Task.CompletedTask;
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -395,6 +396,27 @@ public sealed class GovernanceEventSubscriber : IHostedService
                 EconomicImpact: null,
                 ImpactAttribution: null,
                 OccurredAtUtc: evt.OccurredAtUtc), ct);
+
+            // Record workflow failure diagnostics for inspection persistence
+            var diagnostics = new WorkflowFailureDiagnostics(
+                WorkflowId: workflowId,
+                TenantId: tenantId,
+                WorkflowName: evt.Payload.GetValueOrDefault("workflowName") ?? "unknown",
+                CurrentState: "Failed",
+                FailureCategory: "step-failure",
+                FailureReason: evt.Payload.GetValueOrDefault("reason") ?? "Unknown failure",
+                FailedStepName: null,
+                FailedStepIndex: null,
+                StepDiagnostics: Array.Empty<WorkflowStepDiagnostic>(),
+                PolicyEvaluations: Array.Empty<PolicyEvaluationResult>(),
+                ContextUsed: Array.Empty<MemoryContextReference>(),
+                IsRetryable: true,
+                SuggestedRemediation: null,
+                RelatedExceptions: Array.Empty<LinkedArtifactReference>(),
+                FailedAtUtc: evt.OccurredAtUtc,
+                InspectedAtUtc: DateTimeOffset.UtcNow);
+
+            await _inspectionService.RecordWorkflowDiagnosticsAsync(diagnostics, ct);
         }
         catch (Exception ex)
         {

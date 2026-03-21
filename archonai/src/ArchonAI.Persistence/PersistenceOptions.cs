@@ -8,6 +8,7 @@ public sealed class RetentionOptions
     public int TraceRetentionDays { get; set; } = 90;
     public int TelemetryRetentionDays { get; set; } = 90;
     public int EnterpriseMemorySessionRetentionHours { get; set; } = 240;
+    public int InspectionRetentionDays { get; set; } = 90;
     public bool EnableAutoRetention { get; set; } = true;
 }
 

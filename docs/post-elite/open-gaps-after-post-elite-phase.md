@@ -24,15 +24,13 @@
 
 **Tests**: `InspectionHub_CanBeConstructed`, `GovernanceEventSubscriber_BroadcastsAfterPolicyEvaluation` (mock IHubContext verifies group routing and SendCoreAsync), `GovernanceEventSubscriber_WorksWithoutHub` (nullable hub graceful degradation) — all pass.
 
-## Priority 4 — Historical Inspection Archives
+## Priority 4 — Historical Inspection Archives — **CLOSED**
 
-**Gap**: Inspection data is stored in-memory (ConcurrentDictionary). It does not survive restarts and cannot be queried historically.
+**Gap**: Inspection data was stored in-memory (ConcurrentDictionary). It did not survive restarts and could not be queried historically.
 
-**Impact**: Post-restart, all inspection data is lost. Long-term audit trails for compliance are not available.
+**Resolution**: IInspectionService interface unified with three async Record methods (`RecordPolicyEvaluationAsync`, `RecordMemoryReferenceAsync`, `RecordWorkflowDiagnosticsAsync`). GovernanceEventSubscriber now injects `IInspectionService` (interface, not concrete type) and calls async Record methods. `ReplaceWithFactory<IInspectionService, PostgresInspectionStore>` now correctly swaps both read AND write operations when a Postgres connection string is present. Duplicate concrete `InspectionService` registration removed from Program.cs. WorkflowFailureDiagnostics now proactively persisted on `hero_workflow.failed` events. RetentionHostedService sweeps three inspection tables (`inspection_policy_evaluations`, `inspection_memory_references`, `inspection_workflow_diagnostics`) with 90-day default retention. Migration 026 adds `inspection_rows_deleted` column to `retention_log`.
 
-**Fix**: Persist inspection records to the durable store (Postgres), with configurable retention policies.
-
-**Effort**: Medium — requires new repository interface, migration, and retention job.
+**Tests**: `RecordAndRetrieve_PolicyEvaluation_ViaInterface`, `RecordAndRetrieve_MemoryReference_ViaInterface`, `RecordMultipleMemoryReferences_ReturnsAll`, `RecordAndRetrieve_WorkflowDiagnostics_ViaInterface`, `InMemoryData_LostAfterNewInstance`, `GovernanceEventSubscriber_RecordsInspection_ViaInterface`, `GovernanceEventSubscriber_RecordsMemoryReference_ViaInterface`, `GovernanceEventSubscriber_RecordsWorkflowDiagnostics_OnFailure`, `RecordPolicyEvaluation_TenantIsolation`, `RetentionSweepResult_IncludesInspectionField`, `GovernanceEventSubscriber_UsesInterfaceNotConcreteType` — all pass.
 
 ## Priority 5 — Proof Analytics Drill-Through — **CLOSED**
 
@@ -84,8 +82,6 @@
 
 ## Residual Gap Summary
 
-Of the 8 priorities identified after the post-elite phase, **7 are now CLOSED** (priorities 1, 2, 3, 5, 6, 7, 8) with implemented code paths, passing tests, and runtime wiring. **1 remains open** (priority 4):
+All **8 of 8** priorities identified after the post-elite phase are now **CLOSED** with implemented code paths, passing tests, and runtime wiring.
 
-- **Priority 4** (historical inspection archives) requires Postgres persistence migration — medium effort, important for compliance but not blocking for initial deployment.
-
-Archon10 pass closed Priority 3 (SignalR InspectionHub with real-time broadcasting from GovernanceEventSubscriber, frontend hook, and OperatorInspectionView integration) and Priority 6 (keyword-based action safety auto-classification with 5 keyword categories, DB-first lookup, and GatedActionExecutor integration). All closed gaps use the existing IEventBus pattern for event-driven integration, preserving observability, tracing, graceful shutdown, and deterministic testability.
+Archon10 pass closed Priority 3 (SignalR InspectionHub with real-time broadcasting from GovernanceEventSubscriber, frontend hook, and OperatorInspectionView integration) and Priority 6 (keyword-based action safety auto-classification with 5 keyword categories, DB-first lookup, and GatedActionExecutor integration). Priority 4 (Historical Inspection Archives) closed with unified IInspectionService interface, async Record methods, GovernanceEventSubscriber DI fix, proactive WorkflowFailureDiagnostics persistence, retention sweeps for 3 inspection tables, and migration 026. All closed gaps use the existing IEventBus pattern for event-driven integration, preserving observability, tracing, graceful shutdown, and deterministic testability.

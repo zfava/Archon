@@ -48,10 +48,10 @@ public sealed class RetentionHostedService : BackgroundService
         if (string.IsNullOrWhiteSpace(connStr))
         {
             _logger.LogWarning("Retention sweep skipped: no persistence connection string configured");
-            return new RetentionSweepResult(0, 0, 0, 0);
+            return new RetentionSweepResult(0, 0, 0, 0, 0);
         }
 
-        long auditDeleted = 0, telemetryDeleted = 0, memoryExpired = 0;
+        long auditDeleted = 0, telemetryDeleted = 0, memoryExpired = 0, inspectionDeleted = 0;
 
         try
         {
@@ -68,20 +68,35 @@ public sealed class RetentionHostedService : BackgroundService
                 conn, $"{schema}.enterprise_memory", "created_at_utc", retention.EnterpriseMemorySessionRetentionHours,
                 ct, isHours: true, extraCondition: "AND layer = 'Session'");
 
+            // Inspection table sweeps
+            var inspPolicyDeleted = await DeleteOlderThanAsync(
+                conn, $"{schema}.inspection_policy_evaluations", "evaluated_at_utc",
+                retention.InspectionRetentionDays, ct);
+
+            var inspMemoryDeleted = await DeleteOlderThanAsync(
+                conn, $"{schema}.inspection_memory_references", "retrieved_at_utc",
+                retention.InspectionRetentionDays, ct);
+
+            var inspWorkflowDeleted = await DeleteOlderThanAsync(
+                conn, $"{schema}.inspection_workflow_diagnostics", "inspected_at_utc",
+                retention.InspectionRetentionDays, ct);
+
+            inspectionDeleted = inspPolicyDeleted + inspMemoryDeleted + inspWorkflowDeleted;
+
             sw.Stop();
 
-            await RecordSweepAsync(conn, schema, auditDeleted, 0, telemetryDeleted, sw.ElapsedMilliseconds, ct);
+            await RecordSweepAsync(conn, schema, auditDeleted, 0, telemetryDeleted, inspectionDeleted, sw.ElapsedMilliseconds, ct);
 
             _logger.LogInformation(
-                "Retention sweep completed. AuditLog: {AuditDeleted} rows, Traces: {TraceDeleted} rows, Telemetry: {TelemetryDeleted} rows, Memory: {MemoryExpired} rows, Duration: {DurationMs}ms",
-                auditDeleted, 0, telemetryDeleted, memoryExpired, sw.ElapsedMilliseconds);
+                "Retention sweep completed. AuditLog: {AuditDeleted} rows, Traces: {TraceDeleted} rows, Telemetry: {TelemetryDeleted} rows, Memory: {MemoryExpired} rows, Inspection: {InspectionDeleted} rows, Duration: {DurationMs}ms",
+                auditDeleted, 0, telemetryDeleted, memoryExpired, inspectionDeleted, sw.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Retention sweep failed after {DurationMs}ms", sw.ElapsedMilliseconds);
         }
 
-        return new RetentionSweepResult(auditDeleted, 0, telemetryDeleted, sw.ElapsedMilliseconds);
+        return new RetentionSweepResult(auditDeleted, 0, telemetryDeleted, inspectionDeleted, sw.ElapsedMilliseconds);
     }
 
     private static async Task<long> DeleteOlderThanAsync(
@@ -101,16 +116,16 @@ public sealed class RetentionHostedService : BackgroundService
 
     private static async Task RecordSweepAsync(
         NpgsqlConnection conn, string schema,
-        long auditRows, long traceRows, long telemetryRows, long durationMs,
+        long auditRows, long traceRows, long telemetryRows, long inspectionRows, long durationMs,
         CancellationToken ct)
     {
         try
         {
             var sql = $"""
                 INSERT INTO {schema}.retention_log
-                    (id, ran_at_utc, audit_rows_deleted, trace_rows_deleted, telemetry_rows_deleted, duration_ms)
+                    (id, ran_at_utc, audit_rows_deleted, trace_rows_deleted, telemetry_rows_deleted, inspection_rows_deleted, duration_ms)
                 VALUES
-                    (@id, @ranAtUtc, @auditRows, @traceRows, @telemetryRows, @durationMs)
+                    (@id, @ranAtUtc, @auditRows, @traceRows, @telemetryRows, @inspectionRows, @durationMs)
                 """;
 
             await using var cmd = new NpgsqlCommand(sql, conn);
@@ -119,6 +134,7 @@ public sealed class RetentionHostedService : BackgroundService
             cmd.Parameters.AddWithValue("auditRows", auditRows);
             cmd.Parameters.AddWithValue("traceRows", traceRows);
             cmd.Parameters.AddWithValue("telemetryRows", telemetryRows);
+            cmd.Parameters.AddWithValue("inspectionRows", inspectionRows);
             cmd.Parameters.AddWithValue("durationMs", durationMs);
             await cmd.ExecuteNonQueryAsync(ct);
         }
@@ -143,4 +159,5 @@ public sealed record RetentionSweepResult(
     long AuditRowsDeleted,
     long TraceRowsDeleted,
     long TelemetryRowsDeleted,
+    long InspectionRowsDeleted,
     long DurationMs);

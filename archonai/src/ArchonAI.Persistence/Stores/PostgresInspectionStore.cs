@@ -57,9 +57,11 @@ public sealed class PostgresInspectionStore : IInspectionService
         return Task.CompletedTask;
     }
 
-    // ── Public record methods (not on interface, called by other services) ──
+    // ── IInspectionService Record methods ──
 
-    public async Task RecordPolicyEvaluation(PolicyEvaluationResult eval, CancellationToken ct = default)
+    public async Task RecordPolicyEvaluationAsync(
+        string subjectType, string subjectId, PolicyEvaluationResult evaluation,
+        CancellationToken ct = default)
     {
         await EnsureInitializedAsync(ct);
 
@@ -78,28 +80,28 @@ public sealed class PostgresInspectionStore : IInspectionService
             ON CONFLICT (evaluation_id) DO NOTHING
         ", conn);
 
-        cmd.Parameters.AddWithValue("evalId", eval.EvaluationId);
-        cmd.Parameters.AddWithValue("tenantId", eval.TenantId);
-        cmd.Parameters.AddWithValue("subjectType", eval.SubjectType);
-        cmd.Parameters.AddWithValue("subjectId", eval.SubjectId);
-        cmd.Parameters.AddWithValue("isAllowed", eval.IsAllowed);
-        cmd.Parameters.AddWithValue("riskScore", eval.RiskScore);
-        cmd.Parameters.AddWithValue("confidenceScore", eval.ConfidenceScore);
-        cmd.Parameters.AddWithValue("requiresApproval", eval.RequiresApproval);
-        cmd.Parameters.AddWithValue("approvalState", eval.ApprovalState);
-        cmd.Parameters.AddWithValue("manualOverrideState", eval.ManualOverrideState);
-        cmd.Parameters.AddWithValue("approvalCheckpoint", eval.ApprovalCheckpoint);
-        cmd.Parameters.AddWithValue("guardrailViolations", JsonSerializer.Serialize(eval.GuardrailViolations, JsonOpts));
-        cmd.Parameters.AddWithValue("rulesEvaluated", JsonSerializer.Serialize(eval.RulesEvaluated, JsonOpts));
-        cmd.Parameters.AddWithValue("reason", eval.Reason);
-        cmd.Parameters.AddWithValue("evaluatedAtUtc", eval.EvaluatedAtUtc);
+        cmd.Parameters.AddWithValue("evalId", evaluation.EvaluationId);
+        cmd.Parameters.AddWithValue("tenantId", evaluation.TenantId);
+        cmd.Parameters.AddWithValue("subjectType", subjectType);
+        cmd.Parameters.AddWithValue("subjectId", subjectId);
+        cmd.Parameters.AddWithValue("isAllowed", evaluation.IsAllowed);
+        cmd.Parameters.AddWithValue("riskScore", evaluation.RiskScore);
+        cmd.Parameters.AddWithValue("confidenceScore", evaluation.ConfidenceScore);
+        cmd.Parameters.AddWithValue("requiresApproval", evaluation.RequiresApproval);
+        cmd.Parameters.AddWithValue("approvalState", evaluation.ApprovalState);
+        cmd.Parameters.AddWithValue("manualOverrideState", evaluation.ManualOverrideState);
+        cmd.Parameters.AddWithValue("approvalCheckpoint", evaluation.ApprovalCheckpoint);
+        cmd.Parameters.AddWithValue("guardrailViolations", JsonSerializer.Serialize(evaluation.GuardrailViolations, JsonOpts));
+        cmd.Parameters.AddWithValue("rulesEvaluated", JsonSerializer.Serialize(evaluation.RulesEvaluated, JsonOpts));
+        cmd.Parameters.AddWithValue("reason", evaluation.Reason);
+        cmd.Parameters.AddWithValue("evaluatedAtUtc", evaluation.EvaluatedAtUtc);
 
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task RecordMemoryReference(
+    public async Task RecordMemoryReferenceAsync(
         Guid tenantId, string subjectType, string subjectId,
-        MemoryContextReference memRef, CancellationToken ct = default)
+        MemoryContextReference reference, CancellationToken ct = default)
     {
         await EnsureInitializedAsync(ct);
 
@@ -119,18 +121,19 @@ public sealed class PostgresInspectionStore : IInspectionService
         cmd.Parameters.AddWithValue("tenantId", tenantId);
         cmd.Parameters.AddWithValue("subjectType", subjectType);
         cmd.Parameters.AddWithValue("subjectId", subjectId);
-        cmd.Parameters.AddWithValue("memoryId", memRef.MemoryId);
-        cmd.Parameters.AddWithValue("memoryType", memRef.MemoryType);
-        cmd.Parameters.AddWithValue("source", memRef.Source);
-        cmd.Parameters.AddWithValue("contentSummary", memRef.ContentSummary);
-        cmd.Parameters.AddWithValue("relevanceScore", memRef.RelevanceScore);
-        cmd.Parameters.AddWithValue("usageContext", memRef.UsageContext);
-        cmd.Parameters.AddWithValue("retrievedAtUtc", memRef.RetrievedAtUtc);
+        cmd.Parameters.AddWithValue("memoryId", reference.MemoryId);
+        cmd.Parameters.AddWithValue("memoryType", reference.MemoryType);
+        cmd.Parameters.AddWithValue("source", reference.Source);
+        cmd.Parameters.AddWithValue("contentSummary", reference.ContentSummary);
+        cmd.Parameters.AddWithValue("relevanceScore", reference.RelevanceScore);
+        cmd.Parameters.AddWithValue("usageContext", reference.UsageContext);
+        cmd.Parameters.AddWithValue("retrievedAtUtc", reference.RetrievedAtUtc);
 
         await cmd.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task RecordWorkflowDiagnostics(WorkflowFailureDiagnostics diag, CancellationToken ct = default)
+    public async Task RecordWorkflowDiagnosticsAsync(
+        WorkflowFailureDiagnostics diagnostics, CancellationToken ct = default)
     {
         await EnsureInitializedAsync(ct);
 
@@ -164,22 +167,22 @@ public sealed class PostgresInspectionStore : IInspectionService
                 inspected_at_utc = EXCLUDED.inspected_at_utc
         ", conn);
 
-        cmd.Parameters.AddWithValue("workflowId", diag.WorkflowId);
-        cmd.Parameters.AddWithValue("tenantId", diag.TenantId);
-        cmd.Parameters.AddWithValue("workflowName", diag.WorkflowName);
-        cmd.Parameters.AddWithValue("currentState", diag.CurrentState);
-        cmd.Parameters.AddWithValue("failureCategory", diag.FailureCategory);
-        cmd.Parameters.AddWithValue("failureReason", diag.FailureReason);
-        cmd.Parameters.AddWithValue("failedStepName", (object?)diag.FailedStepName ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("failedStepIndex", (object?)diag.FailedStepIndex ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("stepDiagnostics", JsonSerializer.Serialize(diag.StepDiagnostics, JsonOpts));
-        cmd.Parameters.AddWithValue("policyEvaluations", JsonSerializer.Serialize(diag.PolicyEvaluations, JsonOpts));
-        cmd.Parameters.AddWithValue("contextUsed", JsonSerializer.Serialize(diag.ContextUsed, JsonOpts));
-        cmd.Parameters.AddWithValue("isRetryable", diag.IsRetryable);
-        cmd.Parameters.AddWithValue("suggestedRemediation", (object?)diag.SuggestedRemediation ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("relatedExceptions", JsonSerializer.Serialize(diag.RelatedExceptions, JsonOpts));
-        cmd.Parameters.AddWithValue("failedAtUtc", diag.FailedAtUtc);
-        cmd.Parameters.AddWithValue("inspectedAtUtc", diag.InspectedAtUtc);
+        cmd.Parameters.AddWithValue("workflowId", diagnostics.WorkflowId);
+        cmd.Parameters.AddWithValue("tenantId", diagnostics.TenantId);
+        cmd.Parameters.AddWithValue("workflowName", diagnostics.WorkflowName);
+        cmd.Parameters.AddWithValue("currentState", diagnostics.CurrentState);
+        cmd.Parameters.AddWithValue("failureCategory", diagnostics.FailureCategory);
+        cmd.Parameters.AddWithValue("failureReason", diagnostics.FailureReason);
+        cmd.Parameters.AddWithValue("failedStepName", (object?)diagnostics.FailedStepName ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("failedStepIndex", (object?)diagnostics.FailedStepIndex ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("stepDiagnostics", JsonSerializer.Serialize(diagnostics.StepDiagnostics, JsonOpts));
+        cmd.Parameters.AddWithValue("policyEvaluations", JsonSerializer.Serialize(diagnostics.PolicyEvaluations, JsonOpts));
+        cmd.Parameters.AddWithValue("contextUsed", JsonSerializer.Serialize(diagnostics.ContextUsed, JsonOpts));
+        cmd.Parameters.AddWithValue("isRetryable", diagnostics.IsRetryable);
+        cmd.Parameters.AddWithValue("suggestedRemediation", (object?)diagnostics.SuggestedRemediation ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("relatedExceptions", JsonSerializer.Serialize(diagnostics.RelatedExceptions, JsonOpts));
+        cmd.Parameters.AddWithValue("failedAtUtc", diagnostics.FailedAtUtc);
+        cmd.Parameters.AddWithValue("inspectedAtUtc", diagnostics.InspectedAtUtc);
 
         await cmd.ExecuteNonQueryAsync(ct);
     }

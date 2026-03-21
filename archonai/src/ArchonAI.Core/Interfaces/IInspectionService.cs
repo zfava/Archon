@@ -36,4 +36,26 @@ public interface IInspectionService
     Task<IReadOnlyList<InspectionSummary>> ListInspectionSummariesAsync(
         Guid tenantId, string? subjectType = null, string? domain = null,
         int limit = 50, CancellationToken ct = default);
+
+    // ── Record/Write methods ────────────────────────────────────────────
+
+    /// <summary>
+    /// Record a policy evaluation result for a subject.
+    /// </summary>
+    Task RecordPolicyEvaluationAsync(
+        string subjectType, string subjectId, PolicyEvaluationResult evaluation,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Record a memory/context reference for a subject.
+    /// </summary>
+    Task RecordMemoryReferenceAsync(
+        Guid tenantId, string subjectType, string subjectId,
+        MemoryContextReference reference, CancellationToken ct = default);
+
+    /// <summary>
+    /// Record workflow failure diagnostics.
+    /// </summary>
+    Task RecordWorkflowDiagnosticsAsync(
+        WorkflowFailureDiagnostics diagnostics, CancellationToken ct = default);
 }
