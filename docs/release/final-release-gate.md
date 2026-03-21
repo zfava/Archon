@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-21
 **Purpose:** Structured go/no-go checklist for ArchonAI production deployment.
-**Branch:** `claude/create-salesforce-connector-MVIU2`
+**Branch:** `main`
 
 ---
 

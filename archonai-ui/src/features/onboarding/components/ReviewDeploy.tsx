@@ -10,18 +10,12 @@ const LEVEL_LABELS: Record<string, string> = {
 };
 
 const BIZ_LABELS: Record<string, string> = {
-  saas: 'SaaS',
-  ecommerce: 'E-Commerce',
   healthcare: 'Healthcare',
   'financial-services': 'Financial Services',
   manufacturing: 'Manufacturing',
   'professional-services': 'Professional Services',
-  'pool-service': 'Pool Service',
-  'pest-control': 'Pest Control',
-  landscaping: 'Landscaping',
   energy: 'Energy & Utilities',
   defense: 'Defense & Government',
-  other: 'Other',
 };
 
 interface Props {

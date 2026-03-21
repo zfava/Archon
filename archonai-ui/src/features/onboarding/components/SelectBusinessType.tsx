@@ -2,18 +2,6 @@ import type { BusinessType, BusinessTypeOption } from '../types';
 
 const BUSINESS_TYPES: BusinessTypeOption[] = [
   {
-    id: 'saas',
-    label: 'SaaS',
-    description: 'Software-as-a-service with recurring revenue, churn management, and product-led growth.',
-    suggestedAgents: ['Sales Pipeline Agent', 'Churn Prediction Agent', 'Revenue Ops Agent'],
-  },
-  {
-    id: 'ecommerce',
-    label: 'E-Commerce',
-    description: 'Online retail with inventory management, order fulfillment, and customer acquisition.',
-    suggestedAgents: ['Inventory Agent', 'Marketing Spend Agent', 'Customer Lifecycle Agent'],
-  },
-  {
     id: 'healthcare',
     label: 'Healthcare',
     description: 'Patient care coordination, compliance, scheduling, and revenue cycle management.',
@@ -40,14 +28,14 @@ const BUSINESS_TYPES: BusinessTypeOption[] = [
   {
     id: 'energy',
     label: 'Energy & Utilities',
-    description: 'Asset performance monitoring, outage response, grid operations, regulatory compliance, and safety management.',
+    description: 'Asset management, grid operations, safety-critical systems, and regulatory compliance.',
     suggestedAgents: ['Asset Monitor', 'Outage Coordinator', 'Compliance Tracker'],
   },
   {
     id: 'defense',
     label: 'Defense & Government',
-    description: 'Mission operations, logistics readiness, cybersecurity posture, and compliance management for defense and government agencies.',
-    suggestedAgents: ['Mission Planning Agent', 'Readiness Monitor', 'Compliance Agent'],
+    description: 'Mission readiness, supply chain visibility, personnel management, and secure operations.',
+    suggestedAgents: ['Readiness Coordinator', 'Supply Chain Monitor', 'Cybersecurity Monitor'],
   },
 ];
 

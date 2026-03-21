@@ -5,7 +5,7 @@
 This document enumerates residual risks in the ArchonAI release candidate, categorized by severity and assigned to either pre-release fix or post-release roadmap.
 
 **Last Audited:** 2026-03-21
-**Audit Method:** Source-level verification against codebase on branch `claude/create-salesforce-connector-MVIU2`
+**Audit Method:** Source-level verification against codebase on branch `main`
 
 ---
 
