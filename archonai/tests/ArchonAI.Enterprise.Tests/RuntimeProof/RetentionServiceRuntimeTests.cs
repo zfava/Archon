@@ -241,7 +241,59 @@ public sealed class RetentionServiceRuntimeTests : IAsyncLifetime
             audit_rows_deleted   bigint NOT NULL DEFAULT 0,
             trace_rows_deleted   bigint NOT NULL DEFAULT 0,
             telemetry_rows_deleted bigint NOT NULL DEFAULT 0,
+            inspection_rows_deleted bigint NOT NULL DEFAULT 0,
             duration_ms     bigint NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS archonai.inspection_policy_evaluations (
+            evaluation_id    uuid             PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id        uuid             NOT NULL,
+            subject_type     text             NOT NULL,
+            subject_id       text             NOT NULL,
+            is_allowed       boolean          NOT NULL,
+            risk_score       double precision NOT NULL,
+            confidence_score double precision NOT NULL,
+            requires_approval boolean         NOT NULL,
+            approval_state   text             NOT NULL,
+            manual_override_state text        NOT NULL,
+            approval_checkpoint text          NOT NULL,
+            guardrail_violations jsonb        NOT NULL DEFAULT '[]'::jsonb,
+            rules_evaluated  jsonb            NOT NULL DEFAULT '[]'::jsonb,
+            reason           text             NOT NULL,
+            evaluated_at_utc timestamptz      NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS archonai.inspection_memory_references (
+            id              uuid             PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id       uuid             NOT NULL,
+            subject_type    text             NOT NULL,
+            subject_id      text             NOT NULL,
+            memory_id       uuid             NOT NULL,
+            memory_type     text             NOT NULL,
+            source          text             NOT NULL,
+            content_summary text             NOT NULL,
+            relevance_score double precision NOT NULL,
+            usage_context   text             NOT NULL,
+            retrieved_at_utc timestamptz     NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS archonai.inspection_workflow_diagnostics (
+            workflow_id      uuid        PRIMARY KEY,
+            tenant_id        uuid        NOT NULL,
+            workflow_name    text        NOT NULL,
+            current_state    text        NOT NULL,
+            failure_category text        NOT NULL,
+            failure_reason   text        NOT NULL,
+            failed_step_name text,
+            failed_step_index int,
+            step_diagnostics jsonb       NOT NULL DEFAULT '[]'::jsonb,
+            policy_evaluations jsonb     NOT NULL DEFAULT '[]'::jsonb,
+            context_used     jsonb       NOT NULL DEFAULT '[]'::jsonb,
+            is_retryable     boolean     NOT NULL,
+            suggested_remediation text,
+            related_exceptions jsonb     NOT NULL DEFAULT '[]'::jsonb,
+            failed_at_utc    timestamptz NOT NULL,
+            inspected_at_utc timestamptz NOT NULL DEFAULT now()
         );
         """;
 }
