@@ -801,6 +801,75 @@ public static class OperatorEndpoints
                 return Results.Ok<object?>(financialKpis);
             }
 
+            if (string.Equals(industry, "energy", StringComparison.OrdinalIgnoreCase))
+            {
+                var energyKpis = new
+                {
+                    Industry = "energy",
+                    GeneratedAtUtc = DateTimeOffset.UtcNow,
+                    Kpis = new object[]
+                    {
+                        new {
+                            Id = "equipment-availability",
+                            Label = "Equipment Availability Rate",
+                            Value = 96.4,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 1.1,
+                            Description = "Percentage of generation and T&D equipment available for service"
+                        },
+                        new {
+                            Id = "mtbf",
+                            Label = "MTBF",
+                            Value = 4320,
+                            Unit = "hours",
+                            Trend = "up",
+                            TrendDelta = 280,
+                            PriorPeriodValue = 4040,
+                            Description = "Mean time between failures across monitored asset fleet"
+                        },
+                        new {
+                            Id = "unplanned-outage-min",
+                            Label = "Unplanned Outage Minutes",
+                            Value = 847,
+                            Unit = "minutes",
+                            Trend = "down",
+                            TrendDelta = -192,
+                            PriorPeriodValue = 1039,
+                            Description = "Total unplanned outage minutes this period across all feeders"
+                        },
+                        new {
+                            Id = "safety-incident-rate",
+                            Label = "Safety Incident Rate",
+                            Value = 0.42,
+                            Unit = "rate",
+                            Trend = "down",
+                            TrendDelta = -0.11,
+                            Description = "OSHA recordable incident rate per 200,000 hours worked"
+                        },
+                        new {
+                            Id = "reg-compliance-score",
+                            Label = "Regulatory Compliance Score",
+                            Value = 98.1,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 0.8,
+                            Description = "Composite compliance score across NERC CIP, EPA, and FERC standards"
+                        },
+                        new {
+                            Id = "renewable-ratio",
+                            Label = "Renewable Generation Ratio",
+                            Value = 34.7,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 3.2,
+                            Description = "Percentage of total generation from renewable sources"
+                        },
+                    }
+                };
+                return Results.Ok<object?>(energyKpis);
+            }
+
             if (!string.Equals(industry, "manufacturing", StringComparison.OrdinalIgnoreCase))
                 return Results.Ok<object?>(null);
 

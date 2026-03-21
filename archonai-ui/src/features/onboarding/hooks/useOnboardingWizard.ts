@@ -50,6 +50,15 @@ const FINANCIAL_SERVICES_SYSTEMS: SystemConnection[] = [
   { id: 'kyc-platform', name: 'KYC / Screening', category: 'erp', description: 'Identity verification and sanctions screening', connected: false, configuring: false },
 ];
 
+const ENERGY_SYSTEMS: SystemConnection[] = [
+  { id: 'scada', name: 'SCADA / OPC-UA', category: 'erp', description: 'Supervisory control and data acquisition', connected: false, configuring: false },
+  { id: 'historian', name: 'Data Historian', category: 'erp', description: 'Process historian (OSIsoft PI, Honeywell PHD)', connected: false, configuring: false },
+  { id: 'asset-mgmt', name: 'Asset Management', category: 'erp', description: 'Enterprise asset management (Maximo, SAP PM)', connected: false, configuring: false },
+  { id: 'gis', name: 'GIS System', category: 'erp', description: 'Geographic information system for asset mapping', connected: false, configuring: false },
+  { id: 'oms', name: 'Outage Management', category: 'erp', description: 'Outage management system', connected: false, configuring: false },
+  { id: 'energy-trading', name: 'Energy Trading', category: 'finance', description: 'Energy trading platform (OpenLink, Allegro)', connected: false, configuring: false },
+];
+
 export function getSystemsForIndustry(
   businessType: BusinessType | null,
   templateId: string | null,
@@ -57,6 +66,7 @@ export function getSystemsForIndustry(
   const industry = templateId === 'manufacturing' ? 'manufacturing'
     : templateId === 'healthcare' ? 'healthcare'
     : templateId === 'financial-services' ? 'financial-services'
+    : templateId === 'energy' ? 'energy'
     : businessType;
   if (industry === 'manufacturing') {
     const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
@@ -71,6 +81,11 @@ export function getSystemsForIndustry(
   if (industry === 'financial-services') {
     const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
     const additions = FINANCIAL_SERVICES_SYSTEMS.filter(s => !existingIds.has(s.id));
+    return [...DEFAULT_SYSTEMS, ...additions];
+  }
+  if (industry === 'energy') {
+    const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
+    const additions = ENERGY_SYSTEMS.filter(s => !existingIds.has(s.id));
     return [...DEFAULT_SYSTEMS, ...additions];
   }
   return DEFAULT_SYSTEMS;

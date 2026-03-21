@@ -37,6 +37,12 @@ const BUSINESS_TYPES: BusinessTypeOption[] = [
     description: 'Project management, resource allocation, billing, and client engagement.',
     suggestedAgents: ['Resource Planning Agent', 'Billing Agent', 'Client Engagement Agent'],
   },
+  {
+    id: 'energy',
+    label: 'Energy & Utilities',
+    description: 'Asset performance monitoring, outage response, grid operations, regulatory compliance, and safety management.',
+    suggestedAgents: ['Asset Monitor', 'Outage Coordinator', 'Compliance Tracker'],
+  },
 ];
 
 interface Props {
