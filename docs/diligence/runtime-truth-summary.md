@@ -148,7 +148,7 @@ This document provides an honest, verifiable assessment of what ArchonAI can and
 | Enterprise tests | 463 | All pass |
 | Integration tests (Testcontainers) | 18+ multi-instance | All pass |
 | Frontend contract tests | 11 | All pass (vitest) |
-| Load tests (k6) | 4 scenarios | Infrastructure exists, **no published baselines** |
+| Load tests (k6) | 12 scenarios | Infrastructure exists, **no published baselines** |
 
 ---
 

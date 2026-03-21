@@ -4,7 +4,7 @@
 
 Cross-domain assessment of ArchonAI's readiness for enterprise release candidate status. Each category is rated as **Enterprise-Ready**, **Production-Capable**, or **Not Ready**, with specific evidence and gaps.
 
-**Last Audited:** 2026-03-20
+**Last Audited:** 2026-03-21
 **Audit Method:** Source-level verification against codebase. Ratings reflect both implementation presence and test coverage depth. See `/docs/diligence/runtime-truth-summary.md` for detailed evidence tiers.
 
 ---
@@ -36,7 +36,7 @@ Cross-domain assessment of ArchonAI's readiness for enterprise release candidate
 | Gap | Impact | Severity |
 |---|---|---|
 | Vault providers not live-validated | Three vault `ISecretProvider` implementations exist (HashiCorp Vault, AWS SM, Azure KV) and are tested with mock handlers (20 tests). Not yet validated against live vault instances. | Medium for regulated production |
-| TOTP encryption uses JWT key as KMS stand-in | Acceptable for non-regulated; needs KMS for regulated environments | Medium |
+| TOTP encryption production enforcement | `DedicatedTotpSecretEncryptor` uses dedicated key with HKDF-derived AES-256-CBC + HMAC-SHA256. JWT fallback rejected in production via `ProductionConfigValidator`. | Low |
 | OIDC not validated against live IdPs | Tested with mocks only — Okta/Entra/Auth0 not yet confirmed | Medium |
 | CORS not browser-validated | CORS adversarially tested (12 test vectors in `CorsAdversarialTests.cs`) but not validated in live browser context | Low |
 
@@ -110,7 +110,7 @@ RBAC and governance are the strongest enterprise-grade components. All claimed b
 
 ## 4. AI Execution Truth
 
-**Rating: Not Ready** (unchanged — structural gap)
+**Rating: Config-Dependent** (updated — code is complete, requires API keys)
 
 ### Current State
 
@@ -121,16 +121,18 @@ RBAC and governance are the strongest enterprise-grade components. All claimed b
 | OpenAI provider | Real HTTP client with retry logic — **requires API key** |
 | Anthropic provider | Real HTTP client with retry logic — **requires API key** |
 | Azure OpenAI provider | Real HTTP client with retry logic — **requires API key and endpoint** |
-| Local (Ollama) provider | Falls back to deterministic echo when Ollama unavailable |
+| Local (Ollama) provider | Returns `IsSuccess: false` with `provider_unavailable` when unreachable — does not echo |
 
-### Critical Truth Gap
+### Critical Truth
 
-Without API keys, every model request returns an echo stub response marked `FinishReason: "echo_fallback"`. The intelligence loop runs, goals are generated, strategies are evaluated, tasks are planned and executed — but all AI reasoning is fake. This is explicitly labeled in responses but creates misleading demo behavior.
+Without API keys, all 4 model providers return hard errors (`IsSuccess: false`) with empty content — they do not fabricate responses or produce echo stubs. `ModelProviderActivationService` logs `CRITICAL` at startup when no providers are active. `AiRuntimeDiagnostics` reports readiness tier `"unconfigured"`. The `echo_fallback` string exists only in `CompositeModelProvider` as a defensive guard against third-party providers, not as an output path.
 
 ### Hardening Applied
 
-- Echo fallback response includes `DETERMINISTIC_ECHO` warning string
-- `FinishReason` is set to `"echo_fallback"` (not `"stop"`) so callers can distinguish real from fake
+- All providers return structured errors with empty content on misconfiguration
+- `CompositeModelProvider` contains a guard that detects and logs `CRITICAL` if any provider returns `FinishReason: "echo_fallback"`
+- `ModelProviderActivationService` validates configuration at startup and emits Prometheus metrics
+- Governance demo endpoint (`POST /api/v1/demo/governance-loop`) proves full pipeline wiring
 
 ---
 
@@ -284,9 +286,9 @@ Documentation covers enterprise proof, security verification, diligence packagin
 
 | Feature | Reason |
 |---|---|
-| AI-generated responses | No API keys configured — echo stubs only |
+| AI-generated responses | No API keys configured — providers return hard errors (`IsSuccess: false`) |
 | Connector data | No live API credentials — connection status shows `false` |
-| SSO login | OIDC is implemented but requires IdP configuration per tenant |
+| SSO login | OIDC federation implemented (JWKS, nonce, JIT) but requires per-tenant IdP configuration |
 
 ---
 
@@ -303,6 +305,6 @@ Documentation covers enterprise proof, security verification, diligence packagin
 | Observability | **Production-Capable** | Upgraded — worker health, Grafana dashboards, alert rules |
 | Compliance | **Production-Capable** | New — retention policies, GDPR rights, audit integrity |
 | Demo Reliability | **Production-Capable** | Updated test count (979) |
-| AI Execution | **Not Ready** | No change — requires API keys |
+| AI Execution | **Config-Dependent** | Updated — code complete, returns hard errors without keys (not echo stubs) |
 
-**Overall: Release candidate for enterprise evaluation. Four categories Enterprise-Ready (including Persistence with 31 PostgreSQL-backed stores and proven multi-instance correctness). AI execution remains the primary structural gap (configuration-dependent, not code-deficient). See `/docs/diligence/runtime-truth-summary.md` for detailed evidence tiers.**
+**Overall: Release candidate for enterprise evaluation. Four categories Enterprise-Ready (including Persistence with 31 PostgreSQL-backed stores and proven multi-instance correctness). AI execution is config-dependent (requires API keys) — code is complete but returns hard errors without configuration. See `/docs/diligence/runtime-truth-summary.md` for detailed evidence tiers.**

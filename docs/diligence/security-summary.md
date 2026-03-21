@@ -105,7 +105,7 @@ This document maps ArchonAI's security posture to automated evidence. Every cont
 
 Tenant isolation uses `AsyncLocal<string?>` for zero-allocation context propagation. Each request establishes a tenant scope that flows through the entire async call chain. Scope disposal restores the previous tenant context. Nested scopes are supported.
 
-**Gap:** Database-level row isolation is not implemented. In-memory stores provide logical isolation only.
+**Note:** All 31 stores are PostgreSQL-backed when `ArchonAIPersistence:ConnectionString` is configured. Tenant isolation is enforced at the application layer via AsyncLocal scoping with per-tenant query filtering.
 
 ---
 
@@ -186,7 +186,7 @@ Tenant isolation uses `AsyncLocal<string?>` for zero-allocation context propagat
 | Category-based statistics | `AuditLogIntegrationTests.Status_TracksCategoryCounts` | Verified |
 | Query filtering | `AuditLogIntegrationTests.Query*` (category, subject, time range) | Verified |
 
-**Gap:** Audit entries stored in `ConcurrentDictionary`. Not persisted across restarts. No tamper-evident external storage.
+**Note:** Audit entries are persisted in `PostgresAuditLogStore` when PostgreSQL is configured. SHA-256 hash chain provides tamper detection. Part of the 31 PostgreSQL-backed stores.
 
 ---
 

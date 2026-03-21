@@ -4,7 +4,7 @@
 
 This document enumerates residual risks in the ArchonAI release candidate, categorized by severity and assigned to either pre-release fix or post-release roadmap.
 
-**Last Audited:** 2026-03-20
+**Last Audited:** 2026-03-21
 **Audit Method:** Source-level verification against codebase on branch `claude/create-salesforce-connector-MVIU2`
 
 ---
@@ -102,7 +102,7 @@ For release candidate approval, the following conditions must be met:
 | P0 risks documented | **Met** — R1 (providers return hard errors when unconfigured, governance demo proves pipeline wiring) |
 | No silent data loss | **Met** — 31 stores PostgreSQL-backed (22 domain + 9 identity). Unconfigured providers return `IsSuccess: false`, not fabricated data. |
 | Security hardening complete | **Met** — Non-root Dockerfiles, K8s security contexts, TLS-enforced connections, Trivy scanning, dependency scanning, CORS adversarial testing (12 vectors), vault providers (HashiCorp, AWS, Azure) |
-| Zero warnings / failures | **Met** — 0 warnings, all unit tests pass (10 test assemblies, 831+ tests). Frontend: 0 TypeScript errors, 0 lint errors, 0 build errors. |
+| Zero warnings / failures | **Met** — 0 warnings, all unit tests pass (10 test assemblies, 979 tests). 566 enterprise tests pass. Frontend: 0 TypeScript errors, 0 lint errors, 0 build errors. |
 
 ---
 

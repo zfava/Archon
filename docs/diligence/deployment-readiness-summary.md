@@ -116,7 +116,7 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 | Container scanning | **Source-Complete** | Trivy — SARIF output, fail on CRITICAL/HIGH |
 | Dependency scanning | **Source-Complete** | `dotnet list package --vulnerable --include-transitive` |
 | Image build | **Source-Complete** | Multi-platform (linux/amd64, linux/arm64), push to GHCR |
-| Load testing | **Source-Complete** | k6 with 4 scenarios. **No published baseline results.** |
+| Load testing | **Source-Complete** | k6 with 12 scenarios and `run-baselines.sh` automation. **No published baseline results.** |
 
 ---
 

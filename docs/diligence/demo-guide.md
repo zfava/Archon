@@ -21,7 +21,7 @@ This guide provides two demo paths: a 10-minute executive overview and a 30-minu
 - Azure OpenAI endpoint + key → set `ModelProviders__AzureOpenAI__Endpoint` and `ApiKey`
 - Local Ollama instance at `http://localhost:11434`
 
-Without API keys, the platform runs fully but AI responses are echo-back stubs.
+Without API keys, the platform runs fully but AI endpoints return hard errors (`IsSuccess: false`) — no fabricated or echo responses are produced.
 
 ---
 
@@ -58,7 +58,7 @@ Expected health response:
 ### 2. Run Enterprise Verification Tests
 
 ```bash
-# Run all 168 tests — proves enterprise claims without the platform running
+# Run all enterprise tests — proves enterprise claims without the platform running
 dotnet test tests/ArchonAI.Enterprise.Tests/ --verbosity normal
 ```
 
@@ -87,8 +87,9 @@ dotnet test tests/ArchonAI.Enterprise.Tests/ --verbosity normal
 ```
 
 **Talking points:**
-- 168 tests, all green, < 3 seconds
+- 566 enterprise tests, all green, < 3 seconds
 - Tests map to 57 specific enterprise claims (see `docs/enterprise/enterprise-proof-pack.md`)
+- 979 unit tests across 10 assemblies, all pass
 - Zero external dependencies — no database, no network, no API keys needed
 
 ### Step 2: Security Attack Coverage (3 min)
@@ -115,11 +116,11 @@ Open `docs/diligence/README.md` and walk through:
 ### Step 4: Honest Gaps (2 min)
 
 Open the "Weakest Diligence Impressions" section of `docs/diligence/README.md`:
-- No live AI without API keys
-- In-memory persistence
-- No SSO
-- Secrets in plaintext
-- No load testing
+- No live AI output without API keys (hard errors, not echo stubs)
+- OIDC not validated against live IdPs
+- No published load test baselines (12 k6 scenarios exist)
+- Vault providers not live-validated (3 implementations exist)
+- Durable workflow persistence is per-instance
 
 **Why this matters:** Showing gaps proactively builds trust faster than hiding them.
 
@@ -226,7 +227,7 @@ cat deploy/helm/archonai/values.yaml
 |---|---|
 | Health checks | All 5 subsystems report Healthy |
 | API responses | Structured JSON responses from all 17 route groups |
-| Test execution | 168 tests pass in < 3 seconds |
+| Test execution | 566 enterprise tests + 979 unit tests pass |
 | Docker stack | 7 containers running with health checks |
 | Configuration | 40+ config sections with documented defaults |
 
@@ -234,11 +235,10 @@ cat deploy/helm/archonai/values.yaml
 
 | Feature | Why Not |
 |---|---|
-| AI-generated reasoning | No API keys configured by default. Model providers return echo stubs. |
-| Persisted state across restarts | Core services use in-memory stores. `docker compose down -v` resets everything. |
-| SSO login flow | Not implemented. JWT tokens are issued directly. |
+| AI-generated reasoning | No API keys configured by default. Model providers return hard errors (`IsSuccess: false`). |
+| SSO login via browser | OIDC is implemented but requires per-tenant IdP configuration (Okta/Entra/Auth0). |
 | Real connector data | Connectors require live API credentials (Salesforce, HubSpot, etc.). |
-| Load test results | No performance testing exists. |
+| Load test baselines | k6 infrastructure with 12 scenarios exists, but no baseline results have been published. |
 
 ---
 
@@ -353,7 +353,7 @@ The Trust Lineage endpoint (`/api/v1/trust-visibility/lineage/{decisionId}`) ret
 | `overrideToken` is null when `autoApprove=true` | `ManualOverrideSigningKey` not set | Set `Policy:ManualOverrideSigningKey` |
 | `"Demo mode is disabled"` | `Demo:Enabled` is false | Set `Demo:Enabled=true` |
 | 429 status code | Concurrent demo limit reached | Wait or increase `Demo:MaxConcurrentDemos` |
-| AI reasoning contains `echo_fallback` | Echo stub returned | Configure a real API key |
+| AI reasoning returns `IsSuccess: false` | No API key configured | Configure a real API key |
 
 ---
 

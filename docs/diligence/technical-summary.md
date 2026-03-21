@@ -66,7 +66,7 @@ This document provides a factual assessment of what ArchonAI implements today, w
 | **Circuit Breaker** | Polly pipeline: Timeout → Bulkhead → Circuit Breaker. Per-integration state tracking, event bus notifications. | `ResiliencePipelineFactory.cs`, `CircuitBreakerTests.cs` |
 | **Container Security Scanning** | Trivy in CI/CD. Scans API and Agents images, SARIF output, fails on CRITICAL/HIGH. | `.github/workflows/ci-cd.yml` |
 | **Dependency Vulnerability Scanning** | `dotnet list package --vulnerable --include-transitive` in CI. Separate dependency-review workflow. | `.github/workflows/ci-cd.yml`, `.github/workflows/dependency-review.yml` |
-| **Load/Performance Testing** | k6 infrastructure with 4 scenarios (agent-execution-stress, connector-resilience, governance-load, soak-test). | `.github/workflows/load-test.yml`. **No published baselines** — infrastructure exists, results not captured. |
+| **Load/Performance Testing** | k6 infrastructure with 12 scenarios (auth-flow, api-crud, gateway-throughput, multi-tenant-isolation, connector-load, connector-resilience, intelligence-loop-stress, hero-workflow-composition, proof-analytics-volume, governance-load, agent-execution-stress, soak-test) and `run-baselines.sh` automation. | `.github/workflows/load-test.yml`, `tests/load/scenarios/`. **No published baselines** — infrastructure exists, results not captured. |
 
 ---
 
