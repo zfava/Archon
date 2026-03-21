@@ -26,8 +26,14 @@ public sealed record OnboardingTemplateDeployRequest(
     IReadOnlyList<DepartmentConfig> Departments,
     IReadOnlyList<string> Agents,
     IReadOnlyList<TemplateWorkflowConfig> Workflows,
-    IReadOnlyList<string> Strategies);
+    IReadOnlyList<string> Strategies,
+    IReadOnlyList<TrustTierDefaultConfig>? TrustTierDefaults = null);
 
 public sealed record TemplateWorkflowConfig(
     string Name,
     IReadOnlyList<string> Steps);
+
+public sealed record TrustTierDefaultConfig(
+    string ActionScope,
+    string MaxTier,
+    string Rationale);

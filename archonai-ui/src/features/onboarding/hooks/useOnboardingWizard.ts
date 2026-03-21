@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { api } from '../../../api/client';
 import type {
   OnboardingStep,
@@ -23,6 +23,28 @@ const DEFAULT_SYSTEMS: SystemConnection[] = [
   { id: 'zendesk', name: 'Zendesk', category: 'support', description: 'Customer support & ticketing', connected: false, configuring: false },
 ];
 
+const MANUFACTURING_SYSTEMS: SystemConnection[] = [
+  { id: 'sap', name: 'SAP ERP', category: 'erp', description: 'Enterprise resource planning for manufacturing', connected: false, configuring: false },
+  { id: 'oracle-erp', name: 'Oracle ERP Cloud', category: 'erp', description: 'Cloud ERP for discrete and process manufacturing', connected: false, configuring: false },
+  { id: 'mes', name: 'MES / Shop Floor', category: 'erp', description: 'Manufacturing execution system (Rockwell, Siemens, Ignition)', connected: false, configuring: false },
+  { id: 'cmms', name: 'CMMS', category: 'erp', description: 'Maintenance management (Maximo, Fiix, UpKeep)', connected: false, configuring: false },
+  { id: 'qms', name: 'Quality Management', category: 'erp', description: 'Quality system (InfinityQS, ETQ, MasterControl)', connected: false, configuring: false },
+  { id: 'wms', name: 'Warehouse Management', category: 'erp', description: 'Warehouse and inventory management', connected: false, configuring: false },
+];
+
+export function getSystemsForIndustry(
+  businessType: BusinessType | null,
+  templateId: string | null,
+): SystemConnection[] {
+  const industry = templateId === 'manufacturing' ? 'manufacturing' : businessType;
+  if (industry === 'manufacturing') {
+    const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
+    const additions = MANUFACTURING_SYSTEMS.filter(s => !existingIds.has(s.id));
+    return [...DEFAULT_SYSTEMS, ...additions];
+  }
+  return DEFAULT_SYSTEMS;
+}
+
 const DEFAULT_DEPARTMENTS = [
   { name: 'Sales', enabled: true, level: 'assisted' as AutomationLevel },
   { name: 'Marketing', enabled: true, level: 'assisted' as AutomationLevel },
@@ -45,6 +67,22 @@ export function useOnboardingWizard() {
   });
 
   const [deployResult, setDeployResult] = useState<DeploymentResult | null>(null);
+
+  // Update systems list when template or businessType changes
+  useEffect(() => {
+    const templateId = state.selectedTemplate?.id ?? null;
+    const updated = getSystemsForIndustry(state.businessType, templateId);
+    setState(s => {
+      // Preserve connection state for systems that already exist
+      const connectedMap = new Map(s.systems.map(sys => [sys.id, sys]));
+      const merged = updated.map(sys => connectedMap.get(sys.id) ?? sys);
+      // Only update if the set of IDs changed
+      const currentIds = s.systems.map(x => x.id).join(',');
+      const newIds = merged.map(x => x.id).join(',');
+      if (currentIds === newIds) return s;
+      return { ...s, systems: merged };
+    });
+  }, [state.businessType, state.selectedTemplate?.id]);
 
   const stepIndex = STEPS.indexOf(state.step);
   const canGoNext = useMemo(() => {
@@ -103,6 +141,11 @@ export function useOnboardingWizard() {
           steps: w.steps,
         })),
         strategies: template.strategies,
+        trustTierDefaults: template.trustTierDefaults?.map(t => ({
+          actionScope: t.actionScope,
+          maxTier: t.maxTier,
+          rationale: t.rationale,
+        })),
       });
       setDeployResult(result as DeploymentResult);
       setState(s => ({ ...s, deploying: false, deployed: true, step: 'review' }));

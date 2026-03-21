@@ -126,3 +126,18 @@ a.exec-section-header:hover { color: var(--text-2); }
 .exec-quick-link:hover { border-color: var(--text-3); color: var(--text-1); }
 
 .exec-loading { padding: 48px; text-align: center; color: var(--text-3); }
+
+/* Shimmer loading placeholder */
+@keyframes exec-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.exec-shimmer {
+  min-height: 60px;
+  background: linear-gradient(90deg, var(--navy-card, #0B1120) 25%, rgba(56,189,248,0.05) 50%, var(--navy-card, #0B1120) 75%);
+  background-size: 400px 100%;
+  animation: exec-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Trend arrow in KPI cards */
+.exec-kpi-trend { font-weight: 400; }

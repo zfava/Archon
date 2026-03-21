@@ -830,3 +830,93 @@
     display: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════
+   Compliance Section
+   ═══════════════════════════════════════════════════════ */
+
+.ob-compliance-section { margin-top: 20px; }
+
+.ob-compliance-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+
+.ob-compliance-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  background: var(--navy-card, #0B1120); border: 1px solid var(--border); border-radius: 4px;
+}
+
+.ob-compliance-standard {
+  font-family: var(--mono, monospace); font-size: 12px; font-weight: 600;
+  color: var(--text-1, #E2E8F0); min-width: 160px;
+}
+
+.ob-compliance-badge {
+  font-family: var(--mono, monospace); font-size: 10px; font-weight: 600;
+  padding: 2px 8px; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.ob-compliance-badge--enabled { background: rgba(52,211,153,0.15); color: #34D399; }
+.ob-compliance-badge--available { background: rgba(56,189,248,0.15); color: #38BDF8; }
+.ob-compliance-badge--roadmap { background: rgba(251,191,36,0.15); color: #FBBF24; }
+
+.ob-compliance-desc { font-size: 12px; color: var(--text-3, #64748B); flex: 1; }
+
+/* ═══════════════════════════════════════════════════════
+   Shadow Scenarios
+   ═══════════════════════════════════════════════════════ */
+
+.ob-shadow-section { margin-top: 20px; }
+
+.ob-shadow-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+
+.ob-shadow-card {
+  padding: 14px 16px; background: var(--navy-card, #0B1120);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+
+.ob-shadow-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+}
+
+.ob-shadow-title { font-size: 13px; font-weight: 600; color: var(--text-1, #E2E8F0); }
+
+.ob-shadow-savings {
+  font-family: var(--mono, monospace); font-size: 11px; font-weight: 600;
+  color: #34D399; background: rgba(52,211,153,0.1); padding: 2px 8px; border-radius: 8px;
+}
+
+.ob-shadow-row { display: flex; gap: 8px; margin-bottom: 4px; }
+
+.ob-shadow-label {
+  font-family: var(--mono, monospace); font-size: 10px; font-weight: 600;
+  color: var(--text-3, #64748B); text-transform: uppercase; min-width: 72px; padding-top: 2px;
+}
+
+.ob-shadow-text { font-size: 12px; color: var(--text-2, #94A3B8); line-height: 1.4; }
+
+/* ═══════════════════════════════════════════════════════
+   Trust Tier Defaults
+   ═══════════════════════════════════════════════════════ */
+
+.ob-trust-section { margin-top: 20px; }
+
+.ob-trust-table { margin-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+
+.ob-trust-header-row {
+  display: grid; grid-template-columns: 180px 70px 1fr; gap: 10px;
+  padding: 6px 14px; font-family: var(--mono, monospace); font-size: 10px;
+  color: var(--text-3, #64748B); text-transform: uppercase; letter-spacing: 0.06em;
+}
+
+.ob-trust-row {
+  display: grid; grid-template-columns: 180px 70px 1fr; gap: 10px;
+  padding: 8px 14px; background: var(--navy-card, #0B1120);
+  border: 1px solid var(--border); border-radius: 4px; align-items: center;
+}
+
+.ob-trust-col-scope { font-family: var(--mono, monospace); font-size: 12px; color: var(--text-1, #E2E8F0); }
+
+.ob-trust-tier-badge {
+  font-family: var(--mono, monospace); font-size: 11px; font-weight: 700;
+  color: #38BDF8; text-align: center;
+}
+
+.ob-trust-col-rationale { font-size: 12px; color: var(--text-3, #64748B); }

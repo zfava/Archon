@@ -1,4 +1,6 @@
 import type { OnboardingState, DeploymentResult } from '../types';
+import { ShadowScenarios } from './ShadowScenarios';
+import { TEMPLATES } from '../templates';
 
 const LEVEL_LABELS: Record<string, string> = {
   approval: 'Approval Required',
@@ -147,6 +149,62 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
           <span className="ob-review-time">&lt; {state.estimatedMinutes} min</span>
         </div>
       </div>
+
+      {/* Compliance notes */}
+      {(() => {
+        const complianceNotes = tpl?.complianceNotes
+          ?? (state.businessType === 'manufacturing'
+            ? TEMPLATES.find(t => t.id === 'manufacturing')?.complianceNotes
+            : undefined);
+        if (!complianceNotes || complianceNotes.length === 0) return null;
+        return (
+          <div className="ob-compliance-section">
+            <span className="ob-group-label">Compliance &amp; Audit Readiness</span>
+            <div className="ob-compliance-list">
+              {complianceNotes.map(c => (
+                <div key={c.standard} className="ob-compliance-row">
+                  <span className="ob-compliance-standard">{c.standard}</span>
+                  <span className={`ob-compliance-badge ob-compliance-badge--${c.status}`}>
+                    {c.status}
+                  </span>
+                  <span className="ob-compliance-desc">{c.description}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Shadow scenarios */}
+      {(() => {
+        const scenarios = tpl?.shadowScenarios
+          ?? (state.businessType === 'manufacturing'
+            ? TEMPLATES.find(t => t.id === 'manufacturing')?.shadowScenarios
+            : undefined);
+        if (!scenarios || scenarios.length === 0) return null;
+        return <ShadowScenarios scenarios={scenarios} />;
+      })()}
+
+      {/* Trust tier defaults */}
+      {tpl?.trustTierDefaults && tpl.trustTierDefaults.length > 0 && (
+        <div className="ob-trust-section">
+          <span className="ob-group-label">Default Trust Tier Policies</span>
+          <div className="ob-trust-table">
+            <div className="ob-trust-header-row">
+              <span className="ob-trust-col-scope">Action Scope</span>
+              <span className="ob-trust-col-tier">Max Tier</span>
+              <span className="ob-trust-col-rationale">Rationale</span>
+            </div>
+            {tpl.trustTierDefaults.map(t => (
+              <div key={t.actionScope} className="ob-trust-row">
+                <span className="ob-trust-col-scope">{t.actionScope}</span>
+                <span className="ob-trust-col-tier ob-trust-tier-badge">{t.maxTier}</span>
+                <span className="ob-trust-col-rationale">{t.rationale}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {state.deployError && (
         <div className="ob-error-banner">

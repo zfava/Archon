@@ -664,6 +664,85 @@ public static class OperatorEndpoints
             var summary = await cmdSvc.GetCommandSummaryAsync(tenantId, ct);
             return Results.Ok(summary);
         }).RequireAuthorization("GovernanceRead");
+
+        // Industry-specific KPIs — returns seed data for the Production Intelligence dashboard.
+        // In production, these values would be aggregated from MES, ERP, QMS, and CMMS integrations.
+        execCmd.MapGet("/industry-kpis", (string? industry) =>
+        {
+            if (!string.Equals(industry, "manufacturing", StringComparison.OrdinalIgnoreCase))
+                return Results.Ok<object?>(null);
+
+            // Seed data — replace with real MES/ERP aggregation queries per tenant
+            var kpis = new
+            {
+                Industry = "manufacturing",
+                GeneratedAtUtc = DateTimeOffset.UtcNow,
+                Kpis = new object[]
+                {
+                    new {
+                        Id = "oee-impact",
+                        Label = "OEE Impact",
+                        Value = 87.3,
+                        Unit = "percent",
+                        Trend = "up",          // "up" | "down" | "flat"
+                        TrendDelta = 2.1,       // percentage points vs. prior period
+                        Description = "Overall Equipment Effectiveness improvement attributed to ArchonAI coordination"
+                        // Real implementation: aggregate availability × performance × quality from MES telemetry
+                    },
+                    new {
+                        Id = "unplanned-downtime",
+                        Label = "Unplanned Downtime Hours",
+                        Value = 12.5,
+                        Unit = "hours",
+                        Trend = "down",
+                        TrendDelta = -4.2,
+                        PriorPeriodValue = 16.7,
+                        Description = "Total unplanned downtime hours this period vs. prior period"
+                        // Real implementation: sum downtime events from CMMS/MES filtered by 'unplanned' reason code
+                    },
+                    new {
+                        Id = "quality-escapes",
+                        Label = "Quality Escape Count",
+                        Value = 2,
+                        Unit = "count",
+                        Severity = "medium",    // "low" | "medium" | "high" | "critical"
+                        Description = "Number of quality escapes (defective product reaching downstream) this period"
+                        // Real implementation: count QMS non-conformance records where escape=true
+                    },
+                    new {
+                        Id = "schedule-adherence",
+                        Label = "Schedule Adherence",
+                        Value = 94.1,
+                        Unit = "percent",
+                        Trend = "up",
+                        TrendDelta = 1.8,
+                        Description = "Percentage of production orders completed on or before scheduled date"
+                        // Real implementation: (on-time completed orders / total scheduled orders) × 100
+                    },
+                    new {
+                        Id = "mtter",
+                        Label = "Mean Time to Exception Resolution",
+                        Value = 2.3,
+                        Unit = "hours",
+                        Trend = "down",
+                        TrendDelta = -0.8,
+                        Description = "Average time from exception detection to resolution"
+                        // Real implementation: avg(resolved_at - detected_at) from exception_intelligence table
+                    },
+                    new {
+                        Id = "supplier-exceptions",
+                        Label = "Open Supplier Exceptions",
+                        Value = 5,
+                        Unit = "count",
+                        EconomicExposure = 142000.0,
+                        Description = "Active supplier-related exceptions with estimated financial exposure"
+                        // Real implementation: count open exceptions where category='supplier', sum economic_impact_estimate
+                    },
+                }
+            };
+
+            return Results.Ok<object?>(kpis);
+        }).RequireAuthorization("GovernanceRead");
     }
 
     private static void MapHeroWorkflowEndpoints(IEndpointRouteBuilder v1)

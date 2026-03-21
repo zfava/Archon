@@ -929,6 +929,9 @@ export const api = {
   getExecutiveCommandSummary: (signal?: AbortSignal) =>
     request('/executive-command/summary', { signal }),
 
+  getIndustryKpis: (industry: string, signal?: AbortSignal) =>
+    request(`/executive-command/industry-kpis?industry=${encodeURIComponent(industry)}`, { signal }),
+
   deployOnboardingTemplate: (body: {
     templateId: string;
     connectedSystems: string[];
@@ -938,6 +941,7 @@ export const api = {
     agents: string[];
     workflows: { name: string; steps: string[] }[];
     strategies: string[];
+    trustTierDefaults?: { actionScope: string; maxTier: string; rationale: string }[];
   }, signal?: AbortSignal) =>
     request('/onboarding/deploy-template', {
       method: 'POST',

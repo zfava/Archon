@@ -41,6 +41,26 @@ export interface DepartmentAutomation {
   level: AutomationLevel;
 }
 
+export interface ComplianceNote {
+  standard: string;
+  status: 'enabled' | 'available' | 'roadmap';
+  description: string;
+}
+
+export interface TrustTierDefault {
+  actionScope: string;
+  maxTier: string;
+  rationale: string;
+}
+
+export interface ShadowScenario {
+  title: string;
+  problem: string;
+  detection: string;
+  action: string;
+  savings: string;
+}
+
 export interface OnboardingTemplate {
   id: string;
   name: string;
@@ -53,6 +73,9 @@ export interface OnboardingTemplate {
   automationLevel: AutomationLevel;
   departments: DepartmentAutomation[];
   estimatedMinutes: number;
+  complianceNotes?: ComplianceNote[];
+  trustTierDefaults?: TrustTierDefault[];
+  shadowScenarios?: ShadowScenario[];
 }
 
 export interface TemplateAgent {

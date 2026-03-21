@@ -3,6 +3,25 @@ import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
 import './executive-command.css';
 
+interface IndustryKpi {
+  id: string;
+  label: string;
+  value: number;
+  unit: string;
+  trend?: string;
+  trendDelta?: number;
+  priorPeriodValue?: number;
+  severity?: string;
+  economicExposure?: number;
+  description: string;
+}
+
+interface IndustryKpiResponse {
+  industry: string;
+  generatedAtUtc: string;
+  kpis: IndustryKpi[];
+}
+
 interface ExceptionHeadline {
   id: string;
   severity: string;
@@ -135,6 +154,8 @@ function sevClass(s: string): string { return `exec-sev-${s.toLowerCase()}`; }
 export function ExecutiveCommandView() {
   const [data, setData] = useState<ExecSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [industryKpis, setIndustryKpis] = useState<IndustryKpiResponse | null>(null);
+  const [industryKpisLoading, setIndustryKpisLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -143,6 +164,18 @@ export function ExecutiveCommandView() {
         setData(summary);
       } catch { /* ignore */ }
       finally { setLoading(false); }
+    })();
+  }, []);
+
+  useEffect(() => {
+    // Attempt to load manufacturing KPIs — hides section if null
+    setIndustryKpisLoading(true);
+    (async () => {
+      try {
+        const kpis = await api.getIndustryKpis('manufacturing') as IndustryKpiResponse | null;
+        setIndustryKpis(kpis);
+      } catch { /* ignore */ }
+      finally { setIndustryKpisLoading(false); }
     })();
   }, []);
 
@@ -192,6 +225,61 @@ export function ExecutiveCommandView() {
           <div className="exec-signal-label">Decision Hit Rate</div>
         </div>
       </div>
+
+      {/* ── Production Intelligence (manufacturing) ────────── */}
+      {industryKpisLoading && (
+        <div className="exec-section">
+          <div className="exec-section-header">Production Intelligence</div>
+          <div className="exec-cal-grid">
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} className="exec-cal-item exec-shimmer" />
+            ))}
+          </div>
+        </div>
+      )}
+      {!industryKpisLoading && industryKpis && industryKpis.kpis && (
+        <div className="exec-section">
+          <div className="exec-section-header">Production Intelligence</div>
+          <div className="exec-cal-grid">
+            {industryKpis.kpis.map(kpi => (
+              <div key={kpi.id} className={`exec-cal-item ${
+                kpi.trend === 'up' && kpi.unit === 'percent' ? 'exec-cal-good' :
+                kpi.trend === 'down' && kpi.unit === 'hours' ? 'exec-cal-good' :
+                kpi.severity === 'high' || kpi.severity === 'critical' ? 'exec-cal-bad' :
+                ''
+              }`}>
+                <div className="exec-cal-val">
+                  {kpi.unit === 'percent' ? `${kpi.value}%` :
+                   kpi.unit === 'hours' ? `${kpi.value}h` :
+                   kpi.economicExposure ? `${kpi.value}` :
+                   kpi.value}
+                  {kpi.trend && (
+                    <span className="exec-kpi-trend" style={{ fontSize: '12px', marginLeft: '4px' }}>
+                      {kpi.trend === 'up' ? '\u2191' : kpi.trend === 'down' ? '\u2193' : '\u2192'}
+                    </span>
+                  )}
+                </div>
+                <div className="exec-cal-lbl">{kpi.label}</div>
+                {kpi.trendDelta != null && (
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: kpi.trendDelta > 0 ? '#34D399' : '#F87171', marginTop: '2px' }}>
+                    {kpi.trendDelta > 0 ? '+' : ''}{kpi.trendDelta}{kpi.unit === 'percent' ? 'pp' : kpi.unit === 'hours' ? 'h' : ''}
+                  </div>
+                )}
+                {kpi.economicExposure != null && (
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#A78BFA', marginTop: '2px' }}>
+                    {fmtCurrency(kpi.economicExposure)} exposure
+                  </div>
+                )}
+                {kpi.priorPeriodValue != null && (
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--text-3)', marginTop: '2px' }}>
+                    Prior: {kpi.priorPeriodValue}{kpi.unit === 'hours' ? 'h' : ''}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Top exceptions ─────────────────────────────────── */}
       {exc.topExceptions.length > 0 && (
