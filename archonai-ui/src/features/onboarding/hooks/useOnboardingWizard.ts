@@ -32,14 +32,30 @@ const MANUFACTURING_SYSTEMS: SystemConnection[] = [
   { id: 'wms', name: 'Warehouse Management', category: 'erp', description: 'Warehouse and inventory management', connected: false, configuring: false },
 ];
 
+const HEALTHCARE_SYSTEMS: SystemConnection[] = [
+  { id: 'epic', name: 'Epic (FHIR)', category: 'erp', description: 'Epic EHR via FHIR API', connected: false, configuring: false },
+  { id: 'cerner', name: 'Oracle Health / Cerner', category: 'erp', description: 'Cerner EHR integration', connected: false, configuring: false },
+  { id: 'athenahealth', name: 'Athenahealth', category: 'erp', description: 'Practice management and EHR', connected: false, configuring: false },
+  { id: 'clearinghouse', name: 'Clearinghouse', category: 'finance', description: 'Claims clearinghouse (Availity, Change Healthcare)', connected: false, configuring: false },
+  { id: 'rcm-platform', name: 'RCM Platform', category: 'finance', description: 'Revenue cycle management (Waystar, nThrive)', connected: false, configuring: false },
+  { id: 'nurse-scheduling', name: 'Staff Scheduling', category: 'erp', description: 'Nurse and staff scheduling system', connected: false, configuring: false },
+];
+
 export function getSystemsForIndustry(
   businessType: BusinessType | null,
   templateId: string | null,
 ): SystemConnection[] {
-  const industry = templateId === 'manufacturing' ? 'manufacturing' : businessType;
+  const industry = templateId === 'manufacturing' ? 'manufacturing'
+    : templateId === 'healthcare' ? 'healthcare'
+    : businessType;
   if (industry === 'manufacturing') {
     const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
     const additions = MANUFACTURING_SYSTEMS.filter(s => !existingIds.has(s.id));
+    return [...DEFAULT_SYSTEMS, ...additions];
+  }
+  if (industry === 'healthcare') {
+    const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
+    const additions = HEALTHCARE_SYSTEMS.filter(s => !existingIds.has(s.id));
     return [...DEFAULT_SYSTEMS, ...additions];
   }
   return DEFAULT_SYSTEMS;

@@ -832,6 +832,29 @@
 }
 
 /* ═══════════════════════════════════════════════════════
+   HIPAA Compliance Banner
+   ═══════════════════════════════════════════════════════ */
+
+.ob-hipaa-banner {
+  display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(59, 130, 246, 0.10));
+  border: 1px solid rgba(20, 184, 166, 0.35); border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.ob-hipaa-banner-icon {
+  flex-shrink: 0; color: #14B8A6; margin-top: 2px;
+}
+
+.ob-hipaa-banner-content {
+  font-size: 13px; line-height: 1.5; color: var(--text-2, #CBD5E1);
+}
+
+.ob-hipaa-banner-content strong {
+  color: #14B8A6;
+}
+
+/* ═══════════════════════════════════════════════════════
    Compliance Section
    ═══════════════════════════════════════════════════════ */
 

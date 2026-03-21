@@ -1,5 +1,6 @@
 import type { OnboardingState, DeploymentResult } from '../types';
 import { ShadowScenarios } from './ShadowScenarios';
+import { ComplianceBanner } from './ComplianceBanner';
 import { TEMPLATES } from '../templates';
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -101,6 +102,8 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
         </p>
       </div>
 
+      <ComplianceBanner businessType={state.businessType} />
+
       <div className="ob-review-grid">
         {/* Template */}
         {tpl && (
@@ -155,6 +158,8 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
         const complianceNotes = tpl?.complianceNotes
           ?? (state.businessType === 'manufacturing'
             ? TEMPLATES.find(t => t.id === 'manufacturing')?.complianceNotes
+            : state.businessType === 'healthcare'
+            ? TEMPLATES.find(t => t.id === 'healthcare')?.complianceNotes
             : undefined);
         if (!complianceNotes || complianceNotes.length === 0) return null;
         return (
@@ -180,13 +185,23 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
         const scenarios = tpl?.shadowScenarios
           ?? (state.businessType === 'manufacturing'
             ? TEMPLATES.find(t => t.id === 'manufacturing')?.shadowScenarios
+            : state.businessType === 'healthcare'
+            ? TEMPLATES.find(t => t.id === 'healthcare')?.shadowScenarios
             : undefined);
         if (!scenarios || scenarios.length === 0) return null;
         return <ShadowScenarios scenarios={scenarios} />;
       })()}
 
       {/* Trust tier defaults */}
-      {tpl?.trustTierDefaults && tpl.trustTierDefaults.length > 0 && (
+      {(() => {
+        const trustTierDefaults = tpl?.trustTierDefaults
+          ?? (state.businessType === 'manufacturing'
+            ? TEMPLATES.find(t => t.id === 'manufacturing')?.trustTierDefaults
+            : state.businessType === 'healthcare'
+            ? TEMPLATES.find(t => t.id === 'healthcare')?.trustTierDefaults
+            : undefined);
+        if (!trustTierDefaults || trustTierDefaults.length === 0) return null;
+        return (
         <div className="ob-trust-section">
           <span className="ob-group-label">Default Trust Tier Policies</span>
           <div className="ob-trust-table">
@@ -195,7 +210,7 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
               <span className="ob-trust-col-tier">Max Tier</span>
               <span className="ob-trust-col-rationale">Rationale</span>
             </div>
-            {tpl.trustTierDefaults.map(t => (
+            {trustTierDefaults.map(t => (
               <div key={t.actionScope} className="ob-trust-row">
                 <span className="ob-trust-col-scope">{t.actionScope}</span>
                 <span className="ob-trust-col-tier ob-trust-tier-badge">{t.maxTier}</span>
@@ -204,7 +219,8 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
             ))}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {state.deployError && (
         <div className="ob-error-banner">

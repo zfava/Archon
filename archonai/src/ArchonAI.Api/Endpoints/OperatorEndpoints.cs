@@ -669,6 +669,74 @@ public static class OperatorEndpoints
         // In production, these values would be aggregated from MES, ERP, QMS, and CMMS integrations.
         execCmd.MapGet("/industry-kpis", (string? industry) =>
         {
+            if (string.Equals(industry, "healthcare", StringComparison.OrdinalIgnoreCase))
+            {
+                var healthcareKpis = new
+                {
+                    Industry = "healthcare",
+                    GeneratedAtUtc = DateTimeOffset.UtcNow,
+                    Kpis = new object[]
+                    {
+                        new {
+                            Id = "days-in-ar",
+                            Label = "Days in A/R",
+                            Value = 38.2,
+                            Unit = "days",
+                            Trend = "down",
+                            TrendDelta = -3.1,
+                            Description = "Average days in accounts receivable across all payers"
+                        },
+                        new {
+                            Id = "clean-claim-rate",
+                            Label = "Clean Claim Rate",
+                            Value = 94.7,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 2.3,
+                            Description = "Percentage of claims accepted on first submission without errors"
+                        },
+                        new {
+                            Id = "patient-throughput",
+                            Label = "Patient Throughput",
+                            Value = 3.8,
+                            Unit = "patients/bed/day",
+                            Trend = "up",
+                            TrendDelta = 0.4,
+                            Description = "Average patients processed per bed per day across all departments"
+                        },
+                        new {
+                            Id = "auth-turnaround",
+                            Label = "Authorization Turnaround",
+                            Value = 18.5,
+                            Unit = "hours",
+                            Trend = "down",
+                            TrendDelta = -6.2,
+                            PriorPeriodValue = 24.7,
+                            Description = "Average hours from authorization submission to payer response"
+                        },
+                        new {
+                            Id = "denial-rate",
+                            Label = "Denial Rate",
+                            Value = 4.2,
+                            Unit = "percent",
+                            Trend = "down",
+                            TrendDelta = -2.8,
+                            Description = "Percentage of claims denied, with AI-driven reduction from coding error detection"
+                        },
+                        new {
+                            Id = "no-show-rate",
+                            Label = "No-Show Rate",
+                            Value = 6.1,
+                            Unit = "percent",
+                            Trend = "down",
+                            TrendDelta = -3.4,
+                            Description = "Appointment no-show percentage with AI-driven reminder intervention impact"
+                        },
+                    }
+                };
+                return Results.Ok<object?>(healthcareKpis);
+            }
+
             if (!string.Equals(industry, "manufacturing", StringComparison.OrdinalIgnoreCase))
                 return Results.Ok<object?>(null);
 
