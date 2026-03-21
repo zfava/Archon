@@ -164,6 +164,8 @@ export function ExecutiveCommandView() {
   const [energyKpisLoading, setEnergyKpisLoading] = useState(false);
   const [defenseKpis, setDefenseKpis] = useState<IndustryKpiResponse | null>(null);
   const [defenseKpisLoading, setDefenseKpisLoading] = useState(false);
+  const [proSvcKpis, setProSvcKpis] = useState<IndustryKpiResponse | null>(null);
+  const [proSvcKpisLoading, setProSvcKpisLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -232,6 +234,18 @@ export function ExecutiveCommandView() {
         setDefenseKpis(kpis);
       } catch { /* ignore */ }
       finally { setDefenseKpisLoading(false); }
+    })();
+  }, []);
+
+  useEffect(() => {
+    // Attempt to load professional services KPIs — hides section if null
+    setProSvcKpisLoading(true);
+    (async () => {
+      try {
+        const kpis = await api.getIndustryKpis('professional-services') as IndustryKpiResponse | null;
+        setProSvcKpis(kpis);
+      } catch { /* ignore */ }
+      finally { setProSvcKpisLoading(false); }
     })();
   }, []);
 
@@ -534,6 +548,57 @@ export function ExecutiveCommandView() {
                 {kpi.priorPeriodValue != null && (
                   <div style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--text-3)', marginTop: '2px' }}>
                     Prior: {kpi.priorPeriodValue}{kpi.unit === 'percent' ? '%' : ''}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Practice Intelligence (professional services) ─── */}
+      {proSvcKpisLoading && (
+        <div className="exec-section">
+          <div className="exec-section-header">Practice Intelligence</div>
+          <div className="exec-cal-grid">
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} className="exec-cal-item exec-shimmer" />
+            ))}
+          </div>
+        </div>
+      )}
+      {!proSvcKpisLoading && proSvcKpis && proSvcKpis.kpis && (
+        <div className="exec-section">
+          <div className="exec-section-header">Practice Intelligence</div>
+          <div className="exec-cal-grid">
+            {proSvcKpis.kpis.map(kpi => (
+              <div key={kpi.id} className={`exec-cal-item ${
+                kpi.trend === 'up' && kpi.unit === 'percent' ? 'exec-cal-good' :
+                kpi.trend === 'down' && kpi.unit === 'days' ? 'exec-cal-good' :
+                kpi.severity === 'high' || kpi.severity === 'critical' ? 'exec-cal-bad' :
+                ''
+              }`}>
+                <div className="exec-cal-val">
+                  {kpi.unit === 'percent' ? `${kpi.value}%` :
+                   kpi.unit === 'dollars' ? fmtCurrency(kpi.value) :
+                   kpi.unit === 'days' ? `${kpi.value}d` :
+                   kpi.unit === 'score' ? `${kpi.value}` :
+                   kpi.value}
+                  {kpi.trend && (
+                    <span className="exec-kpi-trend" style={{ fontSize: '12px', marginLeft: '4px' }}>
+                      {kpi.trend === 'up' ? '\u2191' : kpi.trend === 'down' ? '\u2193' : '\u2192'}
+                    </span>
+                  )}
+                </div>
+                <div className="exec-cal-lbl">{kpi.label}</div>
+                {kpi.trendDelta != null && (
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: kpi.trendDelta > 0 && kpi.unit === 'percent' ? '#34D399' : kpi.trendDelta < 0 && kpi.unit === 'days' ? '#34D399' : kpi.trendDelta > 0 ? '#34D399' : '#F87171', marginTop: '2px' }}>
+                    {kpi.trendDelta > 0 ? '+' : ''}{kpi.trendDelta}{kpi.unit === 'percent' ? 'pp' : kpi.unit === 'days' ? 'd' : ''}
+                  </div>
+                )}
+                {kpi.priorPeriodValue != null && (
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: 'var(--text-3)', marginTop: '2px' }}>
+                    Prior: {kpi.unit === 'dollars' ? fmtCurrency(kpi.priorPeriodValue) : kpi.priorPeriodValue}{kpi.unit === 'percent' ? '%' : kpi.unit === 'days' ? 'd' : ''}
                   </div>
                 )}
               </div>

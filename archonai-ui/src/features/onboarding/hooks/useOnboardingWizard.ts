@@ -68,6 +68,15 @@ const DEFENSE_SYSTEMS: SystemConnection[] = [
   { id: 'intel-platform', name: 'Intelligence Platform', category: 'erp', description: 'Intelligence analysis and dissemination', connected: false, configuring: false },
 ];
 
+const PROFESSIONAL_SERVICES_SYSTEMS: SystemConnection[] = [
+  { id: 'psa', name: 'PSA Platform', category: 'erp', description: 'Professional services automation (OpenAir, Kantata)', connected: false, configuring: false },
+  { id: 'project-mgmt', name: 'Project Management', category: 'productivity', description: 'Project management (Jira, Asana, Monday)', connected: false, configuring: false },
+  { id: 'time-tracking', name: 'Time Tracking', category: 'erp', description: 'Time and expense (Harvest, Toggl)', connected: false, configuring: false },
+  { id: 'proposal-mgmt', name: 'Proposal Management', category: 'productivity', description: 'RFP management (Loopio, Qvidian)', connected: false, configuring: false },
+  { id: 'docusign', name: 'DocuSign', category: 'productivity', description: 'Electronic signatures and contracts', connected: false, configuring: false },
+  { id: 'bi-platform', name: 'BI / Reporting', category: 'erp', description: 'Business intelligence (Power BI, Tableau)', connected: false, configuring: false },
+];
+
 export function getSystemsForIndustry(
   businessType: BusinessType | null,
   templateId: string | null,
@@ -77,6 +86,7 @@ export function getSystemsForIndustry(
     : templateId === 'financial-services' ? 'financial-services'
     : templateId === 'energy' ? 'energy'
     : templateId === 'defense' ? 'defense'
+    : templateId === 'professional-services' ? 'professional-services'
     : businessType;
   if (industry === 'manufacturing') {
     const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
@@ -101,6 +111,11 @@ export function getSystemsForIndustry(
   if (industry === 'defense') {
     const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
     const additions = DEFENSE_SYSTEMS.filter(s => !existingIds.has(s.id));
+    return [...DEFAULT_SYSTEMS, ...additions];
+  }
+  if (industry === 'professional-services') {
+    const existingIds = new Set(DEFAULT_SYSTEMS.map(s => s.id));
+    const additions = PROFESSIONAL_SERVICES_SYSTEMS.filter(s => !existingIds.has(s.id));
     return [...DEFAULT_SYSTEMS, ...additions];
   }
   return DEFAULT_SYSTEMS;

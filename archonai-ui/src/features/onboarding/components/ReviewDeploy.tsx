@@ -168,6 +168,8 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
             ? TEMPLATES.find(t => t.id === 'energy')?.complianceNotes
             : state.businessType === 'defense'
             ? TEMPLATES.find(t => t.id === 'defense')?.complianceNotes
+            : state.businessType === 'professional-services'
+            ? TEMPLATES.find(t => t.id === 'professional-services')?.complianceNotes
             : undefined);
         if (!complianceNotes || complianceNotes.length === 0) return null;
         return (
@@ -201,6 +203,8 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
             ? TEMPLATES.find(t => t.id === 'energy')?.shadowScenarios
             : state.businessType === 'defense'
             ? TEMPLATES.find(t => t.id === 'defense')?.shadowScenarios
+            : state.businessType === 'professional-services'
+            ? TEMPLATES.find(t => t.id === 'professional-services')?.shadowScenarios
             : undefined);
         if (!scenarios || scenarios.length === 0) return null;
         return <ShadowScenarios scenarios={scenarios} />;
@@ -219,6 +223,8 @@ export function ReviewDeploy({ state, deployResult, onDeploy }: Props) {
             ? TEMPLATES.find(t => t.id === 'energy')?.trustTierDefaults
             : state.businessType === 'defense'
             ? TEMPLATES.find(t => t.id === 'defense')?.trustTierDefaults
+            : state.businessType === 'professional-services'
+            ? TEMPLATES.find(t => t.id === 'professional-services')?.trustTierDefaults
             : undefined);
         if (!trustTierDefaults || trustTierDefaults.length === 0) return null;
         return (

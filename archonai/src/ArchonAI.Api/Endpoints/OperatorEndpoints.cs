@@ -940,6 +940,76 @@ public static class OperatorEndpoints
                 return Results.Ok<object?>(defenseKpis);
             }
 
+            if (string.Equals(industry, "professional-services", StringComparison.OrdinalIgnoreCase))
+            {
+                var proSvcKpis = new
+                {
+                    Industry = "professional-services",
+                    GeneratedAtUtc = DateTimeOffset.UtcNow,
+                    Kpis = new object[]
+                    {
+                        new {
+                            Id = "billable-utilization",
+                            Label = "Billable Utilization",
+                            Value = 78.4,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 3.2,
+                            PriorPeriodValue = 75.2,
+                            Description = "Percentage of available hours billed to client engagements"
+                        },
+                        new {
+                            Id = "avg-project-margin",
+                            Label = "Avg Project Margin vs Plan",
+                            Value = 2.3,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 1.8,
+                            Description = "Average project margin variance vs planned margin (positive = above plan)"
+                        },
+                        new {
+                            Id = "revenue-per-consultant",
+                            Label = "Revenue per Consultant",
+                            Value = 42500.0,
+                            Unit = "dollars",
+                            Trend = "up",
+                            TrendDelta = 3200,
+                            PriorPeriodValue = 39300.0,
+                            Description = "Average monthly revenue generated per billable consultant"
+                        },
+                        new {
+                            Id = "proposal-win-rate",
+                            Label = "Proposal Win Rate",
+                            Value = 34.2,
+                            Unit = "percent",
+                            Trend = "up",
+                            TrendDelta = 4.1,
+                            Description = "Percentage of submitted proposals resulting in awarded engagements"
+                        },
+                        new {
+                            Id = "avg-days-to-staff",
+                            Label = "Avg Days to Staff",
+                            Value = 4.8,
+                            Unit = "days",
+                            Trend = "down",
+                            TrendDelta = -2.1,
+                            PriorPeriodValue = 6.9,
+                            Description = "Average business days from staffing request to confirmed assignment"
+                        },
+                        new {
+                            Id = "client-satisfaction",
+                            Label = "Client Satisfaction Score",
+                            Value = 8.4,
+                            Unit = "score",
+                            Trend = "up",
+                            TrendDelta = 0.3,
+                            Description = "Composite client satisfaction score (NPS, surveys, engagement health)"
+                        },
+                    }
+                };
+                return Results.Ok<object?>(proSvcKpis);
+            }
+
             if (!string.Equals(industry, "manufacturing", StringComparison.OrdinalIgnoreCase))
                 return Results.Ok<object?>(null);
 
