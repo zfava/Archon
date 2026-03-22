@@ -10,12 +10,15 @@ export interface SystemConnection {
 }
 
 export type BusinessType =
+  | 'saas'
+  | 'ecommerce'
   | 'healthcare'
   | 'financial-services'
   | 'manufacturing'
   | 'professional-services'
   | 'energy'
-  | 'defense';
+  | 'defense'
+  | 'other';
 
 export interface BusinessTypeOption {
   id: BusinessType;

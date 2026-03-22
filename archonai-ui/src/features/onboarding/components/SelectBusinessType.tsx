@@ -2,40 +2,52 @@ import type { BusinessType, BusinessTypeOption } from '../types';
 
 const BUSINESS_TYPES: BusinessTypeOption[] = [
   {
+    id: 'saas',
+    label: 'SaaS',
+    description: 'Customer lifecycle management, subscription billing, product analytics, and support operations.',
+    suggestedAgents: ['Customer Success Agent', 'Churn Prediction Agent', 'Support Triage Agent'],
+  },
+  {
+    id: 'ecommerce',
+    label: 'E-Commerce',
+    description: 'Order management, inventory optimization, fulfillment coordination, and customer experience.',
+    suggestedAgents: ['Inventory Optimizer', 'Order Routing Agent', 'Customer Experience Agent'],
+  },
+  {
     id: 'healthcare',
     label: 'Healthcare',
     description: 'Patient care coordination, compliance, scheduling, and revenue cycle management.',
-    suggestedAgents: ['Compliance Agent', 'Scheduling Agent', 'Revenue Cycle Agent'],
+    suggestedAgents: ['Care Coordinator', 'Scheduling Optimizer', 'Revenue Cycle Agent'],
   },
   {
     id: 'financial-services',
     label: 'Financial Services',
     description: 'Risk management, regulatory compliance, portfolio operations, and client advisory.',
-    suggestedAgents: ['Risk Assessment Agent', 'Compliance Agent', 'Portfolio Ops Agent'],
+    suggestedAgents: ['Risk Monitor', 'Compliance Agent', 'Trade Operations Agent'],
   },
   {
     id: 'manufacturing',
     label: 'Manufacturing',
     description: 'Supply chain optimization, production scheduling, quality control, and logistics.',
-    suggestedAgents: ['Supply Chain Agent', 'Quality Control Agent', 'Logistics Agent'],
+    suggestedAgents: ['Production Scheduler', 'Quality Inspector', 'Supply Chain Monitor'],
   },
   {
     id: 'professional-services',
     label: 'Professional Services',
-    description: 'Project management, resource allocation, billing, and client engagement.',
-    suggestedAgents: ['Resource Planning Agent', 'Billing Agent', 'Client Engagement Agent'],
+    description: 'Resource optimization, project profitability tracking, and client engagement management.',
+    suggestedAgents: ['Resource Allocation Optimizer', 'Project Profitability Monitor', 'Client Engagement Coordinator'],
   },
   {
     id: 'energy',
     label: 'Energy & Utilities',
-    description: 'Asset management, grid operations, safety-critical systems, and regulatory compliance.',
-    suggestedAgents: ['Asset Monitor', 'Outage Coordinator', 'Compliance Tracker'],
+    description: 'Asset management, grid operations, regulatory compliance, and field workforce optimization.',
+    suggestedAgents: ['Asset Performance Agent', 'Outage Management Agent', 'Regulatory Compliance Agent'],
   },
   {
     id: 'defense',
     label: 'Defense & Government',
-    description: 'Mission readiness, supply chain visibility, personnel management, and secure operations.',
-    suggestedAgents: ['Readiness Coordinator', 'Supply Chain Monitor', 'Cybersecurity Monitor'],
+    description: 'Mission readiness, logistics optimization, personnel management, and compliance tracking.',
+    suggestedAgents: ['Readiness Assessment Agent', 'Logistics Optimizer', 'Compliance Monitor'],
   },
 ];
 
