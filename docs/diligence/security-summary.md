@@ -105,7 +105,7 @@ This document maps ArchonAI's security posture to automated evidence. Every cont
 
 Tenant isolation uses `AsyncLocal<string?>` for zero-allocation context propagation. Each request establishes a tenant scope that flows through the entire async call chain. Scope disposal restores the previous tenant context. Nested scopes are supported.
 
-**Note:** All 31 stores are PostgreSQL-backed when `ArchonAIPersistence:ConnectionString` is configured. Tenant isolation is enforced at the application layer via AsyncLocal scoping with per-tenant query filtering.
+**Note:** All 33 PostgreSQL-backed stores are active when connection strings are configured. Tenant isolation is enforced at the application layer via AsyncLocal scoping with per-tenant query filtering.
 
 ---
 
@@ -186,7 +186,7 @@ Tenant isolation uses `AsyncLocal<string?>` for zero-allocation context propagat
 | Category-based statistics | `AuditLogIntegrationTests.Status_TracksCategoryCounts` | Verified |
 | Query filtering | `AuditLogIntegrationTests.Query*` (category, subject, time range) | Verified |
 
-**Note:** Audit entries are persisted in `PostgresAuditLogStore` when PostgreSQL is configured. SHA-256 hash chain provides tamper detection. Part of the 31 PostgreSQL-backed stores.
+**Note:** Audit entries are persisted in `PostgresAuditLogStore` when PostgreSQL is configured. SHA-256 hash chain provides tamper detection. Part of the 33 PostgreSQL-backed stores.
 
 ---
 
@@ -199,7 +199,7 @@ The following areas were previously listed as unverified. All are now implemente
 | **SSO/OIDC** | Full OIDC federation: JWKS signature verification, nonce validation, JIT provisioning, per-tenant IdP config. | `OidcTokenExchangeService.cs`, 3 test classes including `OidcCallbackSecurityTests` (12 scenarios). |
 | **MFA** | TOTP + WebAuthn (FIDO2): setup, verify, disable, recovery codes (PBKDF2), org-level policy, admin reset. | `TotpService.cs`, `WebAuthnService.cs`, 6 test classes. |
 | **Secret management** | `ISecretProvider` chain: HashiCorp Vault → AWS Secrets Manager → Azure Key Vault → File → Environment. K8s Secrets via `secretKeyRef`. | `HashiCorpVaultSecretProvider.cs`, `AwsSecretsManagerSecretProvider.cs`, `AzureKeyVaultSecretProvider.cs`, `ChainedSecretProvider.cs`. |
-| **Database persistence** | 31 PostgreSQL-backed stores (22 domain + 9 identity) via `ReplaceWithFactory`. 18 multi-instance Testcontainers tests. | `DependencyInjection.cs`, `PostgresAgentRegistryStore.cs`, etc. |
+| **Database persistence** | 33 PostgreSQL-backed stores (31 via central persistence layer + 2 via domain-specific modules). 18 multi-instance Testcontainers tests. | `DependencyInjection.cs`, `PostgresAgentRegistryStore.cs`, `PostgresTaskTelemetryStore.cs`, `PostgresKnowledgeGraphStore.cs`, etc. |
 | **Database connection encryption** | `PostgresConnectionStringBuilder.Harden()` enforces `SslMode=Require` on all connections. | `PostgresConnectionStringBuilder.cs`. |
 | **Container security scanning** | Trivy in CI/CD pipeline. SARIF output, fails on CRITICAL/HIGH. | `.github/workflows/ci-cd.yml`. |
 | **Dependency vulnerability scanning** | `dotnet list package --vulnerable --include-transitive` in CI. Separate dependency-review workflow. | `.github/workflows/ci-cd.yml`, `.github/workflows/dependency-review.yml`. |

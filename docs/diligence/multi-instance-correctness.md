@@ -6,7 +6,7 @@ This document provides evidence that ArchonAI's Agent Registry and Control Plane
 
 ## Executive Summary
 
-ArchonAI uses PostgreSQL as its shared persistence layer for operational state. The Agent Registry, Control Plane, Agent Capability Registry, Control Plane operational state (pause/alerts/events), and all identity stores — previously in-memory, file-backed, or volatile — now use the same PostgreSQL persistence pattern as the other domain stores in the system. This eliminates all identified multi-instance correctness gaps. The system now has 31 PostgreSQL-backed stores (22 domain + 9 identity) with 31 `ReplaceWithFactory` registrations.
+ArchonAI uses PostgreSQL as its shared persistence layer for operational state. The Agent Registry, Control Plane, Agent Capability Registry, Control Plane operational state (pause/alerts/events), and all identity stores — previously in-memory, file-backed, or volatile — now use the same PostgreSQL persistence pattern as the other domain stores in the system. This eliminates all identified multi-instance correctness gaps. The system now has 33 PostgreSQL-backed stores (31 via central persistence layer + 2 via domain-specific modules).
 
 ## Problem Statement
 
@@ -50,7 +50,7 @@ IControlPlaneAlertStore     → PostgresControlPlaneAlertStore (when ConnectionS
 | `IControlPlaneAlertStore.cs` | New interface extracting durable state from `ControlPlaneObservabilityService` |
 | `InMemoryControlPlaneAlertStore.cs` | In-memory fallback for `IControlPlaneAlertStore` |
 | `ControlPlaneObservabilityService.cs` | Refactored to delegate all state to `IControlPlaneAlertStore` |
-| `DependencyInjection.cs` (Persistence) | Added `ReplaceWithFactory` calls for both new interfaces (19 → 31 stores, including 9 identity stores added in identity hardening pass) |
+| `DependencyInjection.cs` (Persistence) | Added `ReplaceWithFactory` calls for both new interfaces (19 → 31 central stores, including 9 identity stores added in identity hardening pass; 33 total with domain-specific modules) |
 | `DependencyInjection.cs` (ControlPlane) | Added `IControlPlaneAlertStore` registration |
 
 ### Concurrency Safety
@@ -107,10 +107,10 @@ When `ArchonAIPersistence:ConnectionString` is not set:
 
 ### For Technical Diligence
 
-1. **Inspect DI registration**: Verify all 31 `ReplaceWithFactory` calls (22 domain + 9 identity) in `DependencyInjection.cs`
+1. **Inspect DI registration**: Verify all 31 `ReplaceWithFactory` calls (22 domain + 9 identity) in `ArchonAI.Persistence/DependencyInjection.cs`, plus 2 domain-specific stores in `ArchonAI.Telemetry` and `ArchonAI.Knowledge` (33 total)
 2. **Run integration tests**: `dotnet test --filter "Category=Integration&Database=PostgreSQL"` — all must pass
-3. **Verify migration scripts**: Check migrations 001–025 exist and are idempotent
-4. **Confirm store count**: `DependencyInjection.cs` should register 31 PostgreSQL stores with 31 `ReplaceWithFactory` calls
+3. **Verify migration scripts**: Check migrations 001–026 exist and are idempotent
+4. **Confirm store count**: 33 PostgreSQL-backed stores total — 31 via `ReplaceWithFactory` in `ArchonAI.Persistence/DependencyInjection.cs` (22 domain + 9 identity) plus 2 via domain-specific modules (`PostgresTaskTelemetryStore`, `PostgresKnowledgeGraphStore`)
 
 ### For Operators
 

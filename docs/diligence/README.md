@@ -95,7 +95,7 @@ The following were previously listed as "Not Implemented" and are now source-com
 - **SSO/OIDC** — Full federation with JWKS verification, nonce validation, JIT provisioning, per-tenant IdP config. Tested with mock IdPs.
 - **MFA** — TOTP + WebAuthn (FIDO2) with enrollment, verification, recovery codes, org-level policy. 6 test classes.
 - **Secret vault integration** — Three vault-backed `ISecretProvider` implementations: HashiCorp Vault (AppRole), AWS Secrets Manager, Azure Key Vault. Full chain with graceful degradation.
-- **Database persistence** — 31 PostgreSQL-backed stores (22 domain + 9 identity) via `ReplaceWithFactory`. 25 numbered migration scripts with complete rollback coverage.
+- **Database persistence** — 33 PostgreSQL-backed stores (31 via central persistence layer + 2 via domain-specific modules). 26 numbered migration scripts with complete rollback coverage.
 - **Container security scanning** — Trivy in CI/CD pipeline.
 - **Dependency vulnerability scanning** — `dotnet list package --vulnerable` in CI.
 - **TOTP secret encryption** — `DedicatedTotpSecretEncryptor` with dedicated key, HKDF-derived AES-256-CBC + HMAC-SHA256, health-gated production enforcement.

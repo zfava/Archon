@@ -144,9 +144,9 @@ Without API keys, all 4 model providers return hard errors (`IsSuccess: false`) 
 
 | Capability | Evidence |
 |---|---|
-| PostgreSQL-backed stores (31: 22 domain + 9 identity) | RBAC, Audit, Governance, Trust Tiers, Decisions, Financial, Scenarios, Exceptions, Outcomes, Operational Twin, Enterprise Memory, Monitoring, Hero Workflows, Policy Simulation, Proof Analytics, Action Safety, Inspection, Agent Registry, Control Plane, Agent Capability Registry, Control Plane Alerts |
-| DbUp migration framework | 25 numbered SQL scripts (001–025), journal table, transaction-per-script, health check |
-| Rollback scripts | Complete `Down/` directory with rollback for all 25 migrations (001–025) |
+| 33 PostgreSQL-backed stores (31 via central persistence layer + 2 via domain-specific modules) | 31 central stores (22 domain + 9 identity): RBAC, Audit, Governance, Trust Tiers, Decisions, Financial, Scenarios, Exceptions, Outcomes, Operational Twin, Enterprise Memory, Monitoring, Hero Workflows, Policy Simulation, Proof Analytics, Action Safety, Inspection, Agent Registry, Control Plane, Agent Capability Registry, Control Plane Alerts. Plus 2 domain-specific: TaskTelemetry, KnowledgeGraph. |
+| DbUp migration framework | 26 numbered SQL scripts (001–026), journal table, transaction-per-script, health check |
+| Rollback scripts | Complete `Down/` directory with rollback for all 26 migrations (001–026) |
 | Config-driven factory pattern | `DependencyInjection.cs` — PostgreSQL when connection string configured, in-memory fallback otherwise |
 | Memory store with pgvector | `PostgresMemoryRecordRepository` with semantic search via vector embeddings |
 | Deterministic state machine (8 states) | 13 integration tests including invalid transition rejection |
@@ -276,7 +276,7 @@ Documentation covers enterprise proof, security verification, diligence packagin
 | Feature | Status |
 |---|---|
 | `docker compose up --build` | 7 services start with health checks |
-| Enterprise test suite | 979 unit tests across 10 assemblies, all pass (< 8 seconds, zero dependencies) |
+| Enterprise test suite | 1,278 tests across 12 assemblies, all pass (< 8 seconds, zero dependencies) |
 | Demo seed script | Creates demo tenant with admin + operator users |
 | Demo reset script | Full teardown → rebuild → re-seed |
 | API health endpoint | Returns structured health check results |
@@ -297,14 +297,14 @@ Documentation covers enterprise proof, security verification, diligence packagin
 | Category | Rating | Key Change |
 |---|---|---|
 | Authorization & Governance | **Enterprise-Ready** | No change |
-| Persistence & Durability | **Enterprise-Ready** | Upgraded — 31 PostgreSQL stores (22 domain + 9 identity), DbUp migrations |
+| Persistence & Durability | **Enterprise-Ready** | Upgraded — 33 PostgreSQL-backed stores (31 via central persistence layer + 2 via domain-specific modules), DbUp migrations |
 | Identity & Tenancy | **Enterprise-Ready** | Upgraded — OIDC federation, MFA (TOTP + WebAuthn), GDPR |
 | Documentation | **Enterprise-Ready** | No change |
 | Security | **Production-Capable** | Upgraded — MFA, OIDC, container scanning, TLS, secret provider chain |
 | Connector Reliability | **Production-Capable** | Upgraded — circuit breakers, real HTTP integrations, shadow metrics |
 | Observability | **Production-Capable** | Upgraded — worker health, Grafana dashboards, alert rules |
 | Compliance | **Production-Capable** | New — retention policies, GDPR rights, audit integrity |
-| Demo Reliability | **Production-Capable** | Updated test count (979) |
+| Demo Reliability | **Production-Capable** | Updated test count (1,278) |
 | AI Execution | **Config-Dependent** | Updated — code complete, returns hard errors without keys (not echo stubs) |
 
-**Overall: Release candidate for enterprise evaluation. Four categories Enterprise-Ready (including Persistence with 31 PostgreSQL-backed stores and proven multi-instance correctness). AI execution is config-dependent (requires API keys) — code is complete but returns hard errors without configuration. See `/docs/diligence/runtime-truth-summary.md` for detailed evidence tiers.**
+**Overall: Release candidate for enterprise evaluation. Four categories Enterprise-Ready (including Persistence with 33 PostgreSQL-backed stores and proven multi-instance correctness). AI execution is config-dependent (requires API keys) — code is complete but returns hard errors without configuration. See `/docs/diligence/runtime-truth-summary.md` for detailed evidence tiers.**

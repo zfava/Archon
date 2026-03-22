@@ -58,8 +58,8 @@ The following capabilities exist in the platform but are **not mentioned** in an
 | E7 | **OIDC federation** with JWKS, nonce, JIT provisioning | SSO with mock IdP testing. 3 test classes. |
 | E8 | **TOTP + WebAuthn MFA** with org-level policy | Full MFA implementation with recovery codes. 6 test classes. |
 | E9 | **Three vault providers** (HashiCorp, AWS SM, Azure KV) with chained fallback | `ChainedSecretProvider` with graceful degradation. 20 tests. |
-| E10 | **31 PostgreSQL-backed stores** with multi-instance correctness | 22 domain + 9 identity stores. 18 Testcontainers integration tests. |
-| E11 | **25 database migrations** with complete rollback scripts | DbUp framework, journal table, transaction-per-script. |
+| E10 | **33 PostgreSQL-backed stores** with multi-instance correctness | 31 central stores (22 domain + 9 identity) plus 2 domain-specific stores (TaskTelemetry, KnowledgeGraph). 18 Testcontainers integration tests. |
+| E11 | **26 database migrations** with complete rollback scripts | DbUp framework, journal table, transaction-per-script. |
 | E12 | **12 k6 load test scenarios** with automation script | auth-flow, api-crud, gateway-throughput, multi-tenant-isolation, etc. |
 | E13 | **GDPR data subject rights** (Art. 15/20 export, Art. 17 erasure) | `DataSubjectService` with anonymization and erasure certificates. |
 | E14 | **10 Grafana dashboards** + Prometheus alert rules | Platform overview, API performance, agent ops, connector health, etc. |

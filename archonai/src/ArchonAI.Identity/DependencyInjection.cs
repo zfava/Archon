@@ -57,9 +57,6 @@ public static class DependencyInjection
             .BindConfiguration(OidcOptions.SectionName);
         services.AddSingleton<OidcTokenExchangeService>();
 
-        // SAML stub (not yet implemented — interface wired for future extension)
-        services.AddSingleton<ISamlAuthenticationHandler, NotImplementedSamlHandler>();
-
         // GDPR data subject rights (Articles 15, 17, 20)
         services.AddSingleton<IDataSubjectService, DataSubjectService>();
 

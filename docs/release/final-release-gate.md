@@ -11,8 +11,8 @@
 | # | Check | Status | Evidence | Owner |
 |---|---|---|---|---|
 | 1.1 | `dotnet build` — 0 errors, 0 warnings | **Pass** | `dotnet build ArchonAI.slnx -warnaserror` — 0 errors, 0 warnings. `PRODUCTION_READINESS.md` confirms. | Build team |
-| 1.2 | All unit tests pass | **Pass** | 979 unit tests across 10 assemblies, 0 failures. `runtime-truth-summary.md` | QA team |
-| 1.3 | All enterprise tests pass | **Pass** | 566 enterprise tests, 0 failures (96 DB-dependent skipped without Docker). `release-candidate-checklist.md` | QA team |
+| 1.2 | All unit tests pass | **Pass** | 1,278 tests across 12 assemblies, 0 failures. `runtime-truth-summary.md` | QA team |
+| 1.3 | All enterprise tests pass | **Pass** | 685 enterprise tests, 0 failures (96 DB-dependent skipped without Docker). `release-candidate-checklist.md` | QA team |
 | 1.4 | Frontend builds — 0 errors | **Pass** | 0 TypeScript errors, 0 lint errors, 0 build errors. 11 vitest contract tests pass. `PRODUCTION_READINESS.md` | Frontend team |
 | 1.5 | No TODO/FIXME in source | **Pass** | `grep -rn` search — 0 found. `release-candidate-checklist.md` check #6 | Build team |
 | 1.6 | No `throw new NotImplementedException` in source | **Pass** | `grep -rn` search — 0 found. `release-candidate-checklist.md` check #7 | Build team |
@@ -54,9 +54,9 @@
 
 | # | Check | Status | Evidence | Owner |
 |---|---|---|---|---|
-| 4.1 | All 31 stores PostgreSQL-backed | **Pass** | 22 domain + 9 identity stores via `ReplaceWithFactory` in `DependencyInjection.cs`. Config-driven: PostgreSQL when connection string set, in-memory fallback otherwise. | Data team |
+| 4.1 | All 33 stores PostgreSQL-backed | **Pass** | 33 PostgreSQL-backed stores (31 via central persistence layer + 2 via domain-specific modules). 31 central stores (22 domain + 9 identity) via `ReplaceWithFactory` in `DependencyInjection.cs`, plus `PostgresTaskTelemetryStore` and `PostgresKnowledgeGraphStore`. Config-driven: PostgreSQL when connection string set, in-memory fallback otherwise. | Data team |
 | 4.2 | Multi-instance tests passing | **Pass** | 18 Testcontainers integration tests verify cross-instance reads, upsert idempotency, cascade deletes, pause-state sharing. `multi-instance-correctness.md` | Data team |
-| 4.3 | Migrations up/down parity (25/25) | **Pass** | 25 up scripts (001–025) in `Scripts/`, 25 down scripts in `Down/`. DbUp journal table. `MigrationRunner.cs`, `MigrationHealthCheck.cs` | Data team |
+| 4.3 | Migrations up/down parity (26/26) | **Pass** | 26 up scripts (001–026) in `Scripts/`, 26 down scripts in `Down/`. DbUp journal table. `MigrationRunner.cs`, `MigrationHealthCheck.cs` | Data team |
 | 4.4 | Retention job configured | **Pass** | `RetentionHostedService` runs daily at 02:00 UTC. Configurable per data type: audit 730d, traces 90d, telemetry 90d, session memory 240h. `retention_log` table tracks sweeps. | Data team |
 | 4.5 | Production startup validation | **Pass** | App shuts down immediately in Production/Staging if `ArchonAIPersistence:ConnectionString` not set. `IdentityPersistenceHealthCheck` reports Unhealthy without PostgreSQL. | Data team |
 
@@ -84,7 +84,7 @@
 | 6.3 | Load baselines captured | **Blocked** | 12 k6 scenarios with `run-baselines.sh` ready. AWAITING execution against staging. | QA team |
 | 6.4 | Live IdP validated | **Blocked** | OIDC federation implemented and tested with mock IdPs. AWAITING validation against Okta/Entra/Auth0 with real tenant credentials. | Identity team |
 | 6.5 | Connector sandbox accounts provisioned | **Blocked** | 10 connectors (6 specialized + 4 generic) with real HTTP clients. AWAITING sandbox credentials for live API validation. | Connector team |
-| 6.6 | PostgreSQL 16+ with pgvector available | **Blocked** | Required for all 31 stores and semantic search. | Operator |
+| 6.6 | PostgreSQL 16+ with pgvector available | **Blocked** | Required for all 33 stores and semantic search. | Operator |
 | 6.7 | NATS JetStream available | **Blocked** | Required for inter-service communication. | Operator |
 | 6.8 | TLS certificate on PostgreSQL server | **Blocked** | Required for `SslMode=Require` enforcement. | Operator |
 

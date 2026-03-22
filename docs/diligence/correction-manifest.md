@@ -21,7 +21,7 @@
 
 ### STALE CLAIM 2 — "Rollback scripts missing for migrations 020-025"
 
-**Correct reality:** All 25 migrations (001–025) have corresponding Down/ scripts. The rc-validate.yml Stage 5 migration audit verifies this on every RC run.
+**Correct reality:** All 26 migrations (001–026) have corresponding Down/ scripts. The rc-validate.yml Stage 5 migration audit verifies this on every RC run.
 
 **Files corrected:**
 | File | What Was Wrong | What Was Changed |

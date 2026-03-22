@@ -29,7 +29,7 @@ For this analysis, governance means **enforceable, runtime controls** over agent
 
 ### ArchonAI Assessment Basis
 
-ArchonAI claims are verified by direct source code inspection and test execution against the codebase (566 enterprise tests, 0 failures). Every ArchonAI claim includes a file path or test name.
+ArchonAI claims are verified by direct source code inspection and test execution against the codebase (685 enterprise tests, 0 failures). Every ArchonAI claim includes a file path or test name.
 
 ---
 

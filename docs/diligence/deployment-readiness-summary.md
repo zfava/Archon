@@ -111,7 +111,7 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 |---|---|---|
 | Secret scanning | **Source-Complete** | Regex-based scan for hardcoded secrets |
 | Build (zero warnings) | **Runtime-Proven** | `dotnet build -warnaserror` — 0 warnings |
-| Unit tests | **Runtime-Proven** | 979 tests, 0 failures |
+| Unit tests | **Runtime-Proven** | 1,278 tests, 0 failures |
 | Integration tests | **Runtime-Proven** | Testcontainers with Docker for PostgreSQL |
 | Container scanning | **Source-Complete** | Trivy — SARIF output, fail on CRITICAL/HIGH |
 | Dependency scanning | **Source-Complete** | `dotnet list package --vulnerable --include-transitive` |
@@ -124,9 +124,9 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 
 | Aspect | Status | Detail |
 |---|---|---|
-| Migration framework | **Runtime-Proven** | DbUp with 25 numbered SQL scripts (001–025), journal table `schemaversions` |
+| Migration framework | **Runtime-Proven** | DbUp with 26 numbered SQL scripts (001–026), journal table `schemaversions` |
 | Migration health check | **Source-Complete** | `MigrationHealthCheck` reports pending migrations |
-| Rollback scripts | **Source-Complete** | `Down/` directory with rollback for all 25 migrations (001–025) |
+| Rollback scripts | **Source-Complete** | `Down/` directory with rollback for all 26 migrations (001–026) |
 | Schema evolution | **Not Proven** | No real schema upgrade cycle has been executed in production |
 | pgvector extension | **Source-Complete** | Script 001 creates extension. Required for memory/semantic search. |
 
@@ -137,7 +137,7 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 | Component | Horizontal Scaling | Constraint |
 |---|---|---|
 | Gateway | Safe (stateless proxy) | None |
-| API | Safe (31 PostgreSQL-backed stores) | None |
+| API | Safe (33 PostgreSQL-backed stores) | None |
 | Runtime Workers | Safe (shared task queue) | Durable workflow file persistence is per-instance |
 | Agents Workers | Safe (shared capability registry) | None |
 | Scheduler | **Not scalable** | Must be single-replica. Coordinates globally. |
@@ -158,7 +158,7 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 | 6 | Connector credentials configured | Connector functionality |
 | 7 | OIDC IdP configured per tenant | SSO login |
 | 8 | TLS certificate on PostgreSQL server | DB connection encryption |
-| 9 | Migrations 001–025 applied | First deployment |
+| 9 | Migrations 001–026 applied | First deployment |
 
 ---
 
@@ -166,7 +166,7 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 
 | Claim | Single-Instance | Multi-Instance (2+ API/Worker) | Evidence |
 |---|---|---|---|
-| State survives restart | **Yes** (with PostgreSQL) | **Yes** | 31 PostgreSQL stores (22 domain + 9 identity), 18 multi-instance tests |
+| State survives restart | **Yes** (with PostgreSQL) | **Yes** | 33 PostgreSQL-backed stores (31 via central persistence layer + 2 via domain-specific modules), 18 multi-instance tests |
 | Agent selection is consistent | **Yes** | **Yes** | PostgreSQL-backed capability registry with SQL P95 |
 | Pause/resume is cluster-wide | N/A | **Yes** | Single-row pattern, cross-instance tests |
 | Workflow step persistence | **Yes** | **Per-instance only** | File-backed `DurableWorkflowExecutionEngine` |

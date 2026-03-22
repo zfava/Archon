@@ -12,7 +12,7 @@ Go/no-go checklist for ArchonAI enterprise release candidate. Each item is eithe
 |---|---|---|---|
 | 1 | Solution builds with 0 errors | `dotnet build ArchonAI.slnx` | **Pass** — 0 errors |
 | 2 | Solution builds with 0 warnings | `dotnet build ArchonAI.slnx --verbosity quiet` | **Pass** — 0 warnings |
-| 3 | All enterprise tests pass (excl. DB-dependent) | `dotnet test tests/ArchonAI.Enterprise.Tests/` | **Pass** — 566/566 (96 DB-dependent skipped) |
+| 3 | All enterprise tests pass (excl. DB-dependent) | `dotnet test tests/ArchonAI.Enterprise.Tests/` | **Pass** — 685/685 (96 DB-dependent skipped) |
 | 4 | Tests run in < 5 seconds | Timer | **Pass** — ~2 seconds |
 | 5 | Tests have zero external dependencies | Code inspection | **Pass** — no DB, no network, no API keys |
 | 6 | No TODO/FIXME/HACK markers in source | `grep -rn` search | **Pass** — 0 found |
@@ -74,7 +74,7 @@ Go/no-go checklist for ArchonAI enterprise release candidate. Each item is eithe
 | 34 | SHA-256 hash chain | `AuditLogIntegrationTests.RecordAsync_LinkedHashChain_PreviousEntryIdSet` | **Pass** |
 | 35 | Integrity verification | `AuditLogIntegrationTests.VerifyIntegrity_PassesForValidChain` | **Pass** |
 | 36 | Category-based querying | `AuditLogIntegrationTests.QueryByCategory_FiltersCorrectly` | **Pass** |
-| 37 | Persistent audit storage | Code + tests | **Pass** — `PostgresAuditLogStore` with SHA-256 hash chain. Part of 31 PostgreSQL-backed stores (22 domain + 9 identity). |
+| 37 | Persistent audit storage | Code + tests | **Pass** — `PostgresAuditLogStore` with SHA-256 hash chain. Part of 33 PostgreSQL-backed stores (31 via central persistence layer + 2 via domain-specific modules). |
 
 ---
 
@@ -106,7 +106,7 @@ Go/no-go checklist for ArchonAI enterprise release candidate. Each item is eithe
 
 | # | Check | Method | Status |
 |---|---|---|---|
-| 48 | Enterprise proof pack complete | File inspection | **Pass** — 57 claims, 566+ tests |
+| 48 | Enterprise proof pack complete | File inspection | **Pass** — 57 claims, 685+ tests |
 | 49 | Security verification complete | File inspection | **Pass** — all controls mapped |
 | 50 | Diligence pack complete | File inspection | **Pass** — 4 docs + 2 scripts |
 | 51 | Release artifacts complete | File inspection | **Pass** — 3 docs |
@@ -150,9 +150,9 @@ Go/no-go checklist for ArchonAI enterprise release candidate. Each item is eithe
 
 - Authorization and governance
 - Workflow engine
-- Build quality and test coverage (831+ unit tests across 10 assemblies, 0 failures)
+- Build quality and test coverage (1,278 tests across 12 assemblies, 0 failures)
 - Documentation completeness
-- Persistence and durability (31 PostgreSQL stores, multi-instance proven)
+- Persistence and durability (33 PostgreSQL stores, multi-instance proven)
 - Identity and tenancy (JWT, OIDC, TOTP MFA, WebAuthn, multi-tenant isolation)
 
 ### Production-Capable (Yellow Light — proceed with documented caveats)
