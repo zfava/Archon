@@ -39,6 +39,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ARCHONAI_JWT_SIGNING_KEY: ${ARCHONAI_JWT_SIGNING_KEY:?Set ARCHONAI_JWT_SIGNING_KEY in .env file (min 32 chars)}
+      ARCHONAI_TOTP_ENCRYPTION_KEY: ${ARCHONAI_TOTP_ENCRYPTION_KEY:-}
       Security__Jwt__Issuer: ArchonAI
       Security__Jwt__Audience: ArchonAI.Api
       MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}

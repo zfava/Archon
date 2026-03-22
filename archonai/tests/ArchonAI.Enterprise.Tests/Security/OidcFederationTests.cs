@@ -359,19 +359,21 @@ public sealed class OidcFederationTests
     // ── SAML Stub Tests ──────────────────────────────────────────────────
 
     [Fact]
-    public async Task SamlStub_Authenticate_ThrowsNotImplemented()
+    public async Task SamlStub_Authenticate_ReturnsFalse()
     {
         ISamlAuthenticationHandler handler = new NotImplementedSamlHandler();
-        await Assert.ThrowsAsync<NotImplementedException>(
-            () => handler.AuthenticateAsync("saml-response"));
+        var result = await handler.AuthenticateAsync("saml-response");
+        Assert.False(result.IsAuthenticated);
+        Assert.Null(result.Subject);
+        Assert.Null(result.Email);
     }
 
     [Fact]
-    public async Task SamlStub_GenerateAuthnRequest_ThrowsNotImplemented()
+    public async Task SamlStub_GenerateAuthnRequest_ReturnsUseOidcMessage()
     {
         ISamlAuthenticationHandler handler = new NotImplementedSamlHandler();
-        await Assert.ThrowsAsync<NotImplementedException>(
-            () => handler.GenerateAuthnRequestAsync("entity-id", "https://callback.com"));
+        var result = await handler.GenerateAuthnRequestAsync("entity-id", "https://callback.com");
+        Assert.Equal("SAML 2.0 is not yet supported. Use OIDC federation instead.", result);
     }
 
     // ── Multi-Provider Resolution Tests ──────────────────────────────────

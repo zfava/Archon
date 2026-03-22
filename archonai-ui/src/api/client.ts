@@ -364,30 +364,6 @@ export const api = {
       signal,
     }),
 
-  // ── Explanations ─────────────────────────────────────
-
-  explainStrategy: (body: {
-    goalId: string;
-    goalTitle: string;
-    candidateStrategies: string[];
-  }, signal?: AbortSignal) =>
-    request('/explanations/strategy', { method: 'POST', body: JSON.stringify(body), signal }),
-
-  explainAgent: (body: {
-    requiredCapability: string;
-    taskType: string | null;
-  }, signal?: AbortSignal) =>
-    request('/explanations/agent', { method: 'POST', body: JSON.stringify(body), signal }),
-
-  explainDecision: (body: {
-    goalId: string;
-    goalTitle: string;
-    candidateStrategies: string[];
-    requiredCapability: string;
-    taskType: string | null;
-  }, signal?: AbortSignal) =>
-    request('/explanations/decision', { method: 'POST', body: JSON.stringify(body), signal }),
-
   // ── Human Overrides ──────────────────────────────────
 
   pauseWorkflow: (body: { workflowId: string; reason: string; performedBy: string }, signal?: AbortSignal) =>
