@@ -150,7 +150,7 @@ Go/no-go checklist for ArchonAI enterprise release candidate. Each item is eithe
 
 - Authorization and governance
 - Workflow engine
-- Build quality and test coverage (1,278 tests across 12 assemblies, 0 failures)
+- Build quality and test coverage (1,285 tests across 12 assemblies, 0 failures)
 - Documentation completeness
 - Persistence and durability (33 PostgreSQL stores, multi-instance proven)
 - Identity and tenancy (JWT, OIDC, TOTP MFA, WebAuthn, multi-tenant isolation)

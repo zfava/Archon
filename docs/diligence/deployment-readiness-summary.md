@@ -111,7 +111,7 @@ All worker health endpoints are implemented in `WorkerHealthService.cs` and regi
 |---|---|---|
 | Secret scanning | **Source-Complete** | Regex-based scan for hardcoded secrets |
 | Build (zero warnings) | **Runtime-Proven** | `dotnet build -warnaserror` — 0 warnings |
-| Unit tests | **Runtime-Proven** | 1,278 tests, 0 failures |
+| Unit tests | **Runtime-Proven** | 1,285 tests, 0 failures |
 | Integration tests | **Runtime-Proven** | Testcontainers with Docker for PostgreSQL |
 | Container scanning | **Source-Complete** | Trivy — SARIF output, fail on CRITICAL/HIGH |
 | Dependency scanning | **Source-Complete** | `dotnet list package --vulnerable --include-transitive` |

@@ -276,7 +276,7 @@ Documentation covers enterprise proof, security verification, diligence packagin
 | Feature | Status |
 |---|---|
 | `docker compose up --build` | 7 services start with health checks |
-| Enterprise test suite | 1,278 tests across 12 assemblies, all pass (< 8 seconds, zero dependencies) |
+| Enterprise test suite | 1,285 tests across 12 assemblies, all pass (< 8 seconds, zero dependencies) |
 | Demo seed script | Creates demo tenant with admin + operator users |
 | Demo reset script | Full teardown → rebuild → re-seed |
 | API health endpoint | Returns structured health check results |
@@ -304,7 +304,7 @@ Documentation covers enterprise proof, security verification, diligence packagin
 | Connector Reliability | **Production-Capable** | Upgraded — circuit breakers, real HTTP integrations, shadow metrics |
 | Observability | **Production-Capable** | Upgraded — worker health, Grafana dashboards, alert rules |
 | Compliance | **Production-Capable** | New — retention policies, GDPR rights, audit integrity |
-| Demo Reliability | **Production-Capable** | Updated test count (1,278) |
+| Demo Reliability | **Production-Capable** | Updated test count (1,285) |
 | AI Execution | **Config-Dependent** | Updated — code complete, returns hard errors without keys (not echo stubs) |
 
 **Overall: Release candidate for enterprise evaluation. Four categories Enterprise-Ready (including Persistence with 33 PostgreSQL-backed stores and proven multi-instance correctness). AI execution is config-dependent (requires API keys) — code is complete but returns hard errors without configuration. See `/docs/diligence/runtime-truth-summary.md` for detailed evidence tiers.**
