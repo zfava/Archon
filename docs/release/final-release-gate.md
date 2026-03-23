@@ -11,7 +11,7 @@
 | # | Check | Status | Evidence | Owner |
 |---|---|---|---|---|
 | 1.1 | `dotnet build` — 0 errors, 0 warnings | **Pass** | `dotnet build ArchonAI.slnx -warnaserror` — 0 errors, 0 warnings. `PRODUCTION_READINESS.md` confirms. | Build team |
-| 1.2 | All unit tests pass | **Pass** | 1,278 tests across 12 assemblies, 0 failures. `runtime-truth-summary.md` | QA team |
+| 1.2 | All unit tests pass | **Pass** | 1,285 tests across 12 assemblies, 0 failures. `runtime-truth-summary.md` | QA team |
 | 1.3 | All enterprise tests pass | **Pass** | 685 enterprise tests, 0 failures (96 DB-dependent skipped without Docker). `release-candidate-checklist.md` | QA team |
 | 1.4 | Frontend builds — 0 errors | **Pass** | 0 TypeScript errors, 0 lint errors, 0 build errors. 11 vitest contract tests pass. `PRODUCTION_READINESS.md` | Frontend team |
 | 1.5 | No TODO/FIXME in source | **Pass** | `grep -rn` search — 0 found. `release-candidate-checklist.md` check #6 | Build team |

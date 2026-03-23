@@ -89,7 +89,7 @@ dotnet test tests/ArchonAI.Enterprise.Tests/ --verbosity normal
 **Talking points:**
 - 685 enterprise tests, all green, < 3 seconds
 - Tests map to 57 specific enterprise claims (see `docs/enterprise/enterprise-proof-pack.md`)
-- 1,278 tests across 12 assemblies, all pass
+- 1,285 tests across 12 assemblies, all pass
 - Zero external dependencies — no database, no network, no API keys needed
 
 ### Step 2: Security Attack Coverage (3 min)
@@ -227,7 +227,7 @@ cat deploy/helm/archonai/values.yaml
 |---|---|
 | Health checks | All 5 subsystems report Healthy |
 | API responses | Structured JSON responses from all 17 route groups |
-| Test execution | 685 enterprise tests + 1,278 total tests pass |
+| Test execution | 685 enterprise tests + 1,285 total tests pass |
 | Docker stack | 7 containers running with health checks |
 | Configuration | 40+ config sections with documented defaults |
 

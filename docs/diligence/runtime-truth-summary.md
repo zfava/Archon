@@ -7,7 +7,7 @@ Last verified: 2026-03-20
 This document provides an honest, verifiable assessment of what ArchonAI can and cannot do at runtime. It distinguishes between source-complete (code exists), runtime-proven (tested under automated conditions), config-dependent (requires deployment-time configuration), and residual-risk items.
 
 **Last Audited:** 2026-03-20
-**Audit Method:** Source verification, test execution (1,278 tests, 0 failures), migration script count, DI registration count, Helm chart inspection.
+**Audit Method:** Source verification, test execution (1,285 tests, 0 failures), migration script count, DI registration count, Helm chart inspection.
 
 ---
 
@@ -144,7 +144,7 @@ This document provides an honest, verifiable assessment of what ArchonAI can and
 
 | Suite | Count | Status |
 |---|---|---|
-| Unit tests (12 assemblies) | 1,278 | All pass |
+| Unit tests (12 assemblies) | 1,285 | All pass |
 | Enterprise tests | 463 | All pass |
 | Integration tests (Testcontainers) | 18+ multi-instance | All pass |
 | Frontend contract tests | 11 | All pass (vitest) |

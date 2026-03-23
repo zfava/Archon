@@ -71,5 +71,7 @@
     <Project Path="tests/ArchonAI.WorkflowDesigner.Tests/ArchonAI.WorkflowDesigner.Tests.csproj" />
     <Project Path="tests/ArchonAI.Tests/ArchonAI.Tests.csproj" />
     <Project Path="tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj" />
+    <Project Path="tests/ArchonAI.ActionSafety.Tests/ArchonAI.ActionSafety.Tests.csproj" />
+    <Project Path="tests/ArchonAI.ProofAnalytics.Tests/ArchonAI.ProofAnalytics.Tests.csproj" />
   </Folder>
 </Solution>
