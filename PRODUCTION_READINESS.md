@@ -1,6 +1,6 @@
 # ArchonAI — Production Readiness Report
 
-**Generated:** 2026-03-22
+**Generated:** 2026-03-23
 **Branch:** `main`
 
 ---
@@ -9,7 +9,7 @@
 
 | # | Check | Result | Details |
 |---|-------|--------|---------|
-| 1 | **dotnet build (Release)** | PASS | 0 warnings, 0 errors across all projects |
+| 1 | **dotnet build (Release)** | PASS | 0 warnings, 0 errors across 59 source projects + 10 test projects |
 | 2 | **dotnet test** | PASS | All tests pass. `DurableWorkflowTests.Store_SurvivesRestart` previously flaky due to fire-and-forget flush race — structurally eliminated by making all writes synchronous (see `flaky-test-remediation.md` Phase 3). |
 | 3 | **Security grep audit** | PASS | `TODO/HACK/FIXME/HARDCODED`: 0 matches. `password=`: 0 hardcoded credentials. `secret=`: 0 leaked secrets (2 hits are log template interpolation and TOTP URI construction — no actual secrets). `Console.WriteLine`: 6 hits, all in `ArchonAI.Cli/Program.cs` (CLI tool — appropriate). |
 | 4 | **Frontend build** | PASS | `tsc -b && vite build` succeeded. 198 modules, 0 TS errors, 0 ESLint errors. Output: 187.88 kB CSS, 610.83 kB JS (gzipped: 25.58 kB + 152.06 kB). |

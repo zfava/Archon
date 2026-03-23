@@ -8,9 +8,11 @@ namespace ArchonAI.Connectors.Tests.Shared;
 public sealed class MockHttpMessageHandler : HttpMessageHandler
 {
     private readonly Queue<(HttpStatusCode StatusCode, string Content)> _responses = new();
+    private readonly List<HttpRequestMessage> _capturedRequests = new();
     private int _requestCount;
 
     public int RequestCount => _requestCount;
+    public IReadOnlyList<HttpRequestMessage> CapturedRequests => _capturedRequests;
 
     public void SetResponse(HttpStatusCode statusCode, string content)
     {
@@ -30,6 +32,7 @@ public sealed class MockHttpMessageHandler : HttpMessageHandler
     protected override global::System.Threading.Tasks.Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Interlocked.Increment(ref _requestCount);
+        _capturedRequests.Add(request);
 
         if (_responses.Count == 0)
         {

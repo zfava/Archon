@@ -257,7 +257,7 @@ public sealed class ControlPlaneObservabilityService : IControlPlaneObservabilit
         var systemHealth = await GetSystemHealthAsync(ct);
         var modelUsage = await GetModelUsageAsync(ct);
         var taskPerformance = await GetTaskPerformanceAsync(ct);
-        var cpStatus = _controlPlane.GetStatus();
+        var cpStatus = await _controlPlane.GetStatusAsync(ct);
 
         return new UnifiedControlPlaneDashboard(
             AgentActivity: agentActivity,

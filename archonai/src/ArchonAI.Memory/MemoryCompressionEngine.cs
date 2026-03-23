@@ -135,7 +135,7 @@ public sealed class MemoryCompressionEngine : IMemoryCompressionEngine
         return summary;
     }
 
-    private global::System.Threading.Tasks.Task<int> DeduplicateInternalAsync(
+    private async global::System.Threading.Tasks.Task<int> DeduplicateInternalAsync(
         string scope, IReadOnlyList<MemoryRecord> records, CancellationToken cancellationToken)
     {
         // Identify duplicates using content fingerprinting (simhash-like approach)
@@ -187,11 +187,11 @@ public sealed class MemoryCompressionEngine : IMemoryCompressionEngine
                 CreatedAtUtc: original.CreatedAtUtc,
                 ExpiresAtUtc: DateTimeOffset.UtcNow);
             // Re-save with expiration to soft-delete
-            _memoryStore.SaveAsync(expired, cancellationToken).GetAwaiter().GetResult();
+            await _memoryStore.SaveAsync(expired, cancellationToken);
         }
 
         _logger.LogDebug("Deduplicated scope '{Scope}': removed {Count} duplicates", scope, duplicateIds.Count);
-        return global::System.Threading.Tasks.Task.FromResult(duplicateIds.Count);
+        return duplicateIds.Count;
     }
 
     private IReadOnlyList<MemoryCluster> ClusterRecords(IReadOnlyList<MemoryRecord> records)

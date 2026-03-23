@@ -21,4 +21,11 @@ public interface ISecretProvider
     /// Returns true if the provider supports runtime rotation detection.
     /// </summary>
     bool SupportsRotation { get; }
+
+    /// <summary>
+    /// Async version of <see cref="GetSecret"/>. Default implementation delegates to the sync method.
+    /// Providers with native async support (Vault, AWS, Azure) override this for true async I/O.
+    /// </summary>
+    Task<string?> GetSecretAsync(string key, CancellationToken ct = default)
+        => Task.FromResult(GetSecret(key));
 }

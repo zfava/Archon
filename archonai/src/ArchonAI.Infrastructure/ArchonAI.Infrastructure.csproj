@@ -9,8 +9,7 @@
     <ProjectReference Include="..\ArchonAI.Common\ArchonAI.Common.csproj" />
     <ProjectReference Include="..\ArchonAI.Persistence\ArchonAI.Persistence.csproj" />
     <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
-    <ProjectReference Include="..\ArchonAI.Planner\ArchonAI.Planner.csproj" />
-    <ProjectReference Include="..\ArchonAI.Reasoner\ArchonAI.Reasoner.csproj" />
+<ProjectReference Include="..\ArchonAI.Reasoner\ArchonAI.Reasoner.csproj" />
     <ProjectReference Include="..\ArchonAI.StrategicPlanner\ArchonAI.StrategicPlanner.csproj" />
     <ProjectReference Include="..\ArchonAI.Evaluation\ArchonAI.Evaluation.csproj" />
     <ProjectReference Include="..\ArchonAI.Policy\ArchonAI.Policy.csproj" />
@@ -37,8 +36,7 @@
     <ProjectReference Include="..\ArchonAI.Context\ArchonAI.Context.csproj" />
     <ProjectReference Include="..\ArchonAI.Perception\ArchonAI.Perception.csproj" />
     <ProjectReference Include="..\ArchonAI.Memory\ArchonAI.Memory.csproj" />
-    <ProjectReference Include="..\ArchonAI.EventBus\ArchonAI.EventBus.csproj" />
-    <ProjectReference Include="..\ArchonAI.Runtime\ArchonAI.Runtime.csproj" />
+<ProjectReference Include="..\ArchonAI.Runtime\ArchonAI.Runtime.csproj" />
     <ProjectReference Include="..\ArchonAI.Agents\ArchonAI.Agents.csproj" />
   </ItemGroup>
   <ItemGroup>

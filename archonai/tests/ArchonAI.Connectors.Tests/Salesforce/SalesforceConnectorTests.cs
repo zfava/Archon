@@ -204,6 +204,112 @@ public sealed class SalesforceConnectorTests : IDisposable
         _handler.RequestCount.Should().Be(3); // auth + retry + success
     }
 
+    // ── SOQL injection sanitizer tests ──
+
+    [Fact]
+    public async Task QueryAccountsAsync_ValidFilter_PassesThrough()
+    {
+        SetupAuthAndQuery("Account", new[]
+        {
+            new { Id = "001A", Name = "Acme Corp", Industry = "Technology", Type = "Customer" }
+        });
+
+        using var connector = CreateConnector();
+        await connector.QueryAccountsAsync("Industry = 'Technology'");
+
+        var queryRequest = _handler.CapturedRequests.Last();
+        var url = Uri.UnescapeDataString(queryRequest.RequestUri!.ToString());
+        url.Should().Contain("WHERE Industry = 'Technology'");
+        url.Should().Contain("LIMIT 200");
+    }
+
+    [Fact]
+    public async Task QueryAccountsAsync_NullFilter_ReturnsUnfilteredQuery()
+    {
+        SetupAuthAndQuery("Account", new[]
+        {
+            new { Id = "001A", Name = "Acme Corp", Industry = "Technology", Type = "Customer" }
+        });
+
+        using var connector = CreateConnector();
+        await connector.QueryAccountsAsync(null!);
+
+        var queryRequest = _handler.CapturedRequests.Last();
+        var url = Uri.UnescapeDataString(queryRequest.RequestUri!.ToString());
+        url.Should().NotContain("WHERE");
+        url.Should().Contain("LIMIT 200");
+    }
+
+    [Fact]
+    public async Task QueryAccountsAsync_SemicolonInjection_Rejected()
+    {
+        SetupAuthAndQuery("Account", Array.Empty<object>());
+
+        using var connector = CreateConnector();
+        await connector.QueryAccountsAsync("Name = 'test'; DELETE FROM Account");
+
+        var queryRequest = _handler.CapturedRequests.Last();
+        var url = Uri.UnescapeDataString(queryRequest.RequestUri!.ToString());
+        url.Should().NotContain("WHERE");
+    }
+
+    [Fact]
+    public async Task QueryAccountsAsync_SingleLineCommentInjection_Rejected()
+    {
+        SetupAuthAndQuery("Account", Array.Empty<object>());
+
+        using var connector = CreateConnector();
+        await connector.QueryAccountsAsync("Name = 'test' -- AND IsDeleted = false");
+
+        var queryRequest = _handler.CapturedRequests.Last();
+        var url = Uri.UnescapeDataString(queryRequest.RequestUri!.ToString());
+        url.Should().NotContain("WHERE");
+    }
+
+    [Fact]
+    public async Task QueryAccountsAsync_BlockCommentInjection_Rejected()
+    {
+        SetupAuthAndQuery("Account", Array.Empty<object>());
+
+        using var connector = CreateConnector();
+        await connector.QueryAccountsAsync("Name = 'test' /* bypass */");
+
+        var queryRequest = _handler.CapturedRequests.Last();
+        var url = Uri.UnescapeDataString(queryRequest.RequestUri!.ToString());
+        url.Should().NotContain("WHERE");
+    }
+
+    [Fact]
+    public async Task QueryAccountsAsync_DmlKeywordInjection_Rejected()
+    {
+        SetupAuthAndQuery("Account", Array.Empty<object>());
+
+        using var connector = CreateConnector();
+        await connector.QueryAccountsAsync("Name = 'test' INSERT INTO");
+
+        var queryRequest = _handler.CapturedRequests.Last();
+        var url = Uri.UnescapeDataString(queryRequest.RequestUri!.ToString());
+        url.Should().NotContain("WHERE");
+    }
+
+    [Fact]
+    public async Task QueryAccountsAsync_LimitInjection_StrippedFromFilter()
+    {
+        SetupAuthAndQuery("Account", new[]
+        {
+            new { Id = "001A", Name = "Acme Corp", Industry = "Technology", Type = "Customer" }
+        });
+
+        using var connector = CreateConnector();
+        await connector.QueryAccountsAsync("Name = 'test' LIMIT 999");
+
+        var queryRequest = _handler.CapturedRequests.Last();
+        var url = Uri.UnescapeDataString(queryRequest.RequestUri!.ToString());
+        url.Should().Contain("WHERE Name = 'test'");
+        url.Should().NotContain("LIMIT 999");
+        url.Should().Contain("LIMIT 200");
+    }
+
     public void Dispose()
     {
         _handler.Dispose();

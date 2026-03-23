@@ -562,7 +562,7 @@ public sealed class ControlPlaneService : IControlPlaneService
     {
         using var activity = Telemetry.ActivitySource.StartActivity("ControlPlane.Dashboard");
 
-        var status = GetStatus();
+        var status = await GetStatusAsync(ct);
         var tenants = await _repository.ListTenantsAsync(null, 0, 100, ct);
         var policies = await _repository.ListPoliciesAsync(null, null, true, 0, 100, ct);
 
@@ -587,14 +587,17 @@ public sealed class ControlPlaneService : IControlPlaneService
             GeneratedAtUtc: DateTimeOffset.UtcNow);
     }
 
-    public ControlPlaneStatus GetStatus()
+    // Sync wrapper preserved for backward compatibility with non-async callers.
+    public ControlPlaneStatus GetStatus() => GetStatusAsync().GetAwaiter().GetResult();
+
+    public async global::System.Threading.Tasks.Task<ControlPlaneStatus> GetStatusAsync(CancellationToken ct = default)
     {
-        int totalTenants = _repository.CountTenantsAsync().GetAwaiter().GetResult();
-        int activeTenants = _repository.CountTenantsAsync(TenantStatus.Active).GetAwaiter().GetResult();
-        int totalWorkflows = _repository.CountWorkflowsAsync().GetAwaiter().GetResult();
-        int totalAgents = _repository.CountAgentsAsync().GetAwaiter().GetResult();
-        int totalPolicies = _repository.CountPoliciesAsync().GetAwaiter().GetResult();
-        int totalConfigs = _repository.CountConfigurationsAsync().GetAwaiter().GetResult();
+        int totalTenants = await _repository.CountTenantsAsync(ct: ct);
+        int activeTenants = await _repository.CountTenantsAsync(TenantStatus.Active, ct: ct);
+        int totalWorkflows = await _repository.CountWorkflowsAsync(ct: ct);
+        int totalAgents = await _repository.CountAgentsAsync(ct: ct);
+        int totalPolicies = await _repository.CountPoliciesAsync(ct: ct);
+        int totalConfigs = await _repository.CountConfigurationsAsync(ct: ct);
 
         return new ControlPlaneStatus(
             IsActive: true,

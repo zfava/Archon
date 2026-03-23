@@ -111,4 +111,9 @@ public interface IControlPlaneService
         CancellationToken ct = default);
 
     ControlPlaneStatus GetStatus();
+
+    /// <summary>
+    /// Async version of GetStatus. Preferred in all async call sites.
+    /// </summary>
+    global::System.Threading.Tasks.Task<ControlPlaneStatus> GetStatusAsync(CancellationToken ct = default);
 }

@@ -3,8 +3,7 @@
     <Project Path="src/ArchonAI.Common/ArchonAI.Common.csproj" />
     <Project Path="src/ArchonAI.Core/ArchonAI.Core.csproj" />
     <Project Path="src/ArchonAI.Infrastructure/ArchonAI.Infrastructure.csproj" />
-    <Project Path="src/ArchonAI.Planner/ArchonAI.Planner.csproj" />
-    <Project Path="src/ArchonAI.Runtime/ArchonAI.Runtime.csproj" />
+<Project Path="src/ArchonAI.Runtime/ArchonAI.Runtime.csproj" />
     <Project Path="src/ArchonAI.Reasoner/ArchonAI.Reasoner.csproj" />
     <Project Path="src/ArchonAI.StrategicPlanner/ArchonAI.StrategicPlanner.csproj" />
     <Project Path="src/ArchonAI.Registry/ArchonAI.Registry.csproj" />
@@ -37,8 +36,7 @@
     <Project Path="src/ArchonAI.WorkflowRuntime/ArchonAI.WorkflowRuntime.csproj" />
     <Project Path="src/ArchonAI.TaskRuntime/ArchonAI.TaskRuntime.csproj" />
     <Project Path="src/ArchonAI.Memory/ArchonAI.Memory.csproj" />
-    <Project Path="src/ArchonAI.EventBus/ArchonAI.EventBus.csproj" />
-    <Project Path="src/ArchonAI.Agents/ArchonAI.Agents.csproj" />
+<Project Path="src/ArchonAI.Agents/ArchonAI.Agents.csproj" />
     <Project Path="src/ArchonAI.Connectors/ArchonAI.Connectors.csproj" />
     <Project Path="src/ArchonAI.Plugins/ArchonAI.Plugins.csproj" />
     <Project Path="src/ArchonAI.Agents.Operations/ArchonAI.Agents.Operations.csproj" />

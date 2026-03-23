@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using ArchonAI.Common.Observability;
 using ObsTelemetry = ArchonAI.Common.Observability.Telemetry;
@@ -71,9 +72,10 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<SalesforceRecord>> QueryAccountsAsync(
         string soqlFilter, CancellationToken cancellationToken = default)
     {
-        string soql = string.IsNullOrWhiteSpace(soqlFilter)
+        var sanitized = SanitizeSoqlFilter(soqlFilter);
+        string soql = sanitized is null
             ? "SELECT Id, Name, Industry, Type FROM Account LIMIT 200"
-            : $"SELECT Id, Name, Industry, Type FROM Account WHERE {soqlFilter} LIMIT 200";
+            : $"SELECT Id, Name, Industry, Type FROM Account WHERE {sanitized} LIMIT 200";
 
         return await ExecuteQueryAsync("Account", soql, cancellationToken);
     }
@@ -81,9 +83,10 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<SalesforceRecord>> QueryContactsAsync(
         string soqlFilter, CancellationToken cancellationToken = default)
     {
-        string soql = string.IsNullOrWhiteSpace(soqlFilter)
+        var sanitized = SanitizeSoqlFilter(soqlFilter);
+        string soql = sanitized is null
             ? "SELECT Id, FirstName, LastName, Email, AccountId FROM Contact LIMIT 200"
-            : $"SELECT Id, FirstName, LastName, Email, AccountId FROM Contact WHERE {soqlFilter} LIMIT 200";
+            : $"SELECT Id, FirstName, LastName, Email, AccountId FROM Contact WHERE {sanitized} LIMIT 200";
 
         return await ExecuteQueryAsync("Contact", soql, cancellationToken);
     }
@@ -91,9 +94,10 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
     public async global::System.Threading.Tasks.Task<IReadOnlyList<SalesforceRecord>> QueryOpportunitiesAsync(
         string soqlFilter, CancellationToken cancellationToken = default)
     {
-        string soql = string.IsNullOrWhiteSpace(soqlFilter)
+        var sanitized = SanitizeSoqlFilter(soqlFilter);
+        string soql = sanitized is null
             ? "SELECT Id, Name, StageName, Amount, CloseDate, AccountId FROM Opportunity LIMIT 200"
-            : $"SELECT Id, Name, StageName, Amount, CloseDate, AccountId FROM Opportunity WHERE {soqlFilter} LIMIT 200";
+            : $"SELECT Id, Name, StageName, Amount, CloseDate, AccountId FROM Opportunity WHERE {sanitized} LIMIT 200";
 
         return await ExecuteQueryAsync("Opportunity", soql, cancellationToken);
     }
@@ -170,6 +174,55 @@ public sealed class SalesforceConnector : ISalesforceConnector, IDisposable
     public void Dispose()
     {
         _authLock.Dispose();
+    }
+
+    // --- SOQL filter sanitization ---
+
+    private static readonly Regex DmlKeywordPattern = new(
+        @"\b(INSERT|UPDATE|DELETE|UPSERT|UNDELETE|MERGE)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex TrailingLimitPattern = new(
+        @"\s+LIMIT\s+\d+\s*$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private string? SanitizeSoqlFilter(string? soqlFilter)
+    {
+        if (string.IsNullOrWhiteSpace(soqlFilter))
+            return null;
+
+        // Reject semicolons (statement termination / chaining)
+        if (soqlFilter.Contains(';'))
+        {
+            _logger.LogWarning("SOQL filter rejected: contains semicolon. Filter={Filter}", soqlFilter);
+            return null;
+        }
+
+        // Reject single-line comment markers
+        if (soqlFilter.Contains("--"))
+        {
+            _logger.LogWarning("SOQL filter rejected: contains single-line comment marker. Filter={Filter}", soqlFilter);
+            return null;
+        }
+
+        // Reject block comment markers
+        if (soqlFilter.Contains("/*") || soqlFilter.Contains("*/"))
+        {
+            _logger.LogWarning("SOQL filter rejected: contains block comment marker. Filter={Filter}", soqlFilter);
+            return null;
+        }
+
+        // Reject DML keywords as whole words
+        if (DmlKeywordPattern.IsMatch(soqlFilter))
+        {
+            _logger.LogWarning("SOQL filter rejected: contains DML keyword. Filter={Filter}", soqlFilter);
+            return null;
+        }
+
+        // Strip any trailing LIMIT clause (the query methods append their own LIMIT 200)
+        var sanitized = TrailingLimitPattern.Replace(soqlFilter, string.Empty).Trim();
+
+        return string.IsNullOrWhiteSpace(sanitized) ? null : sanitized;
     }
 
     // --- Private helpers ---

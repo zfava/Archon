@@ -61,6 +61,11 @@ public sealed class AwsSecretsManagerSecretProvider : ISecretProvider, ISecretRo
 
     public bool SupportsRotation => true;
 
+    // Sync wrapper implements ISecretProvider.GetSecret contract.
+    // Vault calls are infrequent (startup, key rotation), cached by provider,
+    // and not on the hot request path. ChainedSecretProvider falls through
+    // on transient failure. Async-only would require cascading changes to
+    // 10+ consumers including security-critical paths (JWT signing, TOTP encryption).
     public string? GetSecret(string key)
     {
         _logger.LogDebug("Secret access: key={SecretKey}, provider=aws-secrets-manager", key);
