@@ -27,6 +27,7 @@ import { OperatorInspectionView } from './features/inspection';
 import { TrustLineageView } from './features/trust-lineage';
 import { OrgAdminView } from './features/admin/OrgAdminView';
 import { SystemHealthView } from './features/admin/SystemHealthView';
+import { GovernanceDemoShowcase } from './features/demo';
 import { PermissionGate, UnauthorizedPage } from './shared/PermissionGate';
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -50,6 +51,7 @@ function App() {
         <AuthApiWiring />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/demo" element={<GovernanceDemoShowcase />} />
           <Route path="/" element={<Protected><CommandConsole /></Protected>} />
           <Route path="/onboarding" element={<Protected><OnboardingWizard /></Protected>} />
           <Route path="/integrations" element={<AdminGated permission="connectors:read"><IntegrationMarketplace /></AdminGated>} />
