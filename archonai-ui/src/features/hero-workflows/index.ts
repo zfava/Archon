@@ -1,0 +1,1 @@
+export { HeroWorkflowsView } from './HeroWorkflowsView';

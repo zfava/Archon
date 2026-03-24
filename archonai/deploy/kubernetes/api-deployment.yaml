@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archonai-api
+  namespace: archonai
+  labels:
+    app.kubernetes.io/name: archonai-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: archonai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: archonai-api
+  template:
+    metadata:
+      labels:
+        app: archonai-api
+    spec:
+      containers:
+        - name: api
+          image: archonai/api:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: archonai-config
+            - secretRef:
+                name: archonai-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: archonai-api
+  namespace: archonai
+spec:
+  type: ClusterIP
+  selector:
+    app: archonai-api
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http

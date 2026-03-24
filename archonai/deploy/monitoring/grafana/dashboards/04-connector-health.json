@@ -1,0 +1,833 @@
+{
+  "uid": "archonai-connector-health",
+  "title": "ArchonAI — Connector Health",
+  "tags": ["archonai", "connectors"],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "timezone": "browser",
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {
+          "selected": true,
+          "text": "Prometheus",
+          "value": "Prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "options": [],
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Connector Overview",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Total Auth Attempts/hr",
+      "description": "Sum of authentication attempts across all connectors in the last hour.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 2,
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(increase(archonai_salesforce_auth_attempts_total[1h])) + sum(increase(archonai_hubspot_auth_attempts_total[1h])) + sum(increase(archonai_quickbooks_auth_attempts_total[1h])) + sum(increase(archonai_slack_auth_attempts_total[1h])) + sum(increase(archonai_google_workspace_auth_attempts_total[1h])) + sum(increase(archonai_m365_auth_attempts_total[1h]))",
+          "legendFormat": "Auth Attempts",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Total Errors/hr",
+      "description": "Sum of errors across all connectors in the last hour. Turns red if greater than 10.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 3,
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(increase(archonai_salesforce_errors_total[1h])) + sum(increase(archonai_hubspot_errors_total[1h])) + sum(increase(archonai_quickbooks_errors_total[1h])) + sum(increase(archonai_slack_errors_total[1h])) + sum(increase(archonai_google_workspace_errors_total[1h])) + sum(increase(archonai_m365_errors_total[1h])) + sum(increase(archonai_connector_errors_total[1h]))",
+          "legendFormat": "Errors",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 10 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Total Retries/hr",
+      "description": "Sum of retries across all connectors in the last hour.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 4,
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(increase(archonai_salesforce_retries_total[1h])) + sum(increase(archonai_hubspot_retries_total[1h])) + sum(increase(archonai_quickbooks_retries_total[1h])) + sum(increase(archonai_slack_retries_total[1h])) + sum(increase(archonai_google_workspace_retries_total[1h])) + sum(increase(archonai_m365_retries_total[1h])) + sum(increase(archonai_connector_retries_total[1h]))",
+          "legendFormat": "Retries",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Total Operations/hr",
+      "description": "Sum of all query and write operations across all connectors in the last hour.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 5,
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "targets": [
+        {
+          "expr": "sum(increase(archonai_salesforce_query_ops_total[1h])) + sum(increase(archonai_salesforce_write_ops_total[1h])) + sum(increase(archonai_hubspot_query_ops_total[1h])) + sum(increase(archonai_hubspot_write_ops_total[1h])) + sum(increase(archonai_quickbooks_query_ops_total[1h])) + sum(increase(archonai_quickbooks_write_ops_total[1h])) + sum(increase(archonai_slack_query_ops_total[1h])) + sum(increase(archonai_slack_write_ops_total[1h])) + sum(increase(archonai_google_workspace_query_ops_total[1h])) + sum(increase(archonai_google_workspace_write_ops_total[1h])) + sum(increase(archonai_m365_query_ops_total[1h])) + sum(increase(archonai_m365_write_ops_total[1h])) + sum(increase(archonai_connector_write_ops_total[1h]))",
+          "legendFormat": "Operations",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Salesforce",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 10,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Salesforce Operations",
+      "description": "Rate of Salesforce query and write operations over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 11,
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "expr": "rate(archonai_salesforce_query_ops_total[5m])",
+          "legendFormat": "Query Ops",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_salesforce_write_ops_total[5m])",
+          "legendFormat": "Write Ops",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Salesforce Errors & Retries",
+      "description": "Rate of Salesforce errors and retries over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 12,
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 6 },
+      "targets": [
+        {
+          "expr": "rate(archonai_salesforce_errors_total[5m])",
+          "legendFormat": "Errors",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_salesforce_retries_total[5m])",
+          "legendFormat": "Retries",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "SF Auth Attempts/hr",
+      "description": "Salesforce authentication attempts in the last hour.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 13,
+      "gridPos": { "h": 4, "w": 6, "x": 16, "y": 6 },
+      "targets": [
+        {
+          "expr": "increase(archonai_salesforce_auth_attempts_total[1h])",
+          "legendFormat": "Auth Attempts",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "title": "HubSpot",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "id": 20,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "HubSpot Operations",
+      "description": "Rate of HubSpot query and write operations over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 21,
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
+      "targets": [
+        {
+          "expr": "rate(archonai_hubspot_query_ops_total[5m])",
+          "legendFormat": "Query Ops",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_hubspot_write_ops_total[5m])",
+          "legendFormat": "Write Ops",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "HubSpot Errors & Retries",
+      "description": "Rate of HubSpot errors and retries over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 22,
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
+      "targets": [
+        {
+          "expr": "rate(archonai_hubspot_errors_total[5m])",
+          "legendFormat": "Errors",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_hubspot_retries_total[5m])",
+          "legendFormat": "Retries",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "HS Auth Attempts/hr",
+      "description": "HubSpot authentication attempts in the last hour.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 23,
+      "gridPos": { "h": 4, "w": 6, "x": 16, "y": 15 },
+      "targets": [
+        {
+          "expr": "increase(archonai_hubspot_auth_attempts_total[1h])",
+          "legendFormat": "Auth Attempts",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "title": "QuickBooks",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 30,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "QuickBooks Operations",
+      "description": "Rate of QuickBooks query and write operations over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 31,
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "rate(archonai_quickbooks_query_ops_total[5m])",
+          "legendFormat": "Query Ops",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_quickbooks_write_ops_total[5m])",
+          "legendFormat": "Write Ops",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "QuickBooks Errors & Retries",
+      "description": "Rate of QuickBooks errors and retries over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 32,
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+      "targets": [
+        {
+          "expr": "rate(archonai_quickbooks_errors_total[5m])",
+          "legendFormat": "Errors",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_quickbooks_retries_total[5m])",
+          "legendFormat": "Retries",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "QB Auth Attempts/hr",
+      "description": "QuickBooks authentication attempts in the last hour.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 33,
+      "gridPos": { "h": 4, "w": 6, "x": 16, "y": 24 },
+      "targets": [
+        {
+          "expr": "increase(archonai_quickbooks_auth_attempts_total[1h])",
+          "legendFormat": "Auth Attempts",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Slack",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "id": 40,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Slack Operations",
+      "description": "Rate of Slack messages sent, alerts sent, and query operations over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 41,
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 33 },
+      "targets": [
+        {
+          "expr": "rate(archonai_slack_messages_sent_total[5m])",
+          "legendFormat": "Messages Sent",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_slack_alerts_sent_total[5m])",
+          "legendFormat": "Alerts Sent",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(archonai_slack_query_ops_total[5m])",
+          "legendFormat": "Query Ops",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Slack Errors & Retries",
+      "description": "Rate of Slack errors and retries over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 42,
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 33 },
+      "targets": [
+        {
+          "expr": "rate(archonai_slack_errors_total[5m])",
+          "legendFormat": "Errors",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_slack_retries_total[5m])",
+          "legendFormat": "Retries",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Webhook Events/hr",
+      "description": "Slack webhook events received in the last hour.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 43,
+      "gridPos": { "h": 4, "w": 6, "x": 16, "y": 33 },
+      "targets": [
+        {
+          "expr": "increase(archonai_slack_webhook_events_total[1h])",
+          "legendFormat": "Webhook Events",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "purple", "value": null }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Google Workspace & M365",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 },
+      "id": 50,
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Google Workspace Operations",
+      "description": "Rate of Google Workspace query and write operations over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 51,
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 42 },
+      "targets": [
+        {
+          "expr": "rate(archonai_google_workspace_query_ops_total[5m])",
+          "legendFormat": "Query Ops",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_google_workspace_write_ops_total[5m])",
+          "legendFormat": "Write Ops",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "M365 Operations",
+      "description": "Rate of M365 query and write operations over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 52,
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 42 },
+      "targets": [
+        {
+          "expr": "rate(archonai_m365_query_ops_total[5m])",
+          "legendFormat": "Query Ops",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_m365_write_ops_total[5m])",
+          "legendFormat": "Write Ops",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Google & M365 Errors",
+      "description": "Rate of errors for both Google Workspace and M365 connectors over time.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "id": 53,
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 42 },
+      "targets": [
+        {
+          "expr": "rate(archonai_google_workspace_errors_total[5m])",
+          "legendFormat": "Google Workspace Errors",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(archonai_m365_errors_total[5m])",
+          "legendFormat": "M365 Errors",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "lineWidth": 1
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    }
+  ]
+}

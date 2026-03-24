@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archonai-postgres
+  namespace: archonai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: archonai-postgres
+  template:
+    metadata:
+      labels:
+        app: archonai-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: archonai
+            - name: POSTGRES_USER
+              value: archonai
+            - name: POSTGRES_PASSWORD
+              value: archonai
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: archonai-postgres
+  namespace: archonai
+spec:
+  selector:
+    app: archonai-postgres
+  ports:
+    - name: postgres
+      protocol: TCP
+      port: 5432
+      targetPort: 5432

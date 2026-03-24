@@ -1,0 +1,132 @@
+groups:
+  - name: archonai-alerts
+    rules:
+      # 1. Service Down
+      - alert: ArchonAI_ServiceDown
+        expr: up{job=~"archonai-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: "platform-sre"
+        annotations:
+          summary: "ArchonAI service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} ({{ $labels.instance }}) has been down for more than 1 minute."
+          runbook_url: "https://wiki.archonai.internal/runbooks/service-down"
+          escalation: "Page on-call SRE via PagerDuty"
+
+      # 2. High Error Rate
+      - alert: ArchonAI_HighErrorRate
+        expr: sum(rate(archonai_gateway_requests_failed_total[5m])) / sum(rate(archonai_gateway_requests_total[5m])) > 0.10
+        for: 5m
+        labels:
+          severity: critical
+          team: "platform-sre"
+        annotations:
+          summary: "High error rate detected (> 10%)"
+          description: "The gateway error rate has exceeded 10% over the last 5 minutes, indicating widespread request failures."
+          runbook_url: "https://wiki.archonai.internal/runbooks/high-error-rate"
+          escalation: "Page on-call SRE via PagerDuty"
+
+      # 3. High Latency
+      - alert: ArchonAI_HighLatency
+        expr: histogram_quantile(0.95, sum(rate(archonai_gateway_request_duration_ms_bucket[5m])) by (le)) > 5000
+        for: 5m
+        labels:
+          severity: warning
+          team: "platform-sre"
+        annotations:
+          summary: "P95 latency exceeds 5 seconds"
+          description: "The 95th percentile request latency has exceeded 5000ms for the last 5 minutes."
+          runbook_url: "https://wiki.archonai.internal/runbooks/high-latency"
+          escalation: "Notify #archonai-alerts Slack channel"
+
+      # 4. Agent Unhealthy
+      - alert: ArchonAI_AgentUnhealthy
+        expr: sum(increase(archonai_runtime_agent_failures_total[15m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: "platform-sre"
+        annotations:
+          summary: "Agent failures exceeding threshold (>5 in 15m)"
+          description: "More than 5 agent failures have been recorded in the last 15 minutes, indicating agent instability."
+          runbook_url: "https://wiki.archonai.internal/runbooks/agent-unhealthy"
+          escalation: "Notify #archonai-alerts Slack channel"
+
+      # 5. Connector Failure
+      - alert: ArchonAI_ConnectorFailure
+        expr: sum(rate(archonai_connector_errors_total[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: "platform-sre"
+        annotations:
+          summary: "Connector error rate exceeding threshold"
+          description: "Connector errors are occurring at a rate greater than 0.5/s over the last 5 minutes."
+          runbook_url: "https://wiki.archonai.internal/runbooks/connector-failure"
+          escalation: "Notify #archonai-alerts Slack channel"
+
+      # 6. Loop Stalled
+      - alert: ArchonAI_LoopStalled
+        expr: sum(rate(archonai_loop_cycles_completed_total[15m])) == 0 and sum(archonai_loop_cycles_completed_total) > 0
+        for: 10m
+        labels:
+          severity: critical
+          team: "platform-sre"
+        annotations:
+          summary: "Intelligence loop has stalled — no cycles completed in 15 minutes"
+          description: "The intelligence loop has produced zero completed cycles in the last 15 minutes despite having historical activity."
+          runbook_url: "https://wiki.archonai.internal/runbooks/loop-stalled"
+          escalation: "Page on-call SRE via PagerDuty"
+
+      # 7. Rate Limit Saturation
+      - alert: ArchonAI_RateLimitSaturation
+        expr: sum(rate(archonai_gateway_ratelimit_hits_total[5m])) / sum(rate(archonai_gateway_requests_total[5m])) > 0.25
+        for: 5m
+        labels:
+          severity: warning
+          team: "platform-sre"
+        annotations:
+          summary: "Rate limiter rejecting >25% of requests"
+          description: "More than 25% of incoming gateway requests are being rejected by the rate limiter."
+          runbook_url: "https://wiki.archonai.internal/runbooks/rate-limit-saturation"
+          escalation: "Notify #archonai-alerts Slack channel"
+
+      # 8. Memory Pressure
+      - alert: ArchonAI_MemoryPressure
+        expr: process_resident_memory_bytes{job=~"archonai-.*"} > 2147483648
+        for: 10m
+        labels:
+          severity: warning
+          team: "platform-sre"
+        annotations:
+          summary: "Service {{ $labels.job }} memory exceeds 2GB"
+          description: "Service {{ $labels.job }} ({{ $labels.instance }}) resident memory has exceeded 2GB for more than 10 minutes."
+          runbook_url: "https://wiki.archonai.internal/runbooks/memory-pressure"
+          escalation: "Notify #archonai-alerts Slack channel"
+
+      # 9. Database Connection Exhaustion
+      - alert: ArchonAI_DbExhaustion
+        expr: increase(archonai_tasks_failed_total[5m]) > 50
+        for: 5m
+        labels:
+          severity: critical
+          team: "platform-sre"
+        annotations:
+          summary: "Database connection exhaustion suspected"
+          description: "Task failures have exceeded 50 in the last 5 minutes, which may indicate database connection pool exhaustion."
+          runbook_url: "https://wiki.archonai.internal/runbooks/db-exhaustion"
+          escalation: "Page on-call SRE via PagerDuty"
+
+      # 10. Audit Write Failure
+      - alert: ArchonAI_AuditWriteFailure
+        expr: rate(archonai_audit_entries_recorded_total[5m]) == 0 and sum(archonai_audit_entries_recorded_total) > 0
+        for: 10m
+        labels:
+          severity: critical
+          team: "platform-sre"
+        annotations:
+          summary: "Audit log writes have stopped"
+          description: "No audit log entries have been recorded in the last 5 minutes despite historical write activity, indicating a potential compliance risk."
+          runbook_url: "https://wiki.archonai.internal/runbooks/audit-write-failure"
+          escalation: "Page on-call SRE via PagerDuty"

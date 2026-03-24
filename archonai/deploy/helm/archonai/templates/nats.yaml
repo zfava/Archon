@@ -1,0 +1,65 @@
+{{- if .Values.topology.bundledInfra }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archonai-nats
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-nats
+    app.kubernetes.io/component: messaging
+    app.kubernetes.io/part-of: archonai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: archonai-nats
+  template:
+    metadata:
+      labels:
+        app: archonai-nats
+        app.kubernetes.io/name: archonai-nats
+        app.kubernetes.io/component: messaging
+    spec:
+      containers:
+        - name: nats
+          image: {{ .Values.nats.image }}
+          args: ["-js", "-m", "8222"]
+          ports:
+            - containerPort: 4222
+              name: nats
+            - containerPort: 8222
+              name: monitoring
+          {{- with .Values.nats.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8222
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8222
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: archonai-nats
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-nats
+    app.kubernetes.io/component: messaging
+spec:
+  selector:
+    app: archonai-nats
+  ports:
+    - port: 4222
+      targetPort: 4222
+      protocol: TCP
+      name: nats
+{{- end }}

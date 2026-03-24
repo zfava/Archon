@@ -1,0 +1,133 @@
+# ══════════════════════════════════════════════════════════════════
+#  ArchonAI — Private / VPC-deployed enterprise overlay
+# ══════════════════════════════════════════════════════════════════
+#
+#  Usage:
+#    helm install archonai ./deploy/helm/archonai \
+#      -n archonai --create-namespace \
+#      -f ./deploy/helm/archonai/values-private.yaml \
+#      -f ./customer-overrides.yaml
+#
+#  Topology: customer-controlled Kubernetes cluster or VPC. All
+#  secrets sourced from customer's external secret store. No
+#  bundled database — expects customer-provisioned Postgres and
+#  (optionally) NATS. Network policies restrict egress to
+#  explicit CIDR allowlist. Images pulled from customer's
+#  private registry.
+#
+#  The customer-overrides.yaml file should provide:
+#    - global.imageRegistry (private registry URL)
+#    - secrets.externalSecrets.secretStoreRef.name
+#    - secrets.externalSecrets.remoteRefs.* (vault paths)
+#    - api/runtime/scheduler/agents env overrides for DB/NATS URLs
+#    - networkPolicy.egressCIDRs (model provider IPs)
+#
+#  For HashiCorp Vault, use secrets.provider=vault-injector and set:
+#    - secrets.vault.role
+#    - secrets.vault.secretPath
+#    - secrets.vault.dbSecretPath
+# ══════════════════════════════════════════════════════════════════
+
+namespace: archonai
+
+topology:
+  mode: private
+  tenantIsolation: dedicated
+  # Customer provides their own managed Postgres and NATS
+  bundledInfra: false
+
+# ── Secrets from customer's vault ────────────────────────────────
+secrets:
+  provider: external-secrets
+  externalSecrets:
+    enabled: true
+    secretStoreRef:
+      name: ""   # customer must provide: e.g. aws-secrets-manager
+      kind: ClusterSecretStore
+    remoteRefs:
+      jwtSigningKey: ""          # customer must provide path
+      jwtSigningKeyPrevious: ""  # optional: for key rotation
+      postgresUsername: ""       # customer must provide path
+      postgresPassword: ""       # customer must provide path
+      modelProviderApiKey: ""    # customer must provide path
+    additionalRemoteRefs: []
+    refreshInterval: 1h
+
+# ── Strict network controls ──────────────────────────────────────
+networkPolicy:
+  enabled: true
+  # Customer's internal network ranges
+  ingressCIDRs: []   # customer must provide corporate CIDR(s)
+  # Explicit allowlist — no open egress
+  egressCIDRs: []    # customer must provide model provider CIDRs
+
+podDisruptionBudget:
+  enabled: true
+  gateway:
+    minAvailable: 1
+  api:
+    minAvailable: 1
+  agents:
+    minAvailable: 2
+
+# ── Private registry ─────────────────────────────────────────────
+global:
+  imageRegistry: ""  # customer must provide: e.g. 123456789.dkr.ecr.us-east-1.amazonaws.com
+  imagePullSecrets:
+    - name: archonai-registry-credentials
+
+gateway:
+  replicaCount: 2
+  service:
+    type: ClusterIP  # behind customer's ingress / ALB
+    port: 80
+
+api:
+  replicaCount: 3
+  env:
+    ASPNETCORE_ENVIRONMENT: Production
+    Security__Jwt__Issuer: ArchonAI
+    Security__Jwt__Audience: ArchonAI.Api
+    EventBus__UseNats: "true"
+    EventBus__Url: ""   # customer must provide: e.g. nats://nats.internal:4222
+    MemoryPersistence__Schema: public
+
+runtime:
+  enabled: true
+  replicaCount: 2
+  env:
+    DOTNET_ENVIRONMENT: Production
+    EventBus__UseNats: "true"
+    EventBus__Url: ""
+    MemoryPersistence__Schema: public
+    Runtime__MaxDegreeOfParallelism: "128"
+    Runtime__MaxRetries: "2"
+    Runtime__BaseRetryDelayMs: "250"
+
+scheduler:
+  enabled: true
+  replicaCount: 1
+  env:
+    DOTNET_ENVIRONMENT: Production
+    EventBus__UseNats: "true"
+    EventBus__Url: ""
+    MemoryPersistence__Schema: public
+    Scheduler__MaxGpuSlots: "4"
+    Scheduler__MaxParallelTasks: "128"
+
+agents:
+  enabled: true
+  replicaCount: 3
+  env:
+    DOTNET_ENVIRONMENT: Production
+    EventBus__UseNats: "true"
+    EventBus__Url: ""
+    MemoryPersistence__Schema: public
+
+# ── No bundled infrastructure ────────────────────────────────────
+# Customer provides managed Postgres (RDS, Cloud SQL, Azure DB) and
+# managed NATS (or compatible messaging). These sections are ignored
+# when topology.bundledInfra=false, but kept for reference.
+postgres:
+  image: pgvector/pgvector:pg16
+  storage: 0Gi

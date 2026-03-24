@@ -1,0 +1,414 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, develop, 'release/**']
+  pull_request:
+    branches: [main, develop]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  SOLUTION_PATH: archonai/ArchonAI.slnx
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/archonai
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+jobs:
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for hardcoded secrets
+        run: |
+          echo "Scanning for hardcoded secrets in tracked files..."
+          FOUND=0
+
+          # Patterns that indicate hardcoded secrets (not placeholder empty strings)
+          # Exclude .env.example (template), SECRETS.md (docs), ci-cd.yml (this file)
+          EXCLUDE_PATTERN="\.env\.example|SECRETS\.md|ci-cd\.yml|\.git/"
+
+          # Check for common secret patterns in source files
+          if grep -rn --include="*.yaml" --include="*.yml" --include="*.json" --include="*.cs" --include="*.xml" \
+            -E '(password|secret|apikey|api_key|signing_key|token).*[:=]\s*"[^"${}]{8,}"' \
+            --exclude-dir=.git --exclude="*.md" . | grep -v -E "$EXCLUDE_PATTERN" | grep -v '""' | head -20; then
+            echo "::warning::Potential hardcoded secrets detected. Review the matches above."
+            FOUND=1
+          fi
+
+          # Check for .env files that shouldn't be committed
+          if git ls-files | grep -E '^\.env$|/\.env$|\.env\.local$'; then
+            echo "::error::.env file is tracked by git. Remove it immediately."
+            FOUND=1
+          fi
+
+          if [ $FOUND -eq 1 ]; then
+            echo "::warning::Secret scan found potential issues. Review above."
+          else
+            echo "No hardcoded secrets detected."
+          fi
+
+  build:
+    name: Build Solution
+    runs-on: ubuntu-latest
+    needs: secret-scan
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore -c Release -warnaserror
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: archonai/src/**/bin/Release/
+          retention-days: 1
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Verify Docker available (required for Testcontainers)
+        run: |
+          echo "── Docker availability check ──"
+          docker version
+          docker info --format '{{.ServerVersion}}'
+          echo "Docker is available for Testcontainers integration tests."
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+      - name: Run unit tests
+        run: |
+          set -euo pipefail
+          echo "── Unit Tests (solution-level) ──"
+          dotnet test ${{ env.SOLUTION_PATH }} --no-restore -c Release \
+            --filter "Category!=Integration&Category!=RuntimeProof" \
+            --logger "trx;LogFileName=unit-results.trx" \
+            --results-directory ./test-results \
+            --collect:"XPlat Code Coverage"
+
+      - name: Run Enterprise integration tests
+        run: |
+          set -euo pipefail
+          echo "── Enterprise Integration Tests (Testcontainers) ──"
+          dotnet test archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj \
+            --no-restore -c Release \
+            --filter "Category=Integration" \
+            --logger "trx;LogFileName=enterprise-integration.trx" \
+            --logger "console;verbosity=normal" \
+            --results-directory ./test-results
+
+      - name: Run Enterprise runtime-proof tests
+        run: |
+          set -euo pipefail
+          echo "── Enterprise RuntimeProof Tests ──"
+          dotnet test archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj \
+            --no-restore -c Release \
+            --filter "Category=RuntimeProof" \
+            --logger "trx;LogFileName=enterprise-runtimeproof.trx" \
+            --logger "console;verbosity=normal" \
+            --results-directory ./test-results
+
+      - name: Run AI runtime-proof tests
+        run: |
+          set -euo pipefail
+          echo "── AI RuntimeProof Tests ──"
+          dotnet test archonai/tests/ArchonAI.Tests/ArchonAI.Tests.csproj \
+            --no-restore -c Release \
+            --filter "Category=RuntimeProof" \
+            --logger "trx;LogFileName=ai-runtimeproof.trx" \
+            --logger "console;verbosity=normal" \
+            --results-directory ./test-results
+
+      - name: Verify container-backed tests actually executed
+        if: always()
+        run: |
+          echo "── Container Execution Proof ──"
+          GATE_PASS=true
+
+          for TRX_NAME in enterprise-integration enterprise-runtimeproof ai-runtimeproof; do
+            TRX_FILE=$(find ./test-results -name "${TRX_NAME}.trx" -type f | head -1)
+            if [ -z "$TRX_FILE" ]; then
+              echo "::error::Missing TRX: ${TRX_NAME}.trx — tests did not execute."
+              GATE_PASS=false
+              continue
+            fi
+
+            TOTAL=$(grep -oP 'total="\K[0-9]+' "$TRX_FILE" | head -1 || echo "0")
+            PASSED=$(grep -oP 'passed="\K[0-9]+' "$TRX_FILE" | head -1 || echo "0")
+            FAILED=$(grep -oP 'failed="\K[0-9]+' "$TRX_FILE" | head -1 || echo "0")
+
+            echo "${TRX_NAME}: total=${TOTAL:-0} passed=${PASSED:-0} failed=${FAILED:-0}"
+
+            if [ "${TOTAL:-0}" -eq 0 ]; then
+              echo "::error::${TRX_NAME}: Zero tests discovered."
+              GATE_PASS=false
+            fi
+            if [ "${PASSED:-0}" -eq 0 ]; then
+              echo "::error::${TRX_NAME}: Zero tests passed."
+              GATE_PASS=false
+            fi
+            if [ "${FAILED:-0}" -gt 0 ]; then
+              echo "::error::${TRX_NAME}: ${FAILED} test(s) failed."
+              GATE_PASS=false
+            fi
+          done
+
+          echo ""
+          if [ "$GATE_PASS" = true ]; then
+            echo "✓ All integration/RuntimeProof tests executed and passed."
+            echo "✓ Container-backed persistence verified in CI."
+          else
+            echo "✗ Test execution proof gate FAILED."
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: ./test-results/
+          retention-days: 30
+
+  security-scan:
+    name: Security scanning
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Scan NuGet dependencies for known CVEs
+        run: |
+          dotnet restore archonai/
+          dotnet list archonai/ package --vulnerable --include-transitive 2>&1 | tee vuln-report.txt
+          if grep -q "has the following vulnerable packages" vuln-report.txt; then
+            echo "::error::Vulnerable NuGet packages found. See vuln-report.txt"
+            cat vuln-report.txt
+            exit 1
+          fi
+
+      - name: Build Docker images for scanning
+        run: |
+          docker build -f archonai/deploy/docker/Dockerfile.api -t archonai-api:scan .
+          docker build -f archonai/deploy/docker/Dockerfile.agents -t archonai-agents:scan .
+
+      - name: Scan Docker images with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: archonai-api:scan
+          format: sarif
+          output: trivy-api.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 1
+          ignore-unfixed: true
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-api.sarif
+
+  docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - image: api
+            dockerfile: archonai/deploy/docker/Dockerfile.api
+          - image: cli
+            dockerfile: archonai/deploy/docker/Dockerfile.cli
+          - image: runtime
+            dockerfile: archonai/deploy/docker/Dockerfile.runtime
+          - image: scheduler
+            dockerfile: archonai/deploy/docker/Dockerfile.scheduler
+          - image: agents
+            dockerfile: archonai/deploy/docker/Dockerfile.agents
+          - image: gateway
+            dockerfile: archonai/deploy/docker/Dockerfile.gateway
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  publish:
+    name: Publish Artifacts
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Publish API
+        run: >
+          dotnet publish archonai/src/ArchonAI.Api/ArchonAI.Api.csproj
+          -c Release
+          -o ./artifacts/api
+          /p:UseAppHost=false
+
+      - name: Publish CLI
+        run: >
+          dotnet publish archonai/src/ArchonAI.Cli/ArchonAI.Cli.csproj
+          -c Release
+          -o ./artifacts/cli
+          /p:UseAppHost=false
+
+      - name: Publish Runtime Worker
+        run: >
+          dotnet publish archonai/src/ArchonAI.Worker.Runtime/ArchonAI.Worker.Runtime.csproj
+          -c Release
+          -o ./artifacts/runtime
+          /p:UseAppHost=false
+
+      - name: Publish Scheduler Worker
+        run: >
+          dotnet publish archonai/src/ArchonAI.Worker.Scheduler/ArchonAI.Worker.Scheduler.csproj
+          -c Release
+          -o ./artifacts/scheduler
+          /p:UseAppHost=false
+
+      - name: Publish Agents Worker
+        run: >
+          dotnet publish archonai/src/ArchonAI.Worker.Agents/ArchonAI.Worker.Agents.csproj
+          -c Release
+          -o ./artifacts/agents
+          /p:UseAppHost=false
+
+      - name: Publish Gateway
+        run: >
+          dotnet publish archonai/src/ArchonAI.Gateway/ArchonAI.Gateway.csproj
+          -c Release
+          -o ./artifacts/gateway
+          /p:UseAppHost=false
+
+      - name: Upload API artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archonai-api
+          path: ./artifacts/api/
+          retention-days: 30
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archonai-cli
+          path: ./artifacts/cli/
+          retention-days: 30
+
+      - name: Upload Runtime artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archonai-runtime
+          path: ./artifacts/runtime/
+          retention-days: 30
+
+      - name: Upload Scheduler artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archonai-scheduler
+          path: ./artifacts/scheduler/
+          retention-days: 30
+
+      - name: Upload Agents artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archonai-agents
+          path: ./artifacts/agents/
+          retention-days: 30
+
+      - name: Upload Gateway artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archonai-gateway
+          path: ./artifacts/gateway/
+          retention-days: 30
+
+      - name: Upload Helm chart
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-chart
+          path: archonai/deploy/helm/
+          retention-days: 30
+
+      - name: Upload Kubernetes manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubernetes-manifests
+          path: archonai/deploy/kubernetes/
+          retention-days: 30

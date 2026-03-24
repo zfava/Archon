@@ -1,0 +1,264 @@
+/* ── Admin Pages ──────────────────────────────────────────── */
+
+.admin-page {
+  padding: var(--space-5);
+  height: 100%;
+  overflow-y: auto;
+}
+
+.admin-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+
+.admin-page-title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.admin-page-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-faint);
+  margin: var(--space-1) 0 0;
+}
+
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.admin-overall-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.admin-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Grid ─────────────────────────────────────────────────── */
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: var(--space-4);
+}
+
+/* ── Cards ────────────────────────────────────────────────── */
+
+.admin-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+
+.admin-card--wide {
+  grid-column: 1 / -1;
+}
+
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.admin-card-title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3);
+}
+
+.admin-card-header .admin-card-title {
+  margin-bottom: 0;
+}
+
+/* ── Details ──────────────────────────────────────────────── */
+
+.admin-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.admin-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-detail-row:last-child {
+  border-bottom: none;
+}
+
+.admin-detail-label {
+  font-size: var(--font-size-sm);
+  color: var(--text-faint);
+}
+
+.admin-detail-value {
+  font-size: var(--font-size-sm);
+  color: var(--text);
+}
+
+.admin-detail-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: var(--font-size-xs);
+}
+
+.admin-detail-faint {
+  color: var(--text-faint);
+  font-size: var(--font-size-sm);
+}
+
+/* ── Roles ────────────────────────────────────────────────── */
+
+.admin-roles-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.admin-role-card {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.admin-role-name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.admin-role-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.admin-role-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.admin-role-badge--admin {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+
+.admin-role-badge--operator {
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: var(--success);
+}
+
+.admin-role-badge--viewer {
+  background: color-mix(in srgb, var(--text-faint) 15%, transparent);
+  color: var(--text-secondary);
+}
+
+/* ── Table ────────────────────────────────────────────────── */
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.admin-table th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-faint);
+  font-weight: 500;
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.admin-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+/* ── Health Services ──────────────────────────────────────── */
+
+.health-services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+
+.health-service-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.health-service-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.health-service-name {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.health-service-status {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.health-service-latency {
+  font-size: var(--font-size-xs);
+  color: var(--text-faint);
+}
+
+.health-connector-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.health-warning-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  color: var(--warning);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}

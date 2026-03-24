@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(UsingMicrosoftNETSdk)' == 'true' AND '$(UsingMicrosoftNETSdkWeb)' != 'true' AND '$(UsingMicrosoftNETSdkWorker)' != 'true'">
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+</Project>

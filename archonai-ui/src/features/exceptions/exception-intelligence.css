@@ -1,0 +1,123 @@
+.exc-view { padding: 32px; max-width: 1200px; }
+
+.exc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+.exc-header-left { display: flex; align-items: center; gap: 14px; }
+.exc-back { color: var(--text-3); text-decoration: none; display: flex; }
+.exc-back:hover { color: var(--text-1); }
+.exc-title { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--text-1); margin: 0; }
+.exc-subtitle { font-size: 13px; color: var(--text-3); margin: 2px 0 0; }
+
+/* Summary cards */
+.exc-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }
+.exc-stat-card {
+  background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px;
+  padding: 16px; text-align: center;
+}
+.exc-stat-value { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--text-1); }
+.exc-stat-label { font-family: var(--mono); font-size: 10px; color: var(--text-3); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
+.exc-stat-critical .exc-stat-value { color: #F87171; }
+.exc-stat-high .exc-stat-value { color: #F97316; }
+.exc-stat-warn .exc-stat-value { color: #FFBD2E; }
+.exc-stat-exposure .exc-stat-value { color: #A78BFA; font-size: 18px; }
+
+/* Filter bar */
+.exc-filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.exc-filter-btn {
+  font-family: var(--mono); font-size: 11px; padding: 5px 12px;
+  border: 1px solid var(--border); border-radius: 3px; background: var(--navy-card);
+  color: var(--text-3); cursor: pointer; transition: all 0.15s;
+}
+.exc-filter-btn:hover { border-color: var(--text-3); }
+.exc-filter-btn.active { border-color: var(--text-1); color: var(--text-1); background: #161F2E; }
+
+/* Exception list */
+.exc-list { display: flex; flex-direction: column; gap: 6px; }
+.exc-card {
+  background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px 18px; cursor: pointer; transition: all 0.15s;
+}
+.exc-card:hover { background: #161F2E; }
+.exc-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.exc-card-title { font-size: 14px; font-weight: 600; color: var(--text-1); flex: 1; }
+.exc-card-desc { font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.exc-card-meta { display: flex; gap: 12px; font-family: var(--mono); font-size: 10px; color: var(--text-3); }
+.exc-card-score { font-family: var(--mono); font-size: 11px; color: var(--purple); font-weight: 600; }
+
+/* Badges */
+.exc-badge {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
+  padding: 2px 8px; border-radius: 2px; border: 1px solid; text-transform: uppercase;
+}
+.exc-sev-critical { color: #F87171; border-color: rgba(248,113,113,0.3); }
+.exc-sev-high { color: #F97316; border-color: rgba(249,115,22,0.3); }
+.exc-sev-warning { color: #FFBD2E; border-color: rgba(255,189,46,0.3); }
+.exc-sev-info { color: #60A5FA; border-color: rgba(96,165,250,0.3); }
+
+.exc-cat-anomaly { color: #F87171; border-color: rgba(248,113,113,0.3); }
+.exc-cat-failure { color: #F97316; border-color: rgba(249,115,22,0.3); }
+.exc-cat-drift { color: #FFBD2E; border-color: rgba(255,189,46,0.3); }
+.exc-cat-bottleneck { color: #A78BFA; border-color: rgba(167,139,250,0.3); }
+.exc-cat-policyviolation { color: #F87171; border-color: rgba(248,113,113,0.3); }
+.exc-cat-thresholdbreach { color: #FFBD2E; border-color: rgba(255,189,46,0.3); }
+.exc-cat-escalationrequired { color: #F97316; border-color: rgba(249,115,22,0.3); }
+.exc-cat-interventionpoint { color: #2DD4BF; border-color: rgba(45,212,191,0.3); }
+
+.exc-status-open { color: #F87171; border-color: rgba(248,113,113,0.3); }
+.exc-status-acknowledged { color: #FFBD2E; border-color: rgba(255,189,46,0.3); }
+.exc-status-inprogress { color: #60A5FA; border-color: rgba(96,165,250,0.3); }
+.exc-status-resolved { color: #34D399; border-color: rgba(52,211,153,0.3); }
+.exc-status-dismissed { color: var(--text-3); border-color: var(--border); opacity: 0.6; }
+
+/* Detail panel */
+.exc-detail {
+  background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px;
+  padding: 20px; margin-bottom: 24px;
+}
+.exc-detail-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.exc-detail-title { font-size: 16px; font-weight: 700; color: var(--text-1); margin-bottom: 4px; }
+.exc-detail-desc { font-size: 13px; color: var(--text-2); margin-bottom: 16px; }
+
+.exc-section { margin-bottom: 16px; }
+.exc-section-label {
+  font-family: var(--mono); font-size: 11px; color: var(--text-3);
+  letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px;
+}
+
+/* Scoring */
+.exc-scores { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+.exc-score-item {
+  padding: 10px; border: 1px solid var(--border); border-radius: 4px; text-align: center;
+}
+.exc-score-val { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--text-1); }
+.exc-score-lbl { font-family: var(--mono); font-size: 10px; color: var(--text-3); text-transform: uppercase; margin-top: 2px; }
+
+/* Recommended action */
+.exc-action {
+  padding: 12px 16px; border: 1px solid rgba(52,211,153,0.3); border-radius: 4px;
+  background: rgba(52,211,153,0.05);
+}
+.exc-action-type { font-family: var(--mono); font-size: 10px; color: #34D399; text-transform: uppercase; margin-bottom: 4px; }
+.exc-action-desc { font-size: 13px; color: var(--text-1); }
+.exc-action-target { font-family: var(--mono); font-size: 10px; color: var(--text-3); margin-top: 4px; }
+
+/* Links */
+.exc-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.exc-link-chip {
+  font-family: var(--mono); font-size: 10px; color: var(--text-3);
+  padding: 2px 8px; border: 1px solid var(--border); border-radius: 2px;
+}
+
+/* Status actions */
+.exc-status-actions { display: flex; gap: 6px; margin-top: 12px; }
+.exc-action-btn {
+  font-family: var(--mono); font-size: 11px; padding: 5px 12px;
+  border: 1px solid var(--border); border-radius: 3px; background: var(--navy-card);
+  color: var(--text-3); cursor: pointer; transition: all 0.15s;
+}
+.exc-action-btn:hover { border-color: var(--text-1); color: var(--text-1); }
+
+.exc-loading { padding: 48px; text-align: center; color: var(--text-3); }
+.exc-empty {
+  padding: 48px; text-align: center; color: var(--text-3); font-size: 14px;
+  background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px;
+}

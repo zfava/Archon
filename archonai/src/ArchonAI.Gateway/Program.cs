@@ -1,0 +1,222 @@
+using System.Text;
+using System.Threading.RateLimiting;
+using ArchonAI.Common.Observability;
+using ArchonAI.Gateway.Middleware;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Serilog;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// CORS — configured via Gateway:Cors:AllowedOrigins
+var corsSection = builder.Configuration.GetSection("Gateway:Cors");
+var allowedOrigins = corsSection.GetSection("AllowedOrigins").Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("GatewayPolicy", policy =>
+    {
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+                .WithHeaders("Authorization", "Content-Type", "X-Correlation-Id", "X-Tenant-Id")
+                .AllowCredentials()
+                .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
+        }
+        // When no origins configured, deny all cross-origin requests (no policy = no ACAO header)
+    });
+});
+
+// Logging
+builder.Host.UseSerilog((context, _, config) => config
+    .ReadFrom.Configuration(context.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "ArchonAI.Gateway")
+    .WriteTo.Console());
+
+// OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("ArchonAI.Gateway"))
+    .WithTracing(t => t
+        .AddSource(Telemetry.ActivitySource.Name)
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation())
+    .WithMetrics(m => m
+        .AddMeter(Telemetry.Meter.Name)
+        .AddAspNetCoreInstrumentation()
+        .AddPrometheusExporter());
+
+// JWT Authentication — supports dual-key validation during key rotation
+var jwtSection = builder.Configuration.GetSection("Security:Jwt");
+string issuer = jwtSection["Issuer"] ?? "ArchonAI";
+string audience = jwtSection["Audience"] ?? "ArchonAI.Api";
+string signingKey = jwtSection["SigningKey"]
+    ?? Environment.GetEnvironmentVariable("ARCHONAI_JWT_SIGNING_KEY")
+    ?? string.Empty;
+
+if (string.IsNullOrWhiteSpace(signingKey) || signingKey.Length < 32)
+{
+    throw new InvalidOperationException(
+        "JWT signing key is not configured or too short. Provide Security:Jwt:SigningKey or ARCHONAI_JWT_SIGNING_KEY (>=32 chars).");
+}
+
+int clockSkewSeconds = int.TryParse(jwtSection["ClockSkewSeconds"], out var cs) ? cs : 60;
+
+var currentKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey));
+var validationKeys = new List<SecurityKey> { currentKey };
+
+// Support dual-key validation during rotation rollover
+string? previousKey = Environment.GetEnvironmentVariable("ARCHONAI_JWT_SIGNING_KEY_PREVIOUS");
+if (!string.IsNullOrWhiteSpace(previousKey) && previousKey.Length >= 32)
+{
+    validationKeys.Add(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(previousKey)));
+    Log.Information("JWT dual-key validation enabled for key rotation rollover");
+}
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = issuer,
+            ValidateAudience = true,
+            ValidAudience = audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = currentKey,
+            IssuerSigningKeys = validationKeys,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(Math.Max(0, clockSkewSeconds))
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("OperatorOrAdmin", policy => policy.RequireRole("Operator", "Admin"));
+});
+
+// Tiered Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("standard", _ => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: "standard",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 120,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 20
+        }));
+
+    options.AddPolicy("admin", _ => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: "admin",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 10
+        }));
+
+    options.AddPolicy("connectors", _ => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: "connectors",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 200,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 30
+        }));
+
+    options.AddPolicy("health", _ => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: "health",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 300,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        }));
+
+    options.AddPolicy("metrics", _ => RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: "metrics",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        }));
+});
+
+// YARP Reverse Proxy
+builder.Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
+// Gateway metrics
+builder.Services.AddSingleton<GatewayMetrics>();
+
+// Health checks
+builder.Services.AddHealthChecks()
+    .AddCheck<ArchonAI.Common.Observability.EventBusHealthCheck>("event_bus", tags: new[] { "live" });
+
+var app = builder.Build();
+
+app.UseSerilogRequestLogging();
+
+// Correlation ID middleware (before everything else)
+app.UseMiddleware<CorrelationIdMiddleware>();
+
+// Request logging and metrics
+app.UseMiddleware<GatewayRequestMiddleware>();
+
+// CORS must be before auth and rate limiting
+app.UseCors("GatewayPolicy");
+
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Health endpoint (no auth required)
+app.MapGet("/health", () => Results.Ok(new
+{
+    service = "ArchonAI.Gateway",
+    status = "ok",
+    timestamp = DateTimeOffset.UtcNow
+})).AllowAnonymous().RequireRateLimiting("health");
+
+// K8s-compatible liveness probe
+app.MapHealthChecks("/healthz/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+}).AllowAnonymous().RequireRateLimiting("health");
+
+// Readiness probe
+app.MapHealthChecks("/healthz/ready").AllowAnonymous().RequireRateLimiting("health");
+
+// Gateway status
+app.MapGet("/gateway/status", (GatewayMetrics metrics) =>
+    Results.Ok(metrics.GetSnapshot()))
+    .RequireAuthorization("AdminOnly")
+    .RequireRateLimiting("admin");
+
+// Prometheus metrics
+app.MapPrometheusScrapingEndpoint("/metrics")
+    .RequireAuthorization("AdminOnly")
+    .RequireRateLimiting("metrics");
+
+// YARP proxy - handles all /api/** routes
+app.MapReverseProxy();
+
+app.Run();

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="NSubstitute" Version="5.1.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ArchonAI.Policy\ArchonAI.Policy.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Identity\ArchonAI.Identity.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Core\ArchonAI.Core.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Models\ArchonAI.Models.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.ModelRouter\ArchonAI.ModelRouter.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.WorkflowRuntime\ArchonAI.WorkflowRuntime.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Api\ArchonAI.Api.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.ControlPlane\ArchonAI.ControlPlane.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Trace\ArchonAI.Trace.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Strategy\ArchonAI.Strategy.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.AdminAPI\ArchonAI.AdminAPI.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Infrastructure\ArchonAI.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

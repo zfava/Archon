@@ -1,0 +1,81 @@
+# ArchonAI Load Test Docker Compose
+# Adds a k6 runner alongside the application stack.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f tests/load/docker-compose.load-test.yml up k6-runner
+#   docker compose -f docker-compose.yml -f tests/load/docker-compose.load-test.yml run k6-runner
+
+services:
+  k6-runner:
+    image: grafana/k6:0.50.0
+    volumes:
+      - ./tests/load:/load-tests
+      - ./tests/load/results:/results
+    working_dir: /load-tests
+    environment:
+      - BASE_URL=http://gateway:8080
+      - REPORT_DIR=/results
+      - K6_OUT=json=/results/output.json
+    depends_on:
+      gateway:
+        condition: service_started
+      api:
+        condition: service_started
+      postgres:
+        condition: service_started
+      nats:
+        condition: service_started
+    networks:
+      - default
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        echo "Waiting for gateway to be ready..."
+        for i in $(seq 1 30); do
+          if wget -q -O /dev/null http://gateway:8080/healthz/live 2>/dev/null; then
+            echo "Gateway is ready."
+            break
+          fi
+          echo "Attempt $i/30: Gateway not ready, waiting 2s..."
+          sleep 2
+        done
+
+        echo "Running load test suite..."
+        FAILED=0
+        for scenario in /load-tests/scenarios/*.js; do
+          NAME=$(basename "$scenario" .js)
+          echo "=== Running: $NAME ==="
+          k6 run \
+            --out "json=/results/${NAME}.json" \
+            --summary-export "/results/${NAME}-summary.json" \
+            "$scenario" || FAILED=1
+        done
+
+        exit $FAILED
+
+  # Optional: Grafana + InfluxDB for real-time dashboards
+  influxdb:
+    image: influxdb:1.8
+    environment:
+      - INFLUXDB_DB=k6
+    ports:
+      - "8086:8086"
+    profiles:
+      - dashboard
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - influxdb
+    profiles:
+      - dashboard
+
+volumes:
+  grafana-data:

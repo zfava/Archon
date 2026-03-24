@@ -1,0 +1,23 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY ./archonai/ArchonAI.slnx ./
+COPY ./archonai/src ./src
+
+RUN dotnet restore ./src/ArchonAI.Cli/ArchonAI.Cli.csproj
+RUN dotnet publish ./src/ArchonAI.Cli/ArchonAI.Cli.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
+
+RUN getent group archon >/dev/null 2>&1 || groupadd archon && \
+    getent passwd archon >/dev/null 2>&1 || useradd --gid archon --shell /bin/false --create-home archon
+
+WORKDIR /app
+
+COPY --from=build --chown=archon:archon /app/publish .
+USER archon
+
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD pgrep -x dotnet || exit 1
+
+ENTRYPOINT ["dotnet", "ArchonAI.Cli.dll"]

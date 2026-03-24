@@ -1,0 +1,16 @@
+**/bin
+**/obj
+**/.vs
+**/.idea
+**/*.user
+**/*.suo
+.git
+.github
+**/test-results
+**/artifacts
+**/node_modules
+
+# Environment files with secrets
+**/.env
+**/.env.local
+**/.env.*.local

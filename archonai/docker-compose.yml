@@ -1,0 +1,188 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════════════
+#  ArchonAI — Local Development Docker Compose
+# ══════════════════════════════════════════════════════════════════
+#
+#  Prerequisites:
+#    1. Copy .env.example to .env:  cp .env.example .env
+#    2. Generate secrets:
+#       - ARCHONAI_JWT_SIGNING_KEY: openssl rand -base64 48
+#       - POSTGRES_PASSWORD: openssl rand -base64 24
+#    3. Fill in API keys as needed (OpenAI, Anthropic, etc.)
+#
+#  IMPORTANT: Never commit the .env file — it is in .gitignore.
+# ══════════════════════════════════════════════════════════════════
+
+services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: archonai/deploy/docker/Dockerfile.gateway
+    image: archonai/gateway:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ARCHONAI_JWT_SIGNING_KEY: ${ARCHONAI_JWT_SIGNING_KEY:?Set ARCHONAI_JWT_SIGNING_KEY in .env file (min 32 chars)}
+      Security__Jwt__Issuer: ArchonAI
+      Security__Jwt__Audience: ArchonAI.Api
+      ReverseProxy__Clusters__api-cluster__Destinations__api-1__Address: http://api:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ..
+      dockerfile: archonai/deploy/docker/Dockerfile.api
+    image: archonai/api:local
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ARCHONAI_JWT_SIGNING_KEY: ${ARCHONAI_JWT_SIGNING_KEY:?Set ARCHONAI_JWT_SIGNING_KEY in .env file (min 32 chars)}
+      ARCHONAI_TOTP_ENCRYPTION_KEY: ${ARCHONAI_TOTP_ENCRYPTION_KEY:-}
+      Security__Jwt__Issuer: ArchonAI
+      Security__Jwt__Audience: ArchonAI.Api
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      MemoryPersistence__Schema: public
+      ArchonAIPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env};Minimum Pool Size=5;Maximum Pool Size=20
+      ArchonAIPersistence__Schema: archonai
+      EventBus__UseNats: "true"
+      EventBus__Url: nats://nats:4222
+      ModelProviders__OpenAI__Enabled: ${ARCHONAI_OPENAI_ENABLED:-true}
+      ModelProviders__OpenAI__ApiKey: ${OPENAI_API_KEY:-}
+      ModelProviders__Anthropic__Enabled: ${ARCHONAI_ANTHROPIC_ENABLED:-true}
+      ModelProviders__Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
+      ModelProviders__AzureOpenAI__Enabled: ${ARCHONAI_AZURE_OPENAI_ENABLED:-false}
+      ModelProviders__AzureOpenAI__ApiKey: ${AZURE_OPENAI_API_KEY:-}
+      ModelProviders__AzureOpenAI__Endpoint: ${AZURE_OPENAI_ENDPOINT:-}
+      ModelProviders__Local__Enabled: ${ARCHONAI_LOCAL_ENABLED:-true}
+      ModelProviders__Local__Endpoint: ${ARCHONAI_LOCAL_ENDPOINT:-http://localhost:11434}
+    expose:
+      - "8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
+  runtime:
+    build:
+      context: ..
+      dockerfile: archonai/deploy/docker/Dockerfile.runtime
+    image: archonai/runtime:local
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      EventBus__UseNats: "true"
+      EventBus__Url: nats://nats:4222
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      MemoryPersistence__Schema: public
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
+  scheduler:
+    build:
+      context: ..
+      dockerfile: archonai/deploy/docker/Dockerfile.scheduler
+    image: archonai/scheduler:local
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      EventBus__UseNats: "true"
+      EventBus__Url: nats://nats:4222
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      MemoryPersistence__Schema: public
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
+  agents:
+    build:
+      context: ..
+      dockerfile: archonai/deploy/docker/Dockerfile.agents
+    image: archonai/agents:local
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      EventBus__UseNats: "true"
+      EventBus__Url: nats://nats:4222
+      MemoryPersistence__ConnectionString: Host=postgres;Port=5432;Database=${POSTGRES_DB:-archonai};Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      MemoryPersistence__Schema: public
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-archonai}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-archonai} -d ${POSTGRES_DB:-archonai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  # ── Observability Stack ──────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    volumes:
+      - ./deploy/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/monitoring/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - gateway
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-archonai}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/01-platform-overview.json
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:

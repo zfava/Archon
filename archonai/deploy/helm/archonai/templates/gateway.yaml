@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archonai-gateway
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/part-of: archonai
+spec:
+  replicas: {{ .Values.gateway.replicaCount }}
+  selector:
+    matchLabels:
+      app: archonai-gateway
+  template:
+    metadata:
+      labels:
+        app: archonai-gateway
+        app.kubernetes.io/name: archonai-gateway
+        app.kubernetes.io/component: gateway
+      annotations:
+        {{- include "archonai.vaultAnnotations" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: gateway
+          image: "{{ if .Values.global.imageRegistry }}{{ .Values.global.imageRegistry }}/{{ end }}{{ .Values.gateway.image.repository }}:{{ .Values.gateway.image.tag }}"
+          imagePullPolicy: {{ .Values.gateway.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: archonai-gateway-config
+            {{- if ne .Values.secrets.provider "vault-injector" }}
+            - secretRef:
+                name: archonai-secrets
+            {{- end }}
+          env:
+            {{- include "archonai.vaultEnv" . | nindent 12 }}
+          {{- with .Values.gateway.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.gateway.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.gateway.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- include "archonai.vaultVolumeMount" . | nindent 12 }}
+      volumes:
+        {{- include "archonai.vaultVolume" . | nindent 8 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: archonai-gateway-config
+  namespace: {{ .Values.namespace }}
+data:
+{{- range $key, $value := .Values.gateway.env }}
+  {{ $key }}: {{ $value | quote }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: archonai-gateway
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/name: archonai-gateway
+    app.kubernetes.io/component: gateway
+spec:
+  type: {{ .Values.gateway.service.type }}
+  selector:
+    app: archonai-gateway
+  ports:
+    - port: {{ .Values.gateway.service.port }}
+      targetPort: 8080
+      protocol: TCP
+      name: http

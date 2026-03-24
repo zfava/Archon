@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archonai-agents
+  namespace: archonai
+  labels:
+    app.kubernetes.io/name: archonai-agents
+    app.kubernetes.io/component: agents
+    app.kubernetes.io/part-of: archonai
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: archonai-agents
+  template:
+    metadata:
+      labels:
+        app: archonai-agents
+    spec:
+      containers:
+        - name: agents
+          image: archonai/agents:latest
+          ports:
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: archonai-config
+            - secretRef:
+                name: archonai-secrets
+          livenessProbe:
+            httpGet:
+              path: /healthz/live
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz/ready
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi

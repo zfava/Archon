@@ -1,0 +1,91 @@
+.mem-view { padding: 32px; max-width: 1200px; }
+
+.mem-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+.mem-header-left { display: flex; align-items: center; gap: 14px; }
+.mem-back { color: var(--text-3); text-decoration: none; display: flex; }
+.mem-back:hover { color: var(--text-1); }
+.mem-title { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--text-1); margin: 0; }
+.mem-subtitle { font-size: 13px; color: var(--text-3); margin: 2px 0 0; }
+
+/* Layer bar */
+.mem-layer-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.mem-layer-btn {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em;
+  padding: 6px 14px; border-radius: 3px; border: 1px solid var(--border);
+  background: var(--navy-card); color: var(--text-3); cursor: pointer;
+  display: flex; align-items: center; gap: 6px; transition: all 0.15s;
+}
+.mem-layer-btn:hover { border-color: var(--text-3); }
+.mem-layer-btn.active { border-color: var(--text-1); color: var(--text-1); background: #161F2E; }
+.mem-layer-dot { width: 6px; height: 6px; border-radius: 50%; }
+.mem-layer-count { font-size: 10px; opacity: 0.6; margin-left: 2px; }
+
+/* Layer colors */
+.mem-layer-session .mem-layer-dot, .mem-badge.mem-layer-session { border-color: rgba(156,163,175,0.4); }
+.mem-layer-session .mem-layer-dot { background: #9CA3AF; }
+.mem-badge.mem-layer-session { color: #9CA3AF; }
+
+.mem-layer-operational .mem-layer-dot, .mem-badge.mem-layer-operational { border-color: rgba(96,165,250,0.4); }
+.mem-layer-operational .mem-layer-dot { background: #60A5FA; }
+.mem-badge.mem-layer-operational { color: #60A5FA; }
+
+.mem-layer-organizational .mem-layer-dot, .mem-badge.mem-layer-organizational { border-color: rgba(52,211,153,0.4); }
+.mem-layer-organizational .mem-layer-dot { background: #34D399; }
+.mem-badge.mem-layer-organizational { color: #34D399; }
+
+.mem-layer-strategic .mem-layer-dot, .mem-badge.mem-layer-strategic { border-color: rgba(249,115,22,0.4); }
+.mem-layer-strategic .mem-layer-dot { background: #F97316; }
+.mem-badge.mem-layer-strategic { color: #F97316; }
+
+.mem-layer-relational .mem-layer-dot, .mem-badge.mem-layer-relational { border-color: rgba(168,85,247,0.4); }
+.mem-layer-relational .mem-layer-dot { background: #A855F7; }
+.mem-badge.mem-layer-relational { color: #A855F7; }
+
+.mem-layer-financial .mem-layer-dot, .mem-badge.mem-layer-financial { border-color: rgba(255,189,46,0.4); }
+.mem-layer-financial .mem-layer-dot { background: #FFBD2E; }
+.mem-badge.mem-layer-financial { color: #FFBD2E; }
+
+.mem-layer-desc {
+  font-family: var(--mono); font-size: 11px; padding: 8px 14px;
+  border: 1px solid var(--border); border-radius: 3px; margin-bottom: 16px;
+  background: var(--navy-card);
+}
+
+/* Record list */
+.mem-record-list { display: flex; flex-direction: column; gap: 8px; }
+.mem-record {
+  background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px;
+  padding: 16px 20px; transition: background 0.15s;
+}
+.mem-record:hover { background: #161F2E; }
+
+.mem-record-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.mem-badge {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em;
+  padding: 2px 8px; border-radius: 2px; border: 1px solid; text-transform: uppercase;
+}
+.mem-category { font-family: var(--mono); font-size: 11px; color: var(--text-2); }
+.mem-time { font-family: var(--mono); font-size: 10px; color: var(--text-3); margin-left: auto; }
+.mem-expires { font-family: var(--mono); font-size: 10px; color: #F87171; }
+
+.mem-subject { font-size: 14px; font-weight: 600; color: var(--text-1); margin-bottom: 4px; }
+.mem-content { font-size: 13px; color: var(--text-2); line-height: 1.5; margin-bottom: 8px; }
+
+.mem-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.mem-tag {
+  font-family: var(--mono); font-size: 10px; color: var(--text-3);
+  padding: 2px 8px; border: 1px solid var(--border); border-radius: 2px;
+}
+
+.mem-links { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.mem-link {
+  font-family: var(--mono); font-size: 10px; color: var(--purple);
+  padding: 2px 8px; border: 1px solid var(--border-lit); border-radius: 2px;
+}
+
+.mem-record-footer { display: flex; justify-content: space-between; }
+.mem-importance { font-family: var(--mono); font-size: 10px; color: var(--text-3); }
+.mem-author { font-family: var(--mono); font-size: 10px; color: var(--text-3); }
+
+.mem-loading { padding: 48px; text-align: center; color: var(--text-3); }
+.mem-empty { padding: 48px; text-align: center; color: var(--text-3); font-size: 14px; background: var(--navy-card); border: 1px solid var(--border); border-radius: 6px; }
