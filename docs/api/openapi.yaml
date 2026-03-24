@@ -446,6 +446,12 @@ tags:
     description: Governance demo loop for showcasing the full AI reasoning → policy → approval → execution pipeline
   - name: TrustVisibility
     description: Composite trust lineage and posture endpoints aggregating cross-domain governance data
+  - name: Operator
+    description: Human overrides, operational twin, scenarios, exceptions, executive command, hero workflows, policy simulation, inspection
+  - name: Decisions
+    description: Decision records, financial consequences, outcome learning, proof analytics
+  - name: Intelligence
+    description: Memory management, continuous improvement, org memory, insights, perception, org state, strategy learning, enterprise memory
 paths:
   # ═══════════════════════════════════════════════════════════════════
   # Auth Endpoints (AuthEndpoints.cs)
@@ -1441,5 +1447,1523 @@ paths:
                   proofAnalytics:
                     type: object
                     description: Proof analytics dashboard data
+        '401':
+          description: Not authenticated
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Operator Endpoints — Overrides (OperatorEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /api/v1/overrides/pause:
+    post:
+      tags: [Operator]
+      summary: Pause a running workflow
+      responses:
+        '200':
+          description: Success
+        '422':
+          description: Unprocessable
+  /api/v1/overrides/resume:
+    post:
+      tags: [Operator]
+      summary: Resume a paused workflow
+      responses:
+        '200':
+          description: Success
+        '422':
+          description: Unprocessable
+  /api/v1/overrides/cancel:
+    post:
+      tags: [Operator]
+      summary: Cancel an action
+      responses:
+        '200':
+          description: Success
+        '422':
+          description: Unprocessable
+  /api/v1/overrides/modify-strategy:
+    post:
+      tags: [Operator]
+      summary: Modify workflow strategy (may require governance approval)
+      responses:
+        '200':
+          description: Strategy modified
+        '202':
+          description: Approval gate created
+        '401':
+          description: Not authenticated
+        '422':
+          description: Unprocessable
+  /api/v1/overrides/rollback:
+    post:
+      tags: [Operator]
+      summary: Rollback an action
+      responses:
+        '200':
+          description: Success
+        '422':
+          description: Unprocessable
+  /api/v1/overrides/log:
+    get:
+      tags: [Operator]
+      summary: Get override log entries
+      parameters:
+        - name: workflowId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Success
+
+  # ── Operational Twin ──
+  /api/v1/twin/entities:
+    post:
+      tags: [Operator]
+      summary: Upsert a twin entity
+      responses:
+        '201':
+          description: Entity created
+        '400':
+          description: Validation error
+        '401':
+          description: Not authenticated
+    get:
+      tags: [Operator]
+      summary: List twin entities
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+  /api/v1/twin/entities/{entityId}:
+    get:
+      tags: [Operator]
+      summary: Get a twin entity by ID
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/twin/dependencies:
+    post:
+      tags: [Operator]
+      summary: Add a dependency between twin entities
+      responses:
+        '201':
+          description: Dependency created
+        '400':
+          description: Validation error
+        '401':
+          description: Not authenticated
+  /api/v1/twin/entities/{entityId}/dependencies:
+    get:
+      tags: [Operator]
+      summary: Get dependencies for a twin entity
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+  /api/v1/twin/kpis:
+    post:
+      tags: [Operator]
+      summary: Record a KPI for a twin entity
+      responses:
+        '200':
+          description: KPI recorded
+  /api/v1/twin/entities/{entityId}/kpis:
+    get:
+      tags: [Operator]
+      summary: Get KPIs for a twin entity
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+  /api/v1/twin/bottlenecks:
+    post:
+      tags: [Operator]
+      summary: Report a bottleneck
+      responses:
+        '201':
+          description: Bottleneck reported
+        '401':
+          description: Not authenticated
+    get:
+      tags: [Operator]
+      summary: List bottlenecks
+      parameters:
+        - name: activeOnly
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Success
+  /api/v1/twin/bottlenecks/{bottleneckId}/resolve:
+    post:
+      tags: [Operator]
+      summary: Resolve a bottleneck
+      parameters:
+        - name: bottleneckId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Bottleneck resolved
+        '404':
+          description: Not found
+  /api/v1/twin/entities/{entityId}/links:
+    post:
+      tags: [Operator]
+      summary: Link an artifact to a twin entity
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Link created
+    get:
+      tags: [Operator]
+      summary: Get artifact links for a twin entity
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+  /api/v1/twin/overview:
+    get:
+      tags: [Operator]
+      summary: Get operational twin overview for the tenant
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+
+  # ── Scenarios ──
+  /api/v1/scenarios:
+    post:
+      tags: [Operator]
+      summary: Create a what-if scenario
+      responses:
+        '201':
+          description: Scenario created
+        '400':
+          description: Validation error
+        '401':
+          description: Not authenticated
+    get:
+      tags: [Operator]
+      summary: List scenarios
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/scenarios/{scenarioId}:
+    get:
+      tags: [Operator]
+      summary: Get a scenario by ID
+      parameters:
+        - name: scenarioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    delete:
+      tags: [Operator]
+      summary: Delete a scenario
+      parameters:
+        - name: scenarioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+  /api/v1/scenarios/{scenarioId}/assumptions:
+    put:
+      tags: [Operator]
+      summary: Update scenario assumptions
+      parameters:
+        - name: scenarioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Assumptions updated
+        '404':
+          description: Not found
+  /api/v1/scenarios/compare:
+    post:
+      tags: [Operator]
+      summary: Compare two or more scenarios side-by-side
+      responses:
+        '200':
+          description: Comparison result
+        '400':
+          description: Fewer than 2 scenario IDs
+
+  # ── Exceptions ──
+  /api/v1/exceptions:
+    post:
+      tags: [Operator]
+      summary: Raise an operational exception
+      responses:
+        '201':
+          description: Exception raised
+        '400':
+          description: Validation error
+        '401':
+          description: Not authenticated
+    get:
+      tags: [Operator]
+      summary: List operational exceptions
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: domain
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/exceptions/{exceptionId}:
+    get:
+      tags: [Operator]
+      summary: Get an exception by ID
+      parameters:
+        - name: exceptionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/exceptions/{exceptionId}/status:
+    put:
+      tags: [Operator]
+      summary: Update exception status
+      parameters:
+        - name: exceptionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Status updated
+        '404':
+          description: Not found
+  /api/v1/exceptions/{exceptionId}/recommended-action:
+    post:
+      tags: [Operator]
+      summary: Set recommended action for an exception
+      parameters:
+        - name: exceptionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Action set
+        '404':
+          description: Not found
+  /api/v1/exceptions/summary:
+    get:
+      tags: [Operator]
+      summary: Get exception queue summary
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+  /api/v1/exceptions/prioritized:
+    get:
+      tags: [Operator]
+      summary: Get prioritized exception queue
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Success
+
+  # ── Executive Command ──
+  /api/v1/executive-command/summary:
+    get:
+      tags: [Operator]
+      summary: Get executive command summary for the tenant
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+  /api/v1/executive-command/industry-kpis:
+    get:
+      tags: [Operator]
+      summary: Get industry-specific KPI seed data
+      parameters:
+        - name: industry
+          in: query
+          schema:
+            type: string
+            enum: [manufacturing, healthcare, financial-services, energy, defense, professional-services]
+      responses:
+        '200':
+          description: Industry KPIs
+
+  # ── Hero Workflows ──
+  /api/v1/hero-workflows/catalog:
+    get:
+      tags: [Operator]
+      summary: Get hero workflow catalog
+      responses:
+        '200':
+          description: Success
+  /api/v1/hero-workflows/catalog/{workflowType}:
+    get:
+      tags: [Operator]
+      summary: Get a hero workflow definition
+      parameters:
+        - name: workflowType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/hero-workflows:
+    post:
+      tags: [Operator]
+      summary: Start a hero workflow instance
+      responses:
+        '201':
+          description: Workflow started
+        '400':
+          description: Validation error
+    get:
+      tags: [Operator]
+      summary: List hero workflow instances
+      parameters:
+        - name: workflowType
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+  /api/v1/hero-workflows/{workflowId}:
+    get:
+      tags: [Operator]
+      summary: Get a hero workflow instance
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/hero-workflows/{workflowId}/advance:
+    post:
+      tags: [Operator]
+      summary: Advance a hero workflow to the next step
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Advanced
+        '404':
+          description: Not found
+  /api/v1/hero-workflows/{workflowId}/cancel:
+    post:
+      tags: [Operator]
+      summary: Cancel a hero workflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cancelled
+        '404':
+          description: Not found
+
+  # ── Policy Simulation ──
+  /api/v1/policy-simulation/simulate:
+    post:
+      tags: [Operator]
+      summary: Run a policy simulation dry-run
+      responses:
+        '200':
+          description: Simulation result
+        '400':
+          description: Validation error
+  /api/v1/policy-simulation/{simulationId}:
+    get:
+      tags: [Operator]
+      summary: Get a policy simulation by ID
+      parameters:
+        - name: simulationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/policy-simulation:
+    get:
+      tags: [Operator]
+      summary: List policy simulations
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+
+  # ── Inspection ──
+  /api/v1/inspection/summaries:
+    get:
+      tags: [Operator]
+      summary: List inspection summaries
+      parameters:
+        - name: subjectType
+          in: query
+          schema:
+            type: string
+        - name: domain
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+  /api/v1/inspection/decisions/{decisionId}/rationale:
+    get:
+      tags: [Operator]
+      summary: Inspect decision rationale bundle
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Rationale bundle
+        '404':
+          description: Not found
+  /api/v1/inspection/policy/{subjectType}/{subjectId}:
+    get:
+      tags: [Operator]
+      summary: Inspect policy evaluation for a subject
+      parameters:
+        - name: subjectType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Policy evaluation
+        '404':
+          description: Not found
+  /api/v1/inspection/memory/{subjectType}/{subjectId}:
+    get:
+      tags: [Operator]
+      summary: Inspect memory references for a subject
+      parameters:
+        - name: subjectType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Memory references
+  /api/v1/inspection/workflows/{workflowId}/diagnostics:
+    get:
+      tags: [Operator]
+      summary: Inspect workflow failure diagnostics
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Diagnostics
+        '404':
+          description: Not found
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Decision Endpoints (DecisionEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /api/v1/decisions:
+    post:
+      tags: [Decisions]
+      summary: Create a new decision record
+      responses:
+        '201':
+          description: Decision created
+        '400':
+          description: Validation error
+    get:
+      tags: [Decisions]
+      summary: List decision records
+      parameters:
+        - name: domain
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+  /api/v1/decisions/{decisionId}:
+    get:
+      tags: [Decisions]
+      summary: Get a decision record by ID
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/decisions/{decisionId}/status:
+    put:
+      tags: [Decisions]
+      summary: Update decision status
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Status updated
+        '400':
+          description: Invalid status
+        '404':
+          description: Not found
+  /api/v1/decisions/{decisionId}/links:
+    post:
+      tags: [Decisions]
+      summary: Link an artifact to a decision
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Link added
+        '400':
+          description: Validation error
+        '404':
+          description: Not found
+  /api/v1/decisions/{decisionId}/history:
+    get:
+      tags: [Decisions]
+      summary: Get decision status history
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: History events
+  /api/v1/decisions/{decisionId}/financial-consequence:
+    post:
+      tags: [Decisions]
+      summary: Attach financial consequence to a decision
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Consequence attached
+        '404':
+          description: Decision not found
+    get:
+      tags: [Decisions]
+      summary: Get financial consequence for a decision
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    put:
+      tags: [Decisions]
+      summary: Update financial consequence for a decision
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated
+        '404':
+          description: Not found
+
+  # ── Outcome Learning ──
+  /api/v1/outcomes/expected:
+    post:
+      tags: [Decisions]
+      summary: Record expected outcome for a decision
+      responses:
+        '201':
+          description: Expected outcome recorded
+        '401':
+          description: Not authenticated
+  /api/v1/outcomes/actual:
+    post:
+      tags: [Decisions]
+      summary: Record actual outcome for a decision
+      responses:
+        '200':
+          description: Actual outcome recorded
+        '404':
+          description: No expected outcome found
+  /api/v1/outcomes/{decisionId}:
+    get:
+      tags: [Decisions]
+      summary: Get outcome record for a decision
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/outcomes:
+    get:
+      tags: [Decisions]
+      summary: List outcome records for the tenant
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+  /api/v1/outcomes/calibration:
+    get:
+      tags: [Decisions]
+      summary: Get outcome calibration summary
+      parameters:
+        - name: domain
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Calibration summary
+        '401':
+          description: Not authenticated
+
+  # ── Proof Analytics ──
+  /api/v1/proof-analytics/events:
+    post:
+      tags: [Decisions]
+      summary: Record a proof event
+      responses:
+        '201':
+          description: Event recorded
+        '400':
+          description: Invalid event type
+        '401':
+          description: Not authenticated
+  /api/v1/proof-analytics/timeline/{decisionId}:
+    get:
+      tags: [Decisions]
+      summary: Get proof timeline for a decision
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/proof-analytics/workflow/{workflowId}/timelines:
+    get:
+      tags: [Decisions]
+      summary: Get proof timelines for a workflow
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+  /api/v1/proof-analytics/predicted-vs-actual:
+    get:
+      tags: [Decisions]
+      summary: Get predicted vs actual comparison
+      parameters:
+        - name: domain
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+  /api/v1/proof-analytics/approval-conversion:
+    get:
+      tags: [Decisions]
+      summary: Get approval conversion analytics
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+  /api/v1/proof-analytics/execution-trends:
+    get:
+      tags: [Decisions]
+      summary: Get execution trends
+      parameters:
+        - name: buckets
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+  /api/v1/proof-analytics/override-rates:
+    get:
+      tags: [Decisions]
+      summary: Get override rates analytics
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+  /api/v1/proof-analytics/trust-analytics:
+    get:
+      tags: [Decisions]
+      summary: Get trust analytics
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+  /api/v1/proof-analytics/dashboard:
+    get:
+      tags: [Decisions]
+      summary: Get proof analytics dashboard
+      parameters:
+        - name: domain
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Intelligence Endpoints (IntelligenceEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── Memory Management ──
+  /api/v1/memory/status:
+    get:
+      tags: [Intelligence]
+      summary: Get memory retrieval optimizer status
+      responses:
+        '200':
+          description: Success
+  /api/v1/memory/compress:
+    post:
+      tags: [Intelligence]
+      summary: Compress memory for a scope
+      responses:
+        '200':
+          description: Compression result
+  /api/v1/memory/deduplicate:
+    post:
+      tags: [Intelligence]
+      summary: Deduplicate memory for a scope
+      responses:
+        '200':
+          description: Deduplication result
+  /api/v1/memory/cluster:
+    post:
+      tags: [Intelligence]
+      summary: Cluster memory records for a scope
+      responses:
+        '200':
+          description: Clusters
+  /api/v1/memory/summarize:
+    post:
+      tags: [Intelligence]
+      summary: Summarize memory records
+      responses:
+        '200':
+          description: Summary
+  /api/v1/memory/search:
+    post:
+      tags: [Intelligence]
+      summary: Semantic search over memory
+      responses:
+        '200':
+          description: Search results
+  /api/v1/memory/index/rebuild:
+    post:
+      tags: [Intelligence]
+      summary: Rebuild memory index for a scope
+      responses:
+        '200':
+          description: Index rebuilt
+
+  # ── Continuous Improvement ──
+  /api/v1/continuous-improvement/cycle:
+    post:
+      tags: [Intelligence]
+      summary: Run a continuous improvement cycle
+      responses:
+        '200':
+          description: Cycle report
+  /api/v1/continuous-improvement/inefficiencies:
+    get:
+      tags: [Intelligence]
+      summary: Detect operational inefficiencies
+      responses:
+        '200':
+          description: Inefficiencies list
+  /api/v1/continuous-improvement/recommend:
+    post:
+      tags: [Intelligence]
+      summary: Recommend improvements from detected inefficiencies
+      responses:
+        '200':
+          description: Recommendations
+  /api/v1/continuous-improvement/trends:
+    get:
+      tags: [Intelligence]
+      summary: Get improvement trends
+      responses:
+        '200':
+          description: Trends
+  /api/v1/continuous-improvement/history:
+    get:
+      tags: [Intelligence]
+      summary: Get improvement cycle history
+      responses:
+        '200':
+          description: History
+
+  # ── Organizational Memory ──
+  /api/v1/org-memory/store:
+    post:
+      tags: [Intelligence]
+      summary: Store an organizational memory entry
+      responses:
+        '200':
+          description: Stored
+  /api/v1/org-memory/search:
+    post:
+      tags: [Intelligence]
+      summary: Search organizational memory
+      responses:
+        '200':
+          description: Search results
+  /api/v1/org-memory/timeline/{entryType}:
+    get:
+      tags: [Intelligence]
+      summary: Get organizational memory timeline by type
+      parameters:
+        - name: entryType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Timeline
+        '400':
+          description: Invalid entry type
+  /api/v1/org-memory/analyze:
+    post:
+      tags: [Intelligence]
+      summary: Analyze organizational memory
+      responses:
+        '200':
+          description: Analysis report
+  /api/v1/org-memory/related/{knowledgeNodeId}:
+    get:
+      tags: [Intelligence]
+      summary: Get related entries for a knowledge node
+      parameters:
+        - name: knowledgeNodeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Related entries
+
+  # ── System Insights ──
+  /api/v1/insights/dashboard:
+    get:
+      tags: [Intelligence]
+      summary: Get system insights dashboard
+      responses:
+        '200':
+          description: Dashboard data
+  /api/v1/insights/health:
+    get:
+      tags: [Intelligence]
+      summary: Get system health summary
+      responses:
+        '200':
+          description: Health summary
+  /api/v1/insights/bottlenecks:
+    get:
+      tags: [Intelligence]
+      summary: Detect system bottlenecks
+      responses:
+        '200':
+          description: Bottlenecks
+  /api/v1/insights/anomalies:
+    get:
+      tags: [Intelligence]
+      summary: Detect system anomalies
+      responses:
+        '200':
+          description: Anomalies
+  /api/v1/insights/agents/load:
+    get:
+      tags: [Intelligence]
+      summary: Get agent load metrics
+      responses:
+        '200':
+          description: Agent load
+  /api/v1/insights/models/latency:
+    get:
+      tags: [Intelligence]
+      summary: Get model latency metrics
+      responses:
+        '200':
+          description: Model latency
+  /api/v1/insights/trends:
+    get:
+      tags: [Intelligence]
+      summary: Get system insight trends
+      parameters:
+        - name: component
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 60
+      responses:
+        '200':
+          description: Trends
+  /api/v1/insights/record/agent-load:
+    post:
+      tags: [Intelligence]
+      summary: Record agent load measurement
+      responses:
+        '200':
+          description: Recorded
+  /api/v1/insights/record/model-latency:
+    post:
+      tags: [Intelligence]
+      summary: Record model latency measurement
+      responses:
+        '200':
+          description: Recorded
+
+  # ── Business Perception ──
+  /api/v1/perception/signals:
+    post:
+      tags: [Intelligence]
+      summary: Ingest a business signal
+      responses:
+        '200':
+          description: Signal accepted
+        '422':
+          description: Signal rejected
+  /api/v1/perception/signals/batch:
+    post:
+      tags: [Intelligence]
+      summary: Ingest a batch of business signals
+      responses:
+        '200':
+          description: Batch results
+  /api/v1/perception/dashboard:
+    get:
+      tags: [Intelligence]
+      summary: Get business perception dashboard
+      responses:
+        '200':
+          description: Dashboard
+  /api/v1/perception/polling/start:
+    post:
+      tags: [Intelligence]
+      summary: Start signal polling (admin only)
+      responses:
+        '200':
+          description: Polling started
+  /api/v1/perception/polling/stop:
+    post:
+      tags: [Intelligence]
+      summary: Stop signal polling (admin only)
+      responses:
+        '200':
+          description: Polling stopped
+
+  # ── Organization State ──
+  /api/v1/organization-state:
+    get:
+      tags: [Intelligence]
+      summary: Get current organization state
+      responses:
+        '200':
+          description: Current state
+  /api/v1/organization-state/dashboard:
+    get:
+      tags: [Intelligence]
+      summary: Get organization state dashboard
+      responses:
+        '200':
+          description: Dashboard
+  /api/v1/organization-state/departments/{departmentId}:
+    get:
+      tags: [Intelligence]
+      summary: Get department state
+      parameters:
+        - name: departmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Department state
+        '404':
+          description: Not found
+  /api/v1/organization-state/departments/{departmentId}/resources:
+    get:
+      tags: [Intelligence]
+      summary: Get resources for a department
+      parameters:
+        - name: departmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resources
+  /api/v1/organization-state/customers/{customerId}:
+    get:
+      tags: [Intelligence]
+      summary: Get customer state
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customer state
+        '404':
+          description: Not found
+  /api/v1/organization-state/customers/by-health/{status}:
+    get:
+      tags: [Intelligence]
+      summary: Get customers by health status
+      parameters:
+        - name: status
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customers
+  /api/v1/organization-state/snapshots:
+    post:
+      tags: [Intelligence]
+      summary: Take an organization state snapshot (admin only)
+      responses:
+        '200':
+          description: Snapshot taken
+
+  # ── Strategy Learning ──
+  /api/v1/strategy-learning/analyze:
+    post:
+      tags: [Intelligence]
+      summary: Run strategy analysis and learning cycle
+      responses:
+        '200':
+          description: Learning report
+  /api/v1/strategy-learning/strategy-profiles:
+    get:
+      tags: [Intelligence]
+      summary: Get strategy profiles
+      responses:
+        '200':
+          description: Profiles
+  /api/v1/strategy-learning/agent-type-profiles:
+    get:
+      tags: [Intelligence]
+      summary: Get agent type profiles
+      responses:
+        '200':
+          description: Agent type profiles
+  /api/v1/strategy-learning/recommend/{department}/{priority}:
+    get:
+      tags: [Intelligence]
+      summary: Recommend a strategy for department and priority
+      parameters:
+        - name: department
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: priority
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Recommended strategy
+
+  # ── Enterprise Memory ──
+  /api/v1/enterprise-memory:
+    post:
+      tags: [Intelligence]
+      summary: Store an enterprise memory record
+      responses:
+        '201':
+          description: Record stored
+        '400':
+          description: Validation error
+        '401':
+          description: Not authenticated
+    get:
+      tags: [Intelligence]
+      summary: Query enterprise memory records
+      parameters:
+        - name: layer
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: tag
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+        '401':
+          description: Not authenticated
+  /api/v1/enterprise-memory/{recordId}:
+    get:
+      tags: [Intelligence]
+      summary: Get an enterprise memory record by ID
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    delete:
+      tags: [Intelligence]
+      summary: Delete an enterprise memory record
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+  /api/v1/enterprise-memory/entity/{entityType}/{entityId}:
+    get:
+      tags: [Intelligence]
+      summary: Get memory records linked to an entity
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Entity memory view
+        '401':
+          description: Not authenticated
+  /api/v1/enterprise-memory/timeline:
+    get:
+      tags: [Intelligence]
+      summary: Get enterprise memory timeline
+      parameters:
+        - name: layer
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Timeline
+        '401':
+          description: Not authenticated
+  /api/v1/enterprise-memory/expire-sessions:
+    post:
+      tags: [Intelligence]
+      summary: Expire stale session memory records
+      parameters:
+        - name: maxAgeMinutes
+          in: query
+          schema:
+            type: integer
+            default: 240
+      responses:
+        '200':
+          description: Expired count
         '401':
           description: Not authenticated
