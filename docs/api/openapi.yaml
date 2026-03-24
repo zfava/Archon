@@ -1,0 +1,1445 @@
+openapi: 3.1.0
+info:
+  title: ArchonAI Enterprise Platform API
+  version: 0.12.0
+  description: >
+    Enterprise autonomous operations platform with governed AI agent
+    orchestration, trust-tiered autonomy, and human-in-the-loop approval gates.
+  contact:
+    name: ArchonAI
+  license:
+    name: Proprietary
+servers:
+  - url: http://localhost:5000
+    description: Local development
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+    RegisterRequest:
+      type: object
+      required: [email, password, organizationName, displayName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        organizationName:
+          type: string
+        displayName:
+          type: string
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+    InviteRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          default: Operator
+    AcceptInviteRequest:
+      type: object
+      required: [inviteToken, password]
+      properties:
+        inviteToken:
+          type: string
+        password:
+          type: string
+        displayName:
+          type: string
+    MfaChallengeRequest:
+      type: object
+      required: [mfaToken]
+      properties:
+        mfaToken:
+          type: string
+        method:
+          type: string
+          enum: [totp, recovery]
+        code:
+          type: string
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        displayName:
+          type: string
+        role:
+          type: string
+    OrgInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresAtUtc:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/UserInfo'
+        org:
+          $ref: '#/components/schemas/OrgInfo'
+    MfaLoginResponse:
+      type: object
+      properties:
+        mfaRequired:
+          type: boolean
+        mfaToken:
+          type: string
+        methods:
+          type: array
+          items:
+            type: string
+        user:
+          $ref: '#/components/schemas/UserInfo'
+    MeResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserInfo'
+        org:
+          $ref: '#/components/schemas/OrgInfo'
+    DemoRequest:
+      type: object
+      properties:
+        scenario:
+          type: string
+          description: Scenario identifier (finance-approval, sales-anomaly, ops-escalation)
+        trustTierThreshold:
+          type: number
+          description: Monetary threshold for trust tier evaluation
+        autoApprove:
+          type: boolean
+          description: Whether to auto-approve via HMAC-signed override token
+    DemoResult:
+      type: object
+      properties:
+        scenario:
+          type: string
+        phases:
+          type: array
+          items:
+            $ref: '#/components/schemas/DemoPhase'
+        trustTier:
+          type: string
+          enum: [low-risk, medium-risk, high-risk]
+        approvalGateId:
+          type: string
+          format: uuid
+        approvalStatus:
+          type: string
+        overrideToken:
+          type: string
+        trustLineageUrl:
+          type: string
+        totalLatencyMs:
+          type: number
+        environmentReport:
+          type: object
+          properties:
+            readinessTier:
+              type: string
+            readinessSummary:
+              type: string
+            cloudProvidersActive:
+              type: integer
+            localProviderActive:
+              type: boolean
+            defaultModel:
+              type: string
+    DemoPhase:
+      type: object
+      properties:
+        name:
+          type: string
+        output:
+          type: string
+        latencyMs:
+          type: number
+    ExternalEvaluationRequest:
+      type: object
+      required: [taskDescription, requiredCapability, actionScope, callerIdentity, organizationId]
+      properties:
+        taskDescription:
+          type: string
+        requiredCapability:
+          type: string
+        actionScope:
+          type: string
+        callerIdentity:
+          type: string
+        organizationId:
+          type: string
+        contextMetadata:
+          type: object
+          additionalProperties:
+            type: string
+    ExternalEvaluationResponse:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [allow, deny, require-approval]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        trustTierApplied:
+          type: string
+        riskScore:
+          type: number
+        violations:
+          type: array
+          items:
+            type: string
+        guardrailFindings:
+          type: array
+          items:
+            type: string
+        approvalGateId:
+          type: string
+          format: uuid
+        evaluationId:
+          type: string
+          format: uuid
+        evaluatedAt:
+          type: string
+          format: date-time
+        signedDigest:
+          type: string
+    ExternalApprovalStatusResponse:
+      type: object
+      properties:
+        gateId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        reviewedBy:
+          type: string
+        reviewNotes:
+          type: string
+        reviewedAtUtc:
+          type: string
+          format: date-time
+    ExternalTrustTierResponse:
+      type: object
+      properties:
+        actionScope:
+          type: string
+        effectiveTier:
+          type: string
+        tierLevel:
+          type: integer
+    ApprovalGate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        actionType:
+          type: string
+        resourceId:
+          type: string
+        requestedBy:
+          type: string
+        justification:
+          type: string
+        status:
+          type: string
+          enum: [Pending, Approved, Denied]
+        reviewedBy:
+          type: string
+        reviewNotes:
+          type: string
+        requestedAtUtc:
+          type: string
+          format: date-time
+        reviewedAtUtc:
+          type: string
+          format: date-time
+        executionStatus:
+          type: string
+        executionError:
+          type: string
+        executedAtUtc:
+          type: string
+          format: date-time
+    CreateApprovalPolicyRequest:
+      type: object
+      required: [actionType, requiredApproverRole]
+      properties:
+        actionType:
+          type: string
+        description:
+          type: string
+        requiredApproverRole:
+          type: string
+        requireSeparationOfDuties:
+          type: boolean
+    RequestApprovalRequest:
+      type: object
+      required: [actionType, resourceId]
+      properties:
+        actionType:
+          type: string
+        resourceId:
+          type: string
+        justification:
+          type: string
+    ReviewApprovalRequest:
+      type: object
+      required: [approve]
+      properties:
+        approve:
+          type: boolean
+        notes:
+          type: string
+    TrustTierPolicy:
+      type: object
+      required: [actionScope, maxTier]
+      properties:
+        id:
+          type: string
+          format: uuid
+        actionScope:
+          type: string
+        maxTier:
+          type: string
+          description: ExecutionTrustTier enum value
+        confidenceThreshold:
+          type: number
+        valueCeiling:
+          type: number
+        requireReversible:
+          type: boolean
+        description:
+          type: string
+        isEnabled:
+          type: boolean
+    EvaluateTrustTierRequest:
+      type: object
+      required: [actionScope, requestedTier]
+      properties:
+        actionScope:
+          type: string
+        requestedTier:
+          type: string
+        confidence:
+          type: number
+        value:
+          type: number
+        reversible:
+          type: boolean
+    SetSafetyClassificationRequest:
+      type: object
+      required: [actionType, reversibility, rollbackStrategy, rollbackSupported]
+      properties:
+        actionType:
+          type: string
+        reversibility:
+          type: string
+          enum: [Reversible, Compensatable, Irreversible]
+        rollbackSupported:
+          type: boolean
+        rollbackStrategy:
+          type: string
+          enum: [None, UndoAction, CompensatingAction, ManualRollback]
+        rollbackWindowMinutes:
+          type: integer
+        compensationDescription:
+          type: string
+        operatorNotes:
+          type: string
+    RecordGovernedActionRequest:
+      type: object
+      required: [actionType, description]
+      properties:
+        actionType:
+          type: string
+        description:
+          type: string
+        decisionId:
+          type: string
+          format: uuid
+        workflowId:
+          type: string
+          format: uuid
+        approvalGateId:
+          type: string
+          format: uuid
+    PolicyEvaluationResult:
+      type: object
+      properties:
+        isAllowed:
+          type: boolean
+        riskScore:
+          type: number
+        confidenceScore:
+          type: number
+        requiresApproval:
+          type: boolean
+        approvalState:
+          type: string
+        guardrailViolations:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+    description: Authentication — registration, login, token refresh, invitations
+  - name: Governance
+    description: Approval policies, approval gates, trust tiers, action safety, permissions
+  - name: ExternalGovernance
+    description: External API for governance evaluation (API-key authenticated)
+  - name: Demo
+    description: Governance demo loop for showcasing the full AI reasoning → policy → approval → execution pipeline
+  - name: TrustVisibility
+    description: Composite trust lineage and posture endpoints aggregating cross-domain governance data
+paths:
+  # ═══════════════════════════════════════════════════════════════════
+  # Auth Endpoints (AuthEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /api/auth/register:
+    post:
+      operationId: registerUser
+      tags: [Auth]
+      summary: Register a new user and organization
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '200':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/auth/login:
+    post:
+      operationId: loginUser
+      tags: [Auth]
+      summary: Authenticate with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful (or MFA required)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/AuthResponse'
+                  - $ref: '#/components/schemas/MfaLoginResponse'
+        '400':
+          description: Missing credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+  /api/auth/refresh:
+    post:
+      operationId: refreshToken
+      tags: [Auth]
+      summary: Refresh an access token using a refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: New tokens issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+                  expiresAtUtc:
+                    type: string
+                    format: date-time
+        '400':
+          description: Missing refresh token
+        '401':
+          description: Invalid or expired refresh token
+  /api/auth/logout:
+    post:
+      operationId: logoutUser
+      tags: [Auth]
+      summary: Logout and revoke tokens
+      responses:
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+  /api/auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [Auth]
+      summary: Get current authenticated user and organization info
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          description: Not authenticated
+  /api/auth/invite:
+    post:
+      operationId: inviteUser
+      tags: [Auth]
+      summary: Invite a user to the organization (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteRequest'
+      responses:
+        '200':
+          description: Invitation created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inviteToken:
+                    type: string
+                  expiresAtUtc:
+                    type: string
+                    format: date-time
+        '401':
+          description: Not authorized
+        '404':
+          description: Organization not found
+  /api/auth/accept-invite:
+    post:
+      operationId: acceptInvite
+      tags: [Auth]
+      summary: Accept an invitation and create account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInviteRequest'
+      responses:
+        '200':
+          description: Invite accepted, tokens issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+        '400':
+          description: Invalid or expired invite
+  /api/auth/mfa/challenge:
+    post:
+      operationId: verifyMfaChallenge
+      tags: [Auth]
+      summary: Verify MFA challenge (TOTP or recovery code) to complete login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaChallengeRequest'
+      responses:
+        '200':
+          description: MFA verified, tokens issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Missing MFA token
+        '401':
+          description: Invalid MFA token or code
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Governance Endpoints (GovernanceEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /api/v1/governance/policies:
+    get:
+      operationId: listApprovalPolicies
+      tags: [Governance]
+      summary: List all approval policies
+      responses:
+        '200':
+          description: List of approval policies
+        '401':
+          description: Not authenticated
+    post:
+      operationId: createApprovalPolicy
+      tags: [Governance]
+      summary: Create a new approval policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApprovalPolicyRequest'
+      responses:
+        '201':
+          description: Policy created
+        '401':
+          description: Not authenticated
+  /api/v1/governance/request:
+    post:
+      operationId: requestApproval
+      tags: [Governance]
+      summary: Request approval for an action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestApprovalRequest'
+      responses:
+        '200':
+          description: Approval gate created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalGate'
+        '401':
+          description: Not authenticated
+  /api/v1/governance/pending:
+    get:
+      operationId: listPendingApprovals
+      tags: [Governance]
+      summary: List pending approval gates for the tenant
+      responses:
+        '200':
+          description: List of pending approval gates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApprovalGate'
+        '401':
+          description: Not authenticated
+  /api/v1/governance/{gateId}:
+    get:
+      operationId: getApprovalGate
+      tags: [Governance]
+      summary: Get a specific approval gate by ID
+      parameters:
+        - name: gateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Approval gate details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalGate'
+        '401':
+          description: Not authenticated
+        '404':
+          description: Gate not found
+  /api/v1/governance/{gateId}/review:
+    post:
+      operationId: reviewApproval
+      tags: [Governance]
+      summary: Approve or deny a pending approval gate and execute the gated action
+      parameters:
+        - name: gateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewApprovalRequest'
+      responses:
+        '200':
+          description: Review recorded and action executed (if approved)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalGate'
+        '400':
+          description: Invalid operation
+        '401':
+          description: Not authenticated
+        '403':
+          description: Separation of duties violation or insufficient role
+        '404':
+          description: Gate not found
+  /api/v1/governance/approval-required/{actionType}:
+    get:
+      operationId: checkApprovalRequired
+      tags: [Governance]
+      summary: Check if a given action type requires approval
+      parameters:
+        - name: actionType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Approval requirement status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actionType:
+                    type: string
+                  requiresApproval:
+                    type: boolean
+  /api/v1/governance/history:
+    get:
+      operationId: getApprovalHistory
+      tags: [Governance]
+      summary: Get approval history for the tenant
+      parameters:
+        - name: actionType
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Approval history records
+        '401':
+          description: Not authenticated
+
+  # ── Trust Tiers ──
+  /api/v1/trust-tiers/policies:
+    get:
+      operationId: listTrustTierPolicies
+      tags: [Governance]
+      summary: List trust tier policies for the tenant
+      responses:
+        '200':
+          description: List of trust tier policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrustTierPolicy'
+        '401':
+          description: Not authenticated
+    post:
+      operationId: setTrustTierPolicy
+      tags: [Governance]
+      summary: Create or update a trust tier policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrustTierPolicy'
+      responses:
+        '201':
+          description: Policy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrustTierPolicy'
+        '400':
+          description: Validation error
+        '401':
+          description: Not authenticated
+  /api/v1/trust-tiers/policies/{policyId}:
+    delete:
+      operationId: deleteTrustTierPolicy
+      tags: [Governance]
+      summary: Delete a trust tier policy
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Policy deleted
+        '401':
+          description: Not authenticated
+        '404':
+          description: Policy not found
+  /api/v1/trust-tiers/evaluate:
+    post:
+      operationId: evaluateTrustTier
+      tags: [Governance]
+      summary: Evaluate whether a requested trust tier is permitted
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluateTrustTierRequest'
+      responses:
+        '200':
+          description: Trust tier evaluation result
+        '400':
+          description: Validation error
+        '401':
+          description: Not authenticated
+  /api/v1/trust-tiers/map:
+    get:
+      operationId: getTierMap
+      tags: [Governance]
+      summary: Get the full trust tier map for the tenant
+      responses:
+        '200':
+          description: Tier map
+        '401':
+          description: Not authenticated
+  /api/v1/trust-tiers/effective/{actionScope}:
+    get:
+      operationId: getEffectiveTier
+      tags: [Governance]
+      summary: Get the effective trust tier for a specific action scope
+      parameters:
+        - name: actionScope
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Effective tier
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actionScope:
+                    type: string
+                  effectiveTier:
+                    type: string
+                  tierLevel:
+                    type: integer
+        '401':
+          description: Not authenticated
+
+  # ── Permissions ──
+  /api/v1/auth/permissions:
+    get:
+      operationId: getCallerPermissions
+      tags: [Governance]
+      summary: Get effective permissions for the authenticated user
+      responses:
+        '200':
+          description: User permissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: string
+                  role:
+                    type: string
+                  permissions:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          description: Not authenticated
+
+  # ── Action Safety ──
+  /api/v1/action-safety/classifications:
+    get:
+      operationId: listSafetyClassifications
+      tags: [Governance]
+      summary: List all action safety classifications
+      responses:
+        '200':
+          description: List of safety classifications
+    put:
+      operationId: setSafetyClassification
+      tags: [Governance]
+      summary: Create or update an action safety classification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetSafetyClassificationRequest'
+      responses:
+        '200':
+          description: Classification set
+        '400':
+          description: Validation error
+  /api/v1/action-safety/classifications/{actionType}:
+    get:
+      operationId: getSafetyClassification
+      tags: [Governance]
+      summary: Get the safety classification for a specific action type
+      parameters:
+        - name: actionType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Safety classification
+  /api/v1/action-safety/actions:
+    post:
+      operationId: recordGovernedAction
+      tags: [Governance]
+      summary: Record a governed action execution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordGovernedActionRequest'
+      responses:
+        '201':
+          description: Action recorded
+        '401':
+          description: Not authenticated
+    get:
+      operationId: listGovernedActions
+      tags: [Governance]
+      summary: List governed actions for the tenant
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of governed actions
+        '401':
+          description: Not authenticated
+  /api/v1/action-safety/actions/{actionId}:
+    get:
+      operationId: getGovernedAction
+      tags: [Governance]
+      summary: Get a specific governed action
+      parameters:
+        - name: actionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Governed action details
+        '404':
+          description: Action not found
+  /api/v1/action-safety/actions/{actionId}/rollback:
+    post:
+      operationId: attemptRollback
+      tags: [Governance]
+      summary: Attempt to rollback a governed action
+      parameters:
+        - name: actionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Rollback result
+        '404':
+          description: Action not found
+  /api/v1/action-safety/summary:
+    get:
+      operationId: getRollbackSummary
+      tags: [Governance]
+      summary: Get rollback summary statistics for the tenant
+      responses:
+        '200':
+          description: Rollback summary
+        '401':
+          description: Not authenticated
+
+  # ═══════════════════════════════════════════════════════════════════
+  # External Governance Endpoints (ExternalGovernanceEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /api/v1/external/governance/evaluate:
+    post:
+      operationId: externalEvaluateGovernance
+      tags: [ExternalGovernance]
+      summary: Evaluate a governance decision via the external API
+      security:
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExternalEvaluationRequest'
+      responses:
+        '200':
+          description: Evaluation result with signed digest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalEvaluationResponse'
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or missing API key
+        '429':
+          description: Rate limit exceeded
+  /api/v1/external/governance/evaluation/{evaluationId}:
+    get:
+      operationId: getExternalEvaluation
+      tags: [ExternalGovernance]
+      summary: Retrieve a previous governance evaluation by ID
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: evaluationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Evaluation details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalEvaluationResponse'
+        '404':
+          description: Evaluation not found
+  /api/v1/external/governance/approval/{gateId}/status:
+    post:
+      operationId: getExternalApprovalStatus
+      tags: [ExternalGovernance]
+      summary: Check the status of an approval gate created via external evaluation
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: gateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [callerIdentity]
+              properties:
+                callerIdentity:
+                  type: string
+      responses:
+        '200':
+          description: Approval gate status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalApprovalStatusResponse'
+        '400':
+          description: Missing callerIdentity
+        '401':
+          description: Not authenticated
+        '404':
+          description: Gate not found
+  /api/v1/external/governance/trust-tier/{actionScope}:
+    get:
+      operationId: getExternalTrustTier
+      tags: [ExternalGovernance]
+      summary: Get the effective trust tier for an action scope (external API)
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: actionScope
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Trust tier for the action scope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalTrustTierResponse'
+        '401':
+          description: Not authenticated
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Demo Endpoints (DemoEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /api/v1/demo/governance-loop:
+    post:
+      operationId: runGovernanceDemo
+      tags: [Demo]
+      summary: >
+        Run the full governance demo loop: AI reasoning → policy evaluation →
+        approval gate → gated execution → outcome recording
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DemoRequest'
+      responses:
+        '200':
+          description: Demo completed successfully with phase-by-phase results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoResult'
+        '400':
+          description: Demo mode disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many concurrent demos
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Trust Visibility Endpoints (TrustVisibilityEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /api/v1/trust-visibility/lineage/{decisionId}:
+    get:
+      operationId: getTrustLineage
+      tags: [TrustVisibility]
+      summary: >
+        Get full trust lineage for a decision: decision → approval gates →
+        governed actions → outcomes → proof timeline
+      parameters:
+        - name: decisionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Complete trust lineage trace
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  decisionId:
+                    type: string
+                    format: uuid
+                  decision:
+                    type: object
+                    properties:
+                      title:
+                        type: string
+                      domain:
+                        type: string
+                      objective:
+                        type: string
+                      reversibility:
+                        type: string
+                      riskLevel:
+                        type: string
+                      confidence:
+                        type: number
+                      expectedValue:
+                        type: number
+                      status:
+                        type: string
+                      createdBy:
+                        type: string
+                      createdAtUtc:
+                        type: string
+                        format: date-time
+                      requiresApproval:
+                        type: boolean
+                  approvalGates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApprovalGate'
+                  governedActions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        actionType:
+                          type: string
+                        description:
+                          type: string
+                        status:
+                          type: string
+                        executedBy:
+                          type: string
+                        executedAtUtc:
+                          type: string
+                          format: date-time
+                        safety:
+                          type: object
+                          properties:
+                            reversibility:
+                              type: string
+                            rollbackSupported:
+                              type: boolean
+                            rollbackStrategy:
+                              type: string
+                  outcome:
+                    type: object
+                    properties:
+                      expectedOutcomeSummary:
+                        type: string
+                      expectedValue:
+                        type: number
+                      confidenceAtPrediction:
+                        type: number
+                      actualOutcomeSummary:
+                        type: string
+                      actualValue:
+                        type: number
+                      valueVariance:
+                        type: number
+                      variancePercent:
+                        type: number
+                      direction:
+                        type: string
+                      assessment:
+                        type: string
+                  proofTimeline:
+                    type: object
+                    properties:
+                      decisionTitle:
+                        type: string
+                      domain:
+                        type: string
+                      totalEvents:
+                        type: integer
+                      events:
+                        type: array
+                        items:
+                          type: object
+                      summary:
+                        type: object
+                  statusHistory:
+                    type: array
+                    items:
+                      type: object
+                  lineageSummary:
+                    type: object
+                    properties:
+                      hasApproval:
+                        type: boolean
+                      hasExecution:
+                        type: boolean
+                      hasOutcome:
+                        type: boolean
+                      hasProofTrail:
+                        type: boolean
+                      allActionsReversible:
+                        type: boolean
+                      anyRollbackAttempted:
+                        type: boolean
+                      varianceWithinThreshold:
+                        type: boolean
+        '400':
+          description: Invalid tenant_id
+        '401':
+          description: Not authenticated
+        '404':
+          description: Decision not found
+  /api/v1/trust-visibility/posture:
+    get:
+      operationId: getTrustPosture
+      tags: [TrustVisibility]
+      summary: Get tenant-wide governance health and trust posture summary
+      responses:
+        '200':
+          description: Trust posture summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenantId:
+                    type: string
+                    format: uuid
+                  generatedAtUtc:
+                    type: string
+                    format: date-time
+                  governance:
+                    type: object
+                    properties:
+                      activePolicies:
+                        type: integer
+                      totalPolicies:
+                        type: integer
+                      pendingApprovals:
+                        type: integer
+                      recentApprovals:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                          approved:
+                            type: integer
+                          denied:
+                            type: integer
+                          approvalRate:
+                            type: number
+                      separationOfDutiesEnforced:
+                        type: boolean
+                  safety:
+                    type: object
+                    properties:
+                      totalActions:
+                        type: integer
+                      reversible:
+                        type: integer
+                      compensatable:
+                        type: integer
+                      irreversible:
+                        type: integer
+                      reversibilityRate:
+                        type: number
+                      rollbacksAttempted:
+                        type: integer
+                      rollbacksSucceeded:
+                        type: integer
+                      rollbacksFailed:
+                        type: integer
+                      rollbackSuccessRate:
+                        type: number
+                  trustTiers:
+                    type: object
+                    properties:
+                      totalPolicies:
+                        type: integer
+                      enabledPolicies:
+                        type: integer
+                      actionsCovered:
+                        type: integer
+                      requiresReversible:
+                        type: integer
+                  outcomes:
+                    type: object
+                    description: Calibration summary from outcome learning
+                  proofAnalytics:
+                    type: object
+                    description: Proof analytics dashboard data
+        '401':
+          description: Not authenticated
