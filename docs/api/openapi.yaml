@@ -436,30 +436,40 @@ components:
 security:
   - bearerAuth: []
 tags:
-  - name: Auth
-    description: Authentication — registration, login, token refresh, invitations
   - name: Governance
-    description: Approval policies, approval gates, trust tiers, action safety, permissions
+    description: Policy evaluation, trust tiers, approval gates, and governance kernel operations
   - name: ExternalGovernance
-    description: External API for governance evaluation (API-key authenticated)
+    description: External API for third-party agent frameworks to call ArchonAI as a governance layer
   - name: Demo
-    description: Governance demo loop for showcasing the full AI reasoning → policy → approval → execution pipeline
+    description: Governance demonstration endpoints for pipeline verification
+  - name: Auth
+    description: Authentication, JWT token management, and session handling
   - name: TrustVisibility
-    description: Composite trust lineage and posture endpoints aggregating cross-domain governance data
+    description: Trust lineage, tier visibility, and audit trail access
   - name: Operator
-    description: Human overrides, operational twin, scenarios, exceptions, executive command, hero workflows, policy simulation, inspection
-  - name: Decisions
-    description: Decision records, financial consequences, outcome learning, proof analytics
+    description: Operational control plane, dashboards, and system management
   - name: Intelligence
-    description: Memory management, continuous improvement, org memory, insights, perception, org state, strategy learning, enterprise memory
+    description: AI reasoning, model routing, and intelligence loop operations
+  - name: Decisions
+    description: Decision tracking, outcome recording, and decision audit trails
   - name: Agents
-    description: Agent coordination, collaboration sessions, agent registry management
+    description: Agent lifecycle, registration, capabilities, and task management
   - name: Connectors
-    description: Salesforce, HubSpot, QuickBooks, Slack, Google Workspace, Microsoft 365, integration management
+    description: Enterprise system integrations (CRM, ERP, ITSM, HRIS) and connector health
   - name: Strategy
-    description: Strategy simulation, strategy library, goals, economics, outcome evaluation, model routing, onboarding, task graphs, explanations
+    description: Strategy library, operational strategies, and optimization
   - name: Infrastructure
-    description: Control plane, observability, monitoring, cluster management, AI runtime diagnostics
+    description: Health checks, AI runtime diagnostics, observability, and system configuration
+  - name: Admin
+    description: Administrative operations, GDPR data subject rights, and system management
+  - name: MFA
+    description: Multi-factor authentication (TOTP, WebAuthn) enrollment and verification
+  - name: OIDC
+    description: OpenID Connect federation, SSO, and external identity provider integration
+  - name: Registry
+    description: Service and component registry operations
+  - name: Gateway
+    description: API gateway health and routing status
 paths:
   # ═══════════════════════════════════════════════════════════════════
   # Auth Endpoints (AuthEndpoints.cs)
@@ -5206,3 +5216,946 @@ paths:
       responses:
         '200':
           description: Rebalanced
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Admin Endpoints (AdminEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── Admin Core ──
+  /api/v1/admin/status:
+    get:
+      tags: [Admin]
+      summary: Get admin service status
+      responses:
+        '200':
+          description: Success
+  /api/v1/admin/agents:
+    get:
+      tags: [Admin]
+      summary: List all agents (admin view)
+      responses:
+        '200':
+          description: Success
+  /api/v1/admin/agents/{agentId}:
+    get:
+      tags: [Admin]
+      summary: Get an agent by ID (admin view)
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/admin/agents/{agentId}/enabled:
+    patch:
+      tags: [Admin]
+      summary: Enable or disable an agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated
+  /api/v1/admin/workflows:
+    get:
+      tags: [Admin]
+      summary: List all workflows (admin view)
+      responses:
+        '200':
+          description: Success
+  /api/v1/admin/workflows/{workflowId}:
+    get:
+      tags: [Admin]
+      summary: Get a workflow by ID (admin view)
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/admin/workflows/{workflowId}/cancel:
+    post:
+      tags: [Admin]
+      summary: Cancel a workflow (may require governance approval)
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cancelled
+        '202':
+          description: Approval gate created
+        '401':
+          description: Not authenticated
+  /api/v1/admin/policy:
+    get:
+      tags: [Admin]
+      summary: Get policy configuration
+      responses:
+        '200':
+          description: Success
+    put:
+      tags: [Admin]
+      summary: Update policy configuration
+      responses:
+        '200':
+          description: Updated
+  /api/v1/admin/monitoring:
+    get:
+      tags: [Admin]
+      summary: Get system monitoring snapshot
+      responses:
+        '200':
+          description: Success
+
+  # ── RBAC ──
+  /api/v1/admin/rbac/status:
+    get:
+      tags: [Admin]
+      summary: Get RBAC service status
+      responses:
+        '200':
+          description: Success
+  /api/v1/admin/rbac/roles:
+    get:
+      tags: [Admin]
+      summary: List RBAC roles
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Admin]
+      summary: Create an RBAC role
+      responses:
+        '201':
+          description: Role created
+  /api/v1/admin/rbac/roles/{roleId}:
+    get:
+      tags: [Admin]
+      summary: Get an RBAC role by ID
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    put:
+      tags: [Admin]
+      summary: Update an RBAC role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Admin]
+      summary: Delete an RBAC role
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deleted
+  /api/v1/admin/rbac/assignments:
+    get:
+      tags: [Admin]
+      summary: List RBAC role assignments
+      parameters:
+        - name: subjectId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Admin]
+      summary: Assign a role to a subject
+      responses:
+        '201':
+          description: Assignment created
+  /api/v1/admin/rbac/assignments/{assignmentId}:
+    delete:
+      tags: [Admin]
+      summary: Revoke a role assignment
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Revoked
+  /api/v1/admin/rbac/policies:
+    get:
+      tags: [Admin]
+      summary: List RBAC policies
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Admin]
+      summary: Create an RBAC policy
+      responses:
+        '201':
+          description: Policy created
+  /api/v1/admin/rbac/policies/{policyId}:
+    patch:
+      tags: [Admin]
+      summary: Update RBAC policy enabled state
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated
+    delete:
+      tags: [Admin]
+      summary: Delete an RBAC policy
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deleted
+  /api/v1/admin/rbac/evaluate:
+    post:
+      tags: [Admin]
+      summary: Evaluate access for a subject against a resource
+      responses:
+        '200':
+          description: Access decision
+  /api/v1/admin/rbac/permissions/{subjectId}:
+    get:
+      tags: [Admin]
+      summary: Get effective permissions for a subject
+      parameters:
+        - name: subjectId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+
+  # ── Runtime Health ──
+  /api/v1/admin/runtime/health:
+    get:
+      tags: [Admin]
+      summary: Get runtime health snapshot
+      responses:
+        '200':
+          description: Success
+  /api/v1/admin/runtime/health/policies:
+    get:
+      tags: [Admin]
+      summary: Get recovery policies
+      responses:
+        '200':
+          description: Success
+  /api/v1/admin/runtime/health/recoveries:
+    get:
+      tags: [Admin]
+      summary: Get recovery history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+  /api/v1/admin/runtime/health/check:
+    post:
+      tags: [Admin]
+      summary: Run a health check and return snapshot
+      responses:
+        '200':
+          description: Health snapshot
+
+  # ── Security ──
+  /api/v1/admin/security/metrics:
+    get:
+      tags: [Admin]
+      summary: Get security policy engine metrics
+      responses:
+        '200':
+          description: Success
+  /api/v1/admin/security/policies:
+    get:
+      tags: [Admin]
+      summary: List security policies
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Admin]
+      summary: Add a security policy
+      responses:
+        '201':
+          description: Policy created
+  /api/v1/admin/security/policies/{policyId}:
+    delete:
+      tags: [Admin]
+      summary: Remove a security policy
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Removed
+  /api/v1/admin/security/evaluate/data-access:
+    post:
+      tags: [Admin]
+      summary: Evaluate data access against security policies
+      responses:
+        '200':
+          description: Evaluation result
+  /api/v1/admin/security/evaluate/workflow-limits:
+    post:
+      tags: [Admin]
+      summary: Evaluate workflow limits against security policies
+      responses:
+        '200':
+          description: Evaluation result
+
+  # ── Retention ──
+  /api/v1/admin/retention/sweep:
+    post:
+      tags: [Admin]
+      summary: Run a data retention sweep
+      responses:
+        '200':
+          description: Sweep result
+  /api/v1/admin/retention/policy:
+    get:
+      tags: [Admin]
+      summary: Get retention policy configuration
+      responses:
+        '200':
+          description: Success
+
+  # ── Data Subject Rights (GDPR) ──
+  /api/v1/admin/data-subject/{userId}/export:
+    get:
+      tags: [Admin]
+      summary: Export all user data (GDPR Article 15/20)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Data export
+        '401':
+          description: Not authenticated
+  /api/v1/admin/data-subject/{userId}/erase:
+    post:
+      tags: [Admin]
+      summary: Erase all user data (GDPR Article 17)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Erasure certificate
+        '401':
+          description: Not authenticated
+
+  # ── Tenant Auth Config (admin-scoped OIDC management) ──
+  /api/v1/admin/auth/configs:
+    get:
+      tags: [Admin]
+      summary: List tenant auth configurations
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Admin]
+      summary: Create a tenant auth configuration
+      responses:
+        '201':
+          description: Config created
+        '404':
+          description: Organization not found
+        '409':
+          description: Config already exists
+  /api/v1/admin/auth/configs/{id}:
+    get:
+      tags: [Admin]
+      summary: Get tenant auth config by organization or config ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    put:
+      tags: [Admin]
+      summary: Update a tenant auth configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated
+        '404':
+          description: Not found
+    delete:
+      tags: [Admin]
+      summary: Delete a tenant auth configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+  /api/v1/admin/auth/links/{orgId}:
+    get:
+      tags: [Admin]
+      summary: List external identity links for an organization
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+
+  # ── Audit ──
+  /api/v1/audit/status:
+    get:
+      tags: [Admin]
+      summary: Get audit log service status
+      responses:
+        '200':
+          description: Success
+  /api/v1/audit/entries:
+    get:
+      tags: [Admin]
+      summary: Query audit log entries
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: subjectId
+          in: query
+          schema:
+            type: string
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: fromUtc
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: toUtc
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Success
+  /api/v1/audit/entries/{entryId}:
+    get:
+      tags: [Admin]
+      summary: Get an audit log entry by ID
+      parameters:
+        - name: entryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/audit/record:
+    post:
+      tags: [Admin]
+      summary: Record an audit log entry (admin only)
+      responses:
+        '201':
+          description: Entry recorded
+  /api/v1/audit/verify:
+    post:
+      tags: [Admin]
+      summary: Verify audit log integrity
+      responses:
+        '200':
+          description: Integrity result
+
+  # ═══════════════════════════════════════════════════════════════════
+  # MFA Endpoints (MfaEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /api/v1/auth/mfa/status:
+    get:
+      tags: [MFA]
+      summary: Get MFA enrollment status for the current user
+      responses:
+        '200':
+          description: MFA status
+        '401':
+          description: Not authenticated
+  /api/v1/auth/mfa/totp/setup:
+    post:
+      tags: [MFA]
+      summary: Generate TOTP setup (QR code URI and recovery codes)
+      responses:
+        '200':
+          description: Setup data
+        '401':
+          description: Not authenticated
+        '409':
+          description: TOTP already enabled
+  /api/v1/auth/mfa/totp/verify:
+    post:
+      tags: [MFA]
+      summary: Verify TOTP setup with a code
+      responses:
+        '200':
+          description: Enrolled
+        '400':
+          description: Invalid code
+        '401':
+          description: Not authenticated
+  /api/v1/auth/mfa/totp:
+    delete:
+      tags: [MFA]
+      summary: Disable TOTP enrollment
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Disabled
+        '400':
+          description: Invalid code
+  /api/v1/auth/mfa/webauthn/register/begin:
+    post:
+      tags: [MFA]
+      summary: Begin WebAuthn credential registration
+      responses:
+        '200':
+          description: Registration options
+        '401':
+          description: Not authenticated
+  /api/v1/auth/mfa/webauthn/register/complete:
+    post:
+      tags: [MFA]
+      summary: Complete WebAuthn credential registration
+      responses:
+        '200':
+          description: Registered
+        '400':
+          description: Registration failed
+  /api/v1/auth/mfa/webauthn/{id}:
+    delete:
+      tags: [MFA]
+      summary: Delete a WebAuthn credential
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: Not found
+  /api/v1/auth/mfa/recovery/regenerate:
+    post:
+      tags: [MFA]
+      summary: Regenerate recovery codes (requires current TOTP code)
+      responses:
+        '200':
+          description: New recovery codes
+        '400':
+          description: Invalid code or TOTP not enabled
+  /api/v1/auth/mfa/policy:
+    get:
+      tags: [MFA]
+      summary: Get organization MFA policy
+      responses:
+        '200':
+          description: MFA policy
+        '401':
+          description: Not authenticated
+    put:
+      tags: [MFA]
+      summary: Set organization MFA policy (admin only)
+      responses:
+        '200':
+          description: Policy updated
+        '400':
+          description: Invalid mode
+  /api/v1/auth/mfa/admin-reset/{targetUserId}:
+    post:
+      tags: [MFA]
+      summary: Admin-reset all MFA credentials for a user
+      parameters:
+        - name: targetUserId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: MFA reset
+        '401':
+          description: Not authenticated
+
+  # ═══════════════════════════════════════════════════════════════════
+  # OIDC Endpoints (OidcEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /api/v1/auth/oidc/login:
+    get:
+      tags: [OIDC]
+      summary: Initiate OIDC login flow for a tenant
+      security: []
+      parameters:
+        - name: tenant
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authorize URL and state
+        '400':
+          description: No OIDC provider configured
+        '404':
+          description: Tenant not found
+  /api/v1/auth/oidc/callback:
+    post:
+      tags: [OIDC]
+      summary: Handle OIDC authorization code callback
+      security: []
+      responses:
+        '200':
+          description: Tokens and user info
+        '400':
+          description: Invalid or expired state/code
+        '401':
+          description: Token exchange failed
+  /api/v1/auth/oidc/providers/{tenant}:
+    get:
+      tags: [OIDC]
+      summary: Get OIDC provider info for a tenant
+      security: []
+      parameters:
+        - name: tenant
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provider info
+        '404':
+          description: Tenant not found
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Registry Endpoints (RegistryEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /api/v1/registry/agents:
+    get:
+      tags: [Registry]
+      summary: List all agents with capability and performance data
+      responses:
+        '200':
+          description: Success
+  /api/v1/registry/agents/{agentId}:
+    get:
+      tags: [Registry]
+      summary: Get agent capability record by ID
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/registry/capabilities/{capability}:
+    get:
+      tags: [Registry]
+      summary: Find agents by capability
+      parameters:
+        - name: capability
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matching agents
+  /api/v1/registry/task-types/{taskType}:
+    get:
+      tags: [Registry]
+      summary: Find agents by task type
+      parameters:
+        - name: taskType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matching agents
+  /api/v1/registry/select-best:
+    get:
+      tags: [Registry]
+      summary: Select the best agent for a capability
+      parameters:
+        - name: capability
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: taskType
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Best agent
+        '404':
+          description: No agent found
+  /api/v1/registry/agents/{agentId}/performance:
+    get:
+      tags: [Registry]
+      summary: Get agent performance snapshot
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Performance snapshot
+        '404':
+          description: Not found
+  /api/v1/registry/agents/{agentId}/task-types:
+    post:
+      tags: [Registry]
+      summary: Register supported task types for an agent (admin only)
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated
+        '404':
+          description: Not found
+  /api/v1/traces:
+    get:
+      tags: [Registry]
+      summary: Query trace entries
+      parameters:
+        - name: scope
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 200
+      responses:
+        '200':
+          description: Success
+  /api/v1/patterns/objectives/{objectiveId}/analyze:
+    post:
+      tags: [Registry]
+      summary: Analyze patterns for an objective
+      parameters:
+        - name: objectiveId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Discovered patterns
+  /api/v1/strategies/{objectiveType}:
+    get:
+      tags: [Registry]
+      summary: Get strategies by objective type
+      parameters:
+        - name: objectiveType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/strategies:
+    post:
+      tags: [Registry]
+      summary: Save an operational strategy
+      responses:
+        '202':
+          description: Accepted
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Gateway Endpoints (ArchonAI.Gateway/Program.cs)
+  # ═══════════════════════════════════════════════════════════════════
+  /health:
+    get:
+      tags: [Gateway]
+      summary: Gateway health check
+      security: []
+      responses:
+        '200':
+          description: Service healthy
+  /healthz/live:
+    get:
+      tags: [Gateway]
+      summary: K8s liveness probe
+      security: []
+      responses:
+        '200':
+          description: Alive
+  /healthz/ready:
+    get:
+      tags: [Gateway]
+      summary: K8s readiness probe
+      security: []
+      responses:
+        '200':
+          description: Ready
+  /gateway/status:
+    get:
+      tags: [Gateway]
+      summary: Get gateway metrics snapshot (admin only)
+      responses:
+        '200':
+          description: Metrics snapshot
+  /metrics:
+    get:
+      tags: [Gateway]
+      summary: Prometheus scraping endpoint (admin only)
+      responses:
+        '200':
+          description: Prometheus metrics
