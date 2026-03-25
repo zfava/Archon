@@ -3946,3 +3946,1263 @@ paths:
           description: Approval gate created
         '404':
           description: Connector not found
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Strategy Endpoints (StrategyEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── Strategy Simulation ──
+  /api/v1/strategy-simulation/simulate:
+    post:
+      tags: [Strategy]
+      summary: Simulate a strategy against a task graph
+      responses:
+        '200':
+          description: Simulation result
+        '404':
+          description: Task graph not found
+  /api/v1/strategy-simulation/compare:
+    post:
+      tags: [Strategy]
+      summary: Compare multiple strategies against a task graph
+      responses:
+        '200':
+          description: Comparison result
+        '404':
+          description: Task graph not found
+  /api/v1/strategy-simulation/simulate-goal:
+    post:
+      tags: [Strategy]
+      summary: Simulate strategies against a goal
+      responses:
+        '200':
+          description: Simulation result
+        '404':
+          description: Goal not found
+  /api/v1/strategy-simulation/guided-plan:
+    post:
+      tags: [Strategy]
+      summary: Build a simulation-guided plan for a goal
+      responses:
+        '200':
+          description: Guided plan
+        '404':
+          description: Goal not found
+
+  # ── Strategy Library ──
+  /api/v1/strategy-library/strategies:
+    get:
+      tags: [Strategy]
+      summary: List strategy templates
+      parameters:
+        - name: objectiveType
+          in: query
+          schema:
+            type: string
+        - name: tag
+          in: query
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Strategy]
+      summary: Create a strategy template
+      responses:
+        '201':
+          description: Strategy created
+  /api/v1/strategy-library/strategies/{strategyId}:
+    get:
+      tags: [Strategy]
+      summary: Get a strategy template by ID
+      parameters:
+        - name: strategyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    put:
+      tags: [Strategy]
+      summary: Update a strategy template
+      parameters:
+        - name: strategyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated
+        '404':
+          description: Not found
+    delete:
+      tags: [Strategy]
+      summary: Delete a strategy template
+      parameters:
+        - name: strategyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: Not found
+  /api/v1/strategy-library/strategies/{strategyId}/executions:
+    post:
+      tags: [Strategy]
+      summary: Record a strategy execution result
+      parameters:
+        - name: strategyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Execution recorded
+        '404':
+          description: Strategy not found
+  /api/v1/strategy-library/ranked:
+    get:
+      tags: [Strategy]
+      summary: Get ranked strategies by objective type
+      parameters:
+        - name: objectiveType
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Success
+  /api/v1/strategy-library/compare:
+    post:
+      tags: [Strategy]
+      summary: Compare strategies by IDs
+      responses:
+        '200':
+          description: Comparison result
+        '400':
+          description: Invalid request
+
+  # ── Goals ──
+  /api/v1/goals/generate:
+    post:
+      tags: [Strategy]
+      summary: Generate goals from system state (admin only)
+      responses:
+        '200':
+          description: Generated goals
+  /api/v1/goals/dashboard:
+    get:
+      tags: [Strategy]
+      summary: Get goals dashboard
+      responses:
+        '200':
+          description: Dashboard
+  /api/v1/goals/{goalId}:
+    get:
+      tags: [Strategy]
+      summary: Get a goal by ID
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/goals/by-status/{status}:
+    get:
+      tags: [Strategy]
+      summary: Get goals filtered by status
+      parameters:
+        - name: status
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/goals/{goalId}/approve:
+    post:
+      tags: [Strategy]
+      summary: Approve a goal (admin only)
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Approved
+  /api/v1/goals/{goalId}/cancel:
+    post:
+      tags: [Strategy]
+      summary: Cancel a goal (admin only)
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Cancelled
+
+  # ── Economics ──
+  /api/v1/economics/evaluate:
+    post:
+      tags: [Strategy]
+      summary: Evaluate multiple strategies economically for an objective
+      responses:
+        '200':
+          description: Evaluation result
+  /api/v1/economics/evaluate-single:
+    post:
+      tags: [Strategy]
+      summary: Evaluate a single strategy economically
+      responses:
+        '200':
+          description: Evaluation result
+
+  # ── Outcome Evaluation ──
+  /api/v1/outcome-evaluation/evaluate:
+    post:
+      tags: [Strategy]
+      summary: Evaluate actual vs simulated outcomes
+      responses:
+        '200':
+          description: Evaluation result
+        '404':
+          description: Task graph not found
+  /api/v1/outcome-evaluation/goal/{goalId}:
+    get:
+      tags: [Strategy]
+      summary: Get outcome evaluations for a goal
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+  /api/v1/outcome-evaluation/strategy/{strategy}:
+    get:
+      tags: [Strategy]
+      summary: Get outcome evaluations for a strategy
+      parameters:
+        - name: strategy
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+
+  # ── Model Routing ──
+  /api/v1/model-routing/adjust-weights:
+    post:
+      tags: [Strategy]
+      summary: Run adaptive weight adjustment for model routing
+      responses:
+        '200':
+          description: Adjustment report
+  /api/v1/model-routing/weights:
+    get:
+      tags: [Strategy]
+      summary: Get all model routing weights
+      responses:
+        '200':
+          description: Success
+  /api/v1/model-routing/weights/{taskType}:
+    get:
+      tags: [Strategy]
+      summary: Get routing weights for a task type
+      parameters:
+        - name: taskType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/model-routing/scores:
+    get:
+      tags: [Strategy]
+      summary: Get all model performance scores
+      responses:
+        '200':
+          description: Success
+  /api/v1/model-routing/scores/{provider}/{model}:
+    get:
+      tags: [Strategy]
+      summary: Get performance score for a specific model
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: model
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/model-routing/select:
+    post:
+      tags: [Strategy]
+      summary: Select a model by routing strategy and task type
+      parameters:
+        - name: strategy
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: taskType
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Selected model
+        '404':
+          description: No eligible models
+  /api/v1/model-routing/capabilities:
+    get:
+      tags: [Strategy]
+      summary: Get all model capabilities from the registry
+      responses:
+        '200':
+          description: Success
+  /api/v1/model-routing/providers/status:
+    get:
+      tags: [Strategy]
+      summary: Get model provider status and available models
+      responses:
+        '200':
+          description: Success
+
+  # ── Onboarding ──
+  /api/v1/onboarding/deploy:
+    post:
+      tags: [Strategy]
+      summary: Deploy an onboarding configuration
+      responses:
+        '200':
+          description: Deploy result
+  /api/v1/onboarding/deploy-template:
+    post:
+      tags: [Strategy]
+      summary: Deploy from an onboarding template
+      responses:
+        '200':
+          description: Deploy result
+
+  # ── Task Graphs ──
+  /api/v1/task-graphs/build:
+    post:
+      tags: [Strategy]
+      summary: Build a task graph for a goal
+      responses:
+        '200':
+          description: Task graph
+        '404':
+          description: Goal not found
+  /api/v1/task-graphs/{graphId}/dispatch:
+    post:
+      tags: [Strategy]
+      summary: Dispatch a task graph for execution (admin only)
+      parameters:
+        - name: graphId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dispatch result
+        '404':
+          description: Graph not found
+  /api/v1/task-graphs/{graphId}:
+    get:
+      tags: [Strategy]
+      summary: Get a task graph by ID
+      parameters:
+        - name: graphId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/task-graphs/by-goal/{goalId}:
+    get:
+      tags: [Strategy]
+      summary: Get task graphs for a goal
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+  /api/v1/task-graphs/{graphId}/layers:
+    get:
+      tags: [Strategy]
+      summary: Get execution layers for a task graph
+      parameters:
+        - name: graphId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Layers
+        '404':
+          description: Not found
+
+  # ── Explanations ──
+  /api/v1/explanations/strategy:
+    post:
+      tags: [Strategy]
+      summary: Explain a strategy choice for a goal
+      responses:
+        '200':
+          description: Explanation
+  /api/v1/explanations/agent:
+    post:
+      tags: [Strategy]
+      summary: Explain agent selection for a capability
+      responses:
+        '200':
+          description: Explanation
+  /api/v1/explanations/decision:
+    post:
+      tags: [Strategy]
+      summary: Explain a full decision (strategy + agent selection)
+      responses:
+        '200':
+          description: Explanation
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Infrastructure Endpoints (InfraEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── AI Runtime Diagnostics ──
+  /api/v1/ai-runtime/environment:
+    get:
+      tags: [Infrastructure]
+      summary: Get AI runtime environment report
+      responses:
+        '200':
+          description: Success
+  /api/v1/ai-runtime/smoke-test:
+    post:
+      tags: [Infrastructure]
+      summary: Run AI runtime smoke test
+      responses:
+        '200':
+          description: Smoke test report
+
+  # ── Control Plane ──
+  /api/v1/control-plane/status:
+    get:
+      tags: [Infrastructure]
+      summary: Get control plane status
+      responses:
+        '200':
+          description: Success
+  /api/v1/control-plane/dashboard:
+    get:
+      tags: [Infrastructure]
+      summary: Get control plane dashboard
+      responses:
+        '200':
+          description: Dashboard
+
+  # ── Control Plane — Tenants ──
+  /api/v1/control-plane/tenants:
+    get:
+      tags: [Infrastructure]
+      summary: List tenants
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Infrastructure]
+      summary: Provision a new tenant
+      responses:
+        '201':
+          description: Tenant provisioned
+        '409':
+          description: Tenant already exists
+  /api/v1/control-plane/tenants/{tenantId}:
+    get:
+      tags: [Infrastructure]
+      summary: Get a tenant by ID
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    delete:
+      tags: [Infrastructure]
+      summary: Deprovision a tenant
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deprovisioned
+        '400':
+          description: Invalid operation
+  /api/v1/control-plane/tenants/{tenantId}/activate:
+    post:
+      tags: [Infrastructure]
+      summary: Activate a tenant
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Activated
+        '400':
+          description: Invalid operation
+  /api/v1/control-plane/tenants/{tenantId}/suspend:
+    post:
+      tags: [Infrastructure]
+      summary: Suspend a tenant
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Suspended
+        '400':
+          description: Invalid operation
+
+  # ── Control Plane — Workflows ──
+  /api/v1/control-plane/workflows:
+    get:
+      tags: [Infrastructure]
+      summary: List managed workflows
+      parameters:
+        - name: tenantId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Infrastructure]
+      summary: Register a managed workflow
+      responses:
+        '201':
+          description: Workflow registered
+        '400':
+          description: Invalid operation
+  /api/v1/control-plane/workflows/{workflowId}:
+    get:
+      tags: [Infrastructure]
+      summary: Get a managed workflow by ID
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/control-plane/workflows/{workflowId}/status:
+    patch:
+      tags: [Infrastructure]
+      summary: Update managed workflow status
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated
+        '400':
+          description: Invalid operation
+
+  # ── Control Plane — Agents ──
+  /api/v1/control-plane/agents:
+    get:
+      tags: [Infrastructure]
+      summary: List managed agents
+      parameters:
+        - name: tenantId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Infrastructure]
+      summary: Register a managed agent
+      responses:
+        '201':
+          description: Agent registered
+        '400':
+          description: Invalid operation
+  /api/v1/control-plane/agents/{agentId}:
+    get:
+      tags: [Infrastructure]
+      summary: Get a managed agent by ID
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    delete:
+      tags: [Infrastructure]
+      summary: Deregister a managed agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deregistered
+        '400':
+          description: Invalid operation
+  /api/v1/control-plane/agents/{agentId}/status:
+    patch:
+      tags: [Infrastructure]
+      summary: Update managed agent status
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated
+        '400':
+          description: Invalid operation
+
+  # ── Control Plane — Policies ──
+  /api/v1/control-plane/policies:
+    get:
+      tags: [Infrastructure]
+      summary: List platform policies
+      parameters:
+        - name: tenantId
+          in: query
+          schema:
+            type: string
+        - name: policyType
+          in: query
+          schema:
+            type: string
+        - name: isEnabled
+          in: query
+          schema:
+            type: boolean
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Infrastructure]
+      summary: Create a platform policy
+      responses:
+        '201':
+          description: Policy created
+  /api/v1/control-plane/policies/{policyId}:
+    get:
+      tags: [Infrastructure]
+      summary: Get a platform policy by ID
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    put:
+      tags: [Infrastructure]
+      summary: Update a platform policy
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Updated
+        '400':
+          description: Invalid operation
+    delete:
+      tags: [Infrastructure]
+      summary: Delete a platform policy
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deleted
+        '400':
+          description: Invalid operation
+
+  # ── Control Plane — Config ──
+  /api/v1/control-plane/config:
+    get:
+      tags: [Infrastructure]
+      summary: List configurations
+      parameters:
+        - name: tenantId
+          in: query
+          schema:
+            type: string
+        - name: scope
+          in: query
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Success
+    put:
+      tags: [Infrastructure]
+      summary: Set a configuration value
+      responses:
+        '200':
+          description: Configuration set
+  /api/v1/control-plane/config/{tenantId}/{scope}/{key}:
+    get:
+      tags: [Infrastructure]
+      summary: Get a specific configuration value
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: scope
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    delete:
+      tags: [Infrastructure]
+      summary: Delete a configuration value
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: scope
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+        '400':
+          description: Invalid operation
+
+  # ── Control Plane — Observability ──
+  /api/v1/control-plane/observability/unified:
+    get:
+      tags: [Infrastructure]
+      summary: Get unified observability dashboard
+      responses:
+        '200':
+          description: Success
+  /api/v1/control-plane/observability/agent-activity:
+    get:
+      tags: [Infrastructure]
+      summary: Get agent activity dashboard
+      responses:
+        '200':
+          description: Success
+  /api/v1/control-plane/observability/system-health:
+    get:
+      tags: [Infrastructure]
+      summary: Get system health dashboard
+      responses:
+        '200':
+          description: Success
+  /api/v1/control-plane/observability/model-usage:
+    get:
+      tags: [Infrastructure]
+      summary: Get model usage dashboard
+      responses:
+        '200':
+          description: Success
+  /api/v1/control-plane/observability/task-performance:
+    get:
+      tags: [Infrastructure]
+      summary: Get task performance dashboard
+      responses:
+        '200':
+          description: Success
+
+  # ── Control Plane — System ──
+  /api/v1/control-plane/system/paused:
+    get:
+      tags: [Infrastructure]
+      summary: Check if system is paused
+      responses:
+        '200':
+          description: Success
+  /api/v1/control-plane/system/pause:
+    post:
+      tags: [Infrastructure]
+      summary: Pause the system (admin only)
+      responses:
+        '200':
+          description: System paused
+  /api/v1/control-plane/system/resume:
+    post:
+      tags: [Infrastructure]
+      summary: Resume the system (admin only)
+      responses:
+        '200':
+          description: System resumed
+
+  # ── Control Plane — Alerts ──
+  /api/v1/control-plane/alerts:
+    get:
+      tags: [Infrastructure]
+      summary: Get active alerts
+      responses:
+        '200':
+          description: Success
+  /api/v1/control-plane/alerts/{alertId}/acknowledge:
+    post:
+      tags: [Infrastructure]
+      summary: Acknowledge an alert
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Acknowledged
+  /api/v1/control-plane/alerts/raise:
+    post:
+      tags: [Infrastructure]
+      summary: Raise an alert (admin only)
+      responses:
+        '200':
+          description: Alert raised
+
+  # ── Standalone Observability ──
+  /api/v1/observability/status:
+    get:
+      tags: [Infrastructure]
+      summary: Get observability service status
+      responses:
+        '200':
+          description: Success
+  /api/v1/observability/traces:
+    get:
+      tags: [Infrastructure]
+      summary: Get agent traces
+      parameters:
+        - name: agentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Success
+  /api/v1/observability/workflows/{workflowId}/performance:
+    get:
+      tags: [Infrastructure]
+      summary: Get workflow performance snapshot
+      parameters:
+        - name: workflowId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/observability/system:
+    get:
+      tags: [Infrastructure]
+      summary: Get system metrics
+      responses:
+        '200':
+          description: Success
+  /api/v1/observability/connectors/health:
+    get:
+      tags: [Infrastructure]
+      summary: Get connector health status
+      responses:
+        '200':
+          description: Success
+  /api/v1/observability/agents/metrics:
+    get:
+      tags: [Infrastructure]
+      summary: Get agent metrics summaries
+      responses:
+        '200':
+          description: Success
+
+  # ── Monitoring ──
+  /api/v1/monitoring/status:
+    get:
+      tags: [Infrastructure]
+      summary: Get monitoring service status
+      responses:
+        '200':
+          description: Success
+  /api/v1/monitoring/dashboard:
+    get:
+      tags: [Infrastructure]
+      summary: Get full monitoring dashboard
+      responses:
+        '200':
+          description: Success
+  /api/v1/monitoring/workflows:
+    get:
+      tags: [Infrastructure]
+      summary: Get workflow metrics
+      responses:
+        '200':
+          description: Success
+  /api/v1/monitoring/agents:
+    get:
+      tags: [Infrastructure]
+      summary: Get agent health
+      responses:
+        '200':
+          description: Success
+  /api/v1/monitoring/system:
+    get:
+      tags: [Infrastructure]
+      summary: Get system performance
+      responses:
+        '200':
+          description: Success
+
+  # ── Cluster ──
+  /api/v1/cluster/status:
+    get:
+      tags: [Infrastructure]
+      summary: Get cluster status
+      responses:
+        '200':
+          description: Success
+  /api/v1/cluster/dashboard:
+    get:
+      tags: [Infrastructure]
+      summary: Get cluster dashboard
+      responses:
+        '200':
+          description: Success
+  /api/v1/cluster/nodes:
+    get:
+      tags: [Infrastructure]
+      summary: List cluster nodes
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Infrastructure]
+      summary: Register a cluster node
+      responses:
+        '201':
+          description: Node registered
+        '400':
+          description: Invalid operation
+  /api/v1/cluster/nodes/{nodeId}:
+    get:
+      tags: [Infrastructure]
+      summary: Get a cluster node by ID
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    delete:
+      tags: [Infrastructure]
+      summary: Remove a cluster node
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Removed
+        '404':
+          description: Not found
+  /api/v1/cluster/nodes/{nodeId}/heartbeat:
+    post:
+      tags: [Infrastructure]
+      summary: Record cluster node heartbeat with load data
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Heartbeat recorded
+        '404':
+          description: Not found
+  /api/v1/cluster/nodes/{nodeId}/drain:
+    post:
+      tags: [Infrastructure]
+      summary: Drain a cluster node
+      parameters:
+        - name: nodeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Draining
+        '404':
+          description: Not found
+  /api/v1/cluster/schedule:
+    post:
+      tags: [Infrastructure]
+      summary: Schedule a task on the cluster
+      responses:
+        '200':
+          description: Schedule result
+  /api/v1/cluster/schedule/batch:
+    post:
+      tags: [Infrastructure]
+      summary: Schedule a batch of tasks on the cluster
+      responses:
+        '200':
+          description: Batch results
+  /api/v1/cluster/distribution-plan:
+    get:
+      tags: [Infrastructure]
+      summary: Generate a cluster distribution plan
+      responses:
+        '200':
+          description: Distribution plan
+  /api/v1/cluster/rebalance:
+    post:
+      tags: [Infrastructure]
+      summary: Rebalance the cluster (admin only)
+      responses:
+        '200':
+          description: Rebalanced
