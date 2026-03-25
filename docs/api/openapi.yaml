@@ -452,6 +452,14 @@ tags:
     description: Decision records, financial consequences, outcome learning, proof analytics
   - name: Intelligence
     description: Memory management, continuous improvement, org memory, insights, perception, org state, strategy learning, enterprise memory
+  - name: Agents
+    description: Agent coordination, collaboration sessions, agent registry management
+  - name: Connectors
+    description: Salesforce, HubSpot, QuickBooks, Slack, Google Workspace, Microsoft 365, integration management
+  - name: Strategy
+    description: Strategy simulation, strategy library, goals, economics, outcome evaluation, model routing, onboarding, task graphs, explanations
+  - name: Infrastructure
+    description: Control plane, observability, monitoring, cluster management, AI runtime diagnostics
 paths:
   # ═══════════════════════════════════════════════════════════════════
   # Auth Endpoints (AuthEndpoints.cs)
@@ -2967,3 +2975,974 @@ paths:
           description: Expired count
         '401':
           description: Not authenticated
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Agent Endpoints (AgentEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── Agent Coordination ──
+  /api/v1/coordination/status:
+    get:
+      tags: [Agents]
+      summary: Get agent coordination service status
+      responses:
+        '200':
+          description: Success
+  /api/v1/coordination/support:
+    post:
+      tags: [Agents]
+      summary: Request task support from another agent
+      responses:
+        '200':
+          description: Support response
+  /api/v1/coordination/knowledge:
+    post:
+      tags: [Agents]
+      summary: Share knowledge between agents
+      responses:
+        '200':
+          description: Knowledge shared
+  /api/v1/coordination/delegate:
+    post:
+      tags: [Agents]
+      summary: Delegate a task to a target agent
+      responses:
+        '200':
+          description: Delegation result
+
+  # ── Agent Collaboration ──
+  /api/v1/collaboration/status:
+    get:
+      tags: [Agents]
+      summary: Get collaboration manager status
+      responses:
+        '200':
+          description: Success
+  /api/v1/collaboration/sessions:
+    post:
+      tags: [Agents]
+      summary: Create a new collaboration session
+      responses:
+        '201':
+          description: Session created
+  /api/v1/collaboration/sessions/{sessionId}:
+    get:
+      tags: [Agents]
+      summary: Get a collaboration session by ID
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+  /api/v1/collaboration/sessions/{sessionId}/join:
+    post:
+      tags: [Agents]
+      summary: Join an existing collaboration session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Joined
+  /api/v1/collaboration/sessions/{sessionId}/context:
+    post:
+      tags: [Agents]
+      summary: Share context within a collaboration session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Context shared
+  /api/v1/collaboration/sessions/{sessionId}/complete:
+    post:
+      tags: [Agents]
+      summary: Complete a collaboration session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Session completed
+  /api/v1/collaboration/delegate-smart:
+    post:
+      tags: [Agents]
+      summary: Smart-delegate a task using capability matching and fallback agents
+      responses:
+        '200':
+          description: Delegation result
+  /api/v1/collaboration/assist:
+    post:
+      tags: [Agents]
+      summary: Request multi-agent assistance for an objective
+      responses:
+        '200':
+          description: Assistance result
+
+  # ── Agent Registry ──
+  /api/v1/agent-registry/agents:
+    get:
+      tags: [Agents]
+      summary: List registered agents with optional filters
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: capability
+          in: query
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+    post:
+      tags: [Agents]
+      summary: Register a new agent
+      responses:
+        '201':
+          description: Agent registered
+  /api/v1/agent-registry/agents/{agentId}:
+    get:
+      tags: [Agents]
+      summary: Get a registered agent by ID
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+        '404':
+          description: Not found
+    delete:
+      tags: [Agents]
+      summary: Deregister an agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Deregistered
+        '404':
+          description: Not found
+  /api/v1/agent-registry/agents/{agentId}/capabilities:
+    put:
+      tags: [Agents]
+      summary: Update an agent's capabilities
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Capabilities updated
+        '404':
+          description: Not found
+  /api/v1/agent-registry/agents/{agentId}/enable:
+    post:
+      tags: [Agents]
+      summary: Enable a disabled agent
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Agent enabled
+        '404':
+          description: Not found
+  /api/v1/agent-registry/agents/{agentId}/disable:
+    post:
+      tags: [Agents]
+      summary: Disable an agent with a reason
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Agent disabled
+        '404':
+          description: Not found
+  /api/v1/agent-registry/agents/{agentId}/heartbeat:
+    post:
+      tags: [Agents]
+      summary: Record agent heartbeat
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Heartbeat recorded
+        '404':
+          description: Not found
+  /api/v1/agent-registry/agents/{agentId}/metrics:
+    post:
+      tags: [Agents]
+      summary: Record agent execution metrics
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Metrics recorded
+        '404':
+          description: Not found
+    get:
+      tags: [Agents]
+      summary: Get agent metrics history
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Success
+  /api/v1/agent-registry/dashboard:
+    get:
+      tags: [Agents]
+      summary: Get agent registry dashboard overview
+      responses:
+        '200':
+          description: Dashboard data
+
+  # ═══════════════════════════════════════════════════════════════════
+  # Connector Endpoints (ConnectorEndpoints.cs)
+  # ═══════════════════════════════════════════════════════════════════
+
+  # ── Salesforce ──
+  /api/v1/connectors/salesforce/status:
+    get:
+      tags: [Connectors]
+      summary: Get Salesforce connector status
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/salesforce/authenticate:
+    post:
+      tags: [Connectors]
+      summary: Authenticate with Salesforce
+      responses:
+        '200':
+          description: Authenticated
+        '401':
+          description: Authentication failed
+  /api/v1/connectors/salesforce/accounts:
+    get:
+      tags: [Connectors]
+      summary: Query Salesforce accounts
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/salesforce/contacts:
+    get:
+      tags: [Connectors]
+      summary: Query Salesforce contacts
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/salesforce/opportunities:
+    get:
+      tags: [Connectors]
+      summary: Query Salesforce opportunities
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/salesforce/records/{objectType}:
+    post:
+      tags: [Connectors]
+      summary: Create a Salesforce record
+      parameters:
+        - name: objectType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Record created
+  /api/v1/connectors/salesforce/records/{objectType}/{recordId}:
+    patch:
+      tags: [Connectors]
+      summary: Update a Salesforce record
+      parameters:
+        - name: objectType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Record updated
+
+  # ── HubSpot ──
+  /api/v1/connectors/hubspot/status:
+    get:
+      tags: [Connectors]
+      summary: Get HubSpot connector status
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/hubspot/authenticate:
+    post:
+      tags: [Connectors]
+      summary: Authenticate with HubSpot
+      responses:
+        '200':
+          description: Authenticated
+        '401':
+          description: Authentication failed
+  /api/v1/connectors/hubspot/contacts:
+    get:
+      tags: [Connectors]
+      summary: Get HubSpot contacts
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/hubspot/deals:
+    get:
+      tags: [Connectors]
+      summary: Get HubSpot deals
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/hubspot/records/{objectType}:
+    post:
+      tags: [Connectors]
+      summary: Create a HubSpot record
+      parameters:
+        - name: objectType
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Record created
+  /api/v1/connectors/hubspot/records/{objectType}/{recordId}:
+    patch:
+      tags: [Connectors]
+      summary: Update a HubSpot pipeline record
+      parameters:
+        - name: objectType
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Record updated
+
+  # ── QuickBooks ──
+  /api/v1/connectors/quickbooks/status:
+    get:
+      tags: [Connectors]
+      summary: Get QuickBooks connector status
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/quickbooks/authenticate:
+    post:
+      tags: [Connectors]
+      summary: Authenticate with QuickBooks
+      responses:
+        '200':
+          description: Authenticated
+        '401':
+          description: Authentication failed
+  /api/v1/connectors/quickbooks/reports:
+    get:
+      tags: [Connectors]
+      summary: Get QuickBooks financial reports
+      parameters:
+        - name: reportType
+          in: query
+          schema:
+            type: string
+            default: ProfitAndLoss
+        - name: startDate
+          in: query
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/quickbooks/invoices:
+    post:
+      tags: [Connectors]
+      summary: Create a QuickBooks invoice
+      responses:
+        '201':
+          description: Invoice created
+  /api/v1/connectors/quickbooks/customers/{customerId}:
+    patch:
+      tags: [Connectors]
+      summary: Update a QuickBooks customer
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customer updated
+  /api/v1/connectors/quickbooks/transactions:
+    get:
+      tags: [Connectors]
+      summary: Get QuickBooks transaction history
+      parameters:
+        - name: accountId
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Success
+
+  # ── Slack ──
+  /api/v1/connectors/slack/status:
+    get:
+      tags: [Connectors]
+      summary: Get Slack connector status
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/slack/authenticate:
+    post:
+      tags: [Connectors]
+      summary: Authenticate with Slack
+      responses:
+        '200':
+          description: Authenticated
+        '401':
+          description: Authentication failed
+  /api/v1/connectors/slack/messages:
+    post:
+      tags: [Connectors]
+      summary: Send a Slack message
+      responses:
+        '200':
+          description: Message sent
+        '400':
+          description: Send failed
+  /api/v1/connectors/slack/channels:
+    get:
+      tags: [Connectors]
+      summary: List Slack channels
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/slack/channels/{channel}/history:
+    get:
+      tags: [Connectors]
+      summary: Read Slack channel message history
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: oldest
+          in: query
+          schema:
+            type: string
+        - name: latest
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/slack/alerts:
+    post:
+      tags: [Connectors]
+      summary: Post a Slack alert notification
+      responses:
+        '200':
+          description: Alert posted
+        '400':
+          description: Alert failed
+  /api/v1/connectors/slack/webhooks/events:
+    post:
+      tags: [Connectors]
+      summary: Receive Slack webhook events (anonymous)
+      security: []
+      responses:
+        '200':
+          description: Event processed
+        '401':
+          description: Webhook verification failed
+
+  # ── Google Workspace ──
+  /api/v1/connectors/google-workspace/status:
+    get:
+      tags: [Connectors]
+      summary: Get Google Workspace connector status
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/google-workspace/authenticate:
+    post:
+      tags: [Connectors]
+      summary: Authenticate with Google Workspace
+      responses:
+        '200':
+          description: Authenticated
+        '401':
+          description: Authentication failed
+  /api/v1/connectors/google-workspace/gmail/messages:
+    get:
+      tags: [Connectors]
+      summary: Get Gmail messages
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+        - name: maxResults
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/google-workspace/gmail/send:
+    post:
+      tags: [Connectors]
+      summary: Send an email via Gmail
+      responses:
+        '200':
+          description: Email sent
+        '400':
+          description: Send failed
+  /api/v1/connectors/google-workspace/docs/{documentId}:
+    get:
+      tags: [Connectors]
+      summary: Get a Google Doc by ID
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/google-workspace/docs:
+    post:
+      tags: [Connectors]
+      summary: Create a Google Doc
+      responses:
+        '201':
+          description: Document created
+  /api/v1/connectors/google-workspace/sheets/{spreadsheetId}:
+    get:
+      tags: [Connectors]
+      summary: Read a Google Sheets spreadsheet
+      parameters:
+        - name: spreadsheetId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: range
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+    put:
+      tags: [Connectors]
+      summary: Write to a Google Sheets spreadsheet
+      parameters:
+        - name: spreadsheetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cells updated
+  /api/v1/connectors/google-workspace/drive/files:
+    get:
+      tags: [Connectors]
+      summary: List Google Drive files
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+        - name: maxResults
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/google-workspace/drive/files/{fileId}:
+    get:
+      tags: [Connectors]
+      summary: Get Google Drive file metadata
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+
+  # ── Microsoft 365 ──
+  /api/v1/connectors/microsoft365/status:
+    get:
+      tags: [Connectors]
+      summary: Get Microsoft 365 connector status
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/microsoft365/authenticate:
+    post:
+      tags: [Connectors]
+      summary: Authenticate with Microsoft 365
+      responses:
+        '200':
+          description: Authenticated
+        '401':
+          description: Authentication failed
+  /api/v1/connectors/microsoft365/outlook/messages:
+    get:
+      tags: [Connectors]
+      summary: Get Outlook email messages
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+        - name: top
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/microsoft365/outlook/send:
+    post:
+      tags: [Connectors]
+      summary: Send an email via Outlook
+      responses:
+        '200':
+          description: Email sent
+        '400':
+          description: Send failed
+  /api/v1/connectors/microsoft365/teams/{teamId}/channels:
+    get:
+      tags: [Connectors]
+      summary: List Teams channels for a team
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/microsoft365/teams/{teamId}/channels/{channelId}/messages:
+    post:
+      tags: [Connectors]
+      summary: Send a Teams channel message
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message sent
+        '400':
+          description: Send failed
+    get:
+      tags: [Connectors]
+      summary: Get Teams channel messages
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: top
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/microsoft365/sharepoint/sites/{siteId}/items:
+    get:
+      tags: [Connectors]
+      summary: Get SharePoint list items
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: listId
+          in: query
+          schema:
+            type: string
+        - name: top
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/microsoft365/sharepoint/sites/{siteId}/drives/{driveId}/items/{itemId}:
+    get:
+      tags: [Connectors]
+      summary: Get a specific SharePoint drive item
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: driveId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/microsoft365/onedrive/files:
+    get:
+      tags: [Connectors]
+      summary: List OneDrive files
+      parameters:
+        - name: folderId
+          in: query
+          schema:
+            type: string
+        - name: top
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+  /api/v1/connectors/microsoft365/onedrive/files/{itemId}:
+    get:
+      tags: [Connectors]
+      summary: Get a OneDrive file item
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+
+  # ── Integration Management ──
+  /api/v1/integrations:
+    get:
+      tags: [Connectors]
+      summary: List all registered connectors
+      responses:
+        '200':
+          description: Success
+  /api/v1/integrations/{connectorId}/connect:
+    post:
+      tags: [Connectors]
+      summary: Connect and authenticate a connector by ID
+      parameters:
+        - name: connectorId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Connected
+        '404':
+          description: Connector not found
+  /api/v1/integrations/{connectorId}/disconnect:
+    post:
+      tags: [Connectors]
+      summary: Disconnect a connector (may require governance approval)
+      parameters:
+        - name: connectorId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Disconnected
+        '202':
+          description: Approval gate created
+        '404':
+          description: Connector not found
