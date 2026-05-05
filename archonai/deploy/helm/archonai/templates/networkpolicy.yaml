@@ -103,63 +103,7 @@ spec:
           protocol: TCP
     {{- end }}
 ---
-# ── Workers: no ingress, talk to postgres/nats only ───────────────
-{{- range $name := list "runtime" "scheduler" "agents" }}
-{{- $workerValues := index $.Values $name }}
-{{- if $workerValues.enabled }}
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: archonai-{{ $name }}-netpol
-  namespace: {{ $.Values.namespace }}
-  labels:
-    app.kubernetes.io/part-of: archonai
-spec:
-  podSelector:
-    matchLabels:
-      app: archonai-{{ $name }}
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress: []
-  egress:
-    - ports:
-        - port: 53
-          protocol: UDP
-        - port: 53
-          protocol: TCP
-    - to:
-        - podSelector:
-            matchLabels:
-              app: archonai-postgres
-      ports:
-        - port: 5432
-          protocol: TCP
-    - to:
-        - podSelector:
-            matchLabels:
-              app: archonai-nats
-      ports:
-        - port: 4222
-          protocol: TCP
-    {{- if $.Values.networkPolicy.egressCIDRs }}
-    {{- range $.Values.networkPolicy.egressCIDRs }}
-    - to:
-        - ipBlock:
-            cidr: {{ . }}
-      ports:
-        - port: 443
-          protocol: TCP
-    {{- end }}
-    {{- else }}
-    - ports:
-        - port: 443
-          protocol: TCP
-    {{- end }}
----
-{{- end }}
-{{- end }}
-# ── Postgres: accepts connections from API and workers only ───────
+# ── Postgres: accepts connections from API only ──────────────────
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

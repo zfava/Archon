@@ -53,18 +53,6 @@ gateway:
 api:
   replicaCount: 2
 
-runtime:
-  enabled: true
-  replicaCount: 1
-
-scheduler:
-  enabled: true
-  replicaCount: 1
-
-agents:
-  enabled: true
-  replicaCount: 2
-
 postgres:
   storage: 20Gi
   database: archonai

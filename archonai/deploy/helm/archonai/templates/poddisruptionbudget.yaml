@@ -24,19 +24,4 @@ spec:
   selector:
     matchLabels:
       app: archonai-api
----
-{{- if .Values.agents.enabled }}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: archonai-agents-pdb
-  namespace: {{ .Values.namespace }}
-  labels:
-    app.kubernetes.io/part-of: archonai
-spec:
-  minAvailable: {{ .Values.podDisruptionBudget.agents.minAvailable }}
-  selector:
-    matchLabels:
-      app: archonai-agents
-{{- end }}
 {{- end }}

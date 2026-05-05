@@ -92,38 +92,6 @@ api:
     EventBus__Url: ""   # customer must provide: e.g. nats://nats.internal:4222
     MemoryPersistence__Schema: public
 
-runtime:
-  enabled: true
-  replicaCount: 2
-  env:
-    DOTNET_ENVIRONMENT: Production
-    EventBus__UseNats: "true"
-    EventBus__Url: ""
-    MemoryPersistence__Schema: public
-    Runtime__MaxDegreeOfParallelism: "128"
-    Runtime__MaxRetries: "2"
-    Runtime__BaseRetryDelayMs: "250"
-
-scheduler:
-  enabled: true
-  replicaCount: 1
-  env:
-    DOTNET_ENVIRONMENT: Production
-    EventBus__UseNats: "true"
-    EventBus__Url: ""
-    MemoryPersistence__Schema: public
-    Scheduler__MaxGpuSlots: "4"
-    Scheduler__MaxParallelTasks: "128"
-
-agents:
-  enabled: true
-  replicaCount: 3
-  env:
-    DOTNET_ENVIRONMENT: Production
-    EventBus__UseNats: "true"
-    EventBus__Url: ""
-    MemoryPersistence__Schema: public
-
 # ── No bundled infrastructure ────────────────────────────────────
 # Customer provides managed Postgres (RDS, Cloud SQL, Azure DB) and
 # managed NATS (or compatible messaging). These sections are ignored

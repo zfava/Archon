@@ -2,6 +2,15 @@
 
 All notable changes to the ArchonAI platform are documented in this file.
 
+## [0.12.1] - 2026-05-05
+
+### Removed
+- Removed 6 empty stub projects (Planner, EventBus, Worker.Agents, Worker.Runtime, Worker.Scheduler, Cli) to reduce surface area
+- Removed associated Dockerfiles (Dockerfile.agents, Dockerfile.runtime, Dockerfile.scheduler, Dockerfile.cli)
+- Removed Kubernetes deployment manifests for removed worker services (agents, runtime, scheduler)
+- Removed Helm chart templates and values entries for removed worker services
+- Cleaned PodDisruptionBudget and NetworkPolicy templates of worker references
+
 ## [0.12.0] - 2026-03-23 (Archon16)
 
 ### Added

@@ -48,17 +48,5 @@ gateway:
 api:
   replicaCount: 2
 
-runtime:
-  enabled: true
-  replicaCount: 2
-
-scheduler:
-  enabled: true
-  replicaCount: 1
-
-agents:
-  enabled: true
-  replicaCount: 3
-
 postgres:
   storage: 50Gi
