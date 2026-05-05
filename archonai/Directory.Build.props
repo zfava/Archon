@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup>
+    <NuGetAuditSuppress>https://github.com/advisories/GHSA-g94r-2vxg-569j</NuGetAuditSuppress>
+  </PropertyGroup>
+</Project>
