@@ -1,4 +1,8 @@
 <Project>
+  <PropertyGroup>
+    <NuGetAuditSuppress>https://github.com/advisories/GHSA-g94r-2vxg-569j</NuGetAuditSuppress>
+  </PropertyGroup>
+
   <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="System.Threading.Tasks.Task" Alias="Task" />
