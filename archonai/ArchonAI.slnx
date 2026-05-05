@@ -46,10 +46,6 @@
     <Project Path="src/ArchonAI.Agents.Support/ArchonAI.Agents.Support.csproj" />
     <Project Path="src/ArchonAI.AdminAPI/ArchonAI.AdminAPI.csproj" />
     <Project Path="src/ArchonAI.Api/ArchonAI.Api.csproj" />
-    <Project Path="src/ArchonAI.Cli/ArchonAI.Cli.csproj" />
-    <Project Path="src/ArchonAI.Worker.Runtime/ArchonAI.Worker.Runtime.csproj" />
-    <Project Path="src/ArchonAI.Worker.Scheduler/ArchonAI.Worker.Scheduler.csproj" />
-    <Project Path="src/ArchonAI.Worker.Agents/ArchonAI.Worker.Agents.csproj" />
     <Project Path="src/ArchonAI.ControlPlane/ArchonAI.ControlPlane.csproj" />
     <Project Path="src/ArchonAI.Gateway/ArchonAI.Gateway.csproj" />
     <Project Path="src/ArchonAI.WorkflowDesigner/ArchonAI.WorkflowDesigner.csproj" />
