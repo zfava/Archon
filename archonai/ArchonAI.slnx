@@ -75,5 +75,10 @@
     <Project Path="tests/ArchonAI.Learning.Tests/ArchonAI.Learning.Tests.csproj" />
     <Project Path="tests/ArchonAI.Memory.Tests/ArchonAI.Memory.Tests.csproj" />
     <Project Path="tests/ArchonAI.StrategicPlanner.Tests/ArchonAI.StrategicPlanner.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Optimization.Tests/ArchonAI.Optimization.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Perception.Tests/ArchonAI.Perception.Tests.csproj" />
+    <Project Path="tests/ArchonAI.PatternDiscovery.Tests/ArchonAI.PatternDiscovery.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Telemetry.Tests/ArchonAI.Telemetry.Tests.csproj" />
+    <Project Path="tests/ArchonAI.ModelRouter.Tests/ArchonAI.ModelRouter.Tests.csproj" />
   </Folder>
 </Solution>
