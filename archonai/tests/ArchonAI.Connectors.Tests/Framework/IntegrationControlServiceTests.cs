@@ -168,6 +168,6 @@ public sealed class IntegrationControlServiceTests
         }
 
         var all = await service.GetRecentSyncsAsync(limit: 2000);
-        all.Count.Should().BeLessOrEqualTo(1000);
+        all.Count.Should().BeLessThanOrEqualTo(1000);
     }
 }

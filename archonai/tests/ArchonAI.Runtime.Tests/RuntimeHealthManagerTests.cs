@@ -252,7 +252,7 @@ public class RuntimeHealthManagerTests
         await manager.RunHealthCheckAsync();
 
         var snapshot = await manager.GetHealthSnapshotAsync();
-        snapshot.RecoveriesAttempted.Should().BeGreaterOrEqualTo(1);
+        snapshot.RecoveriesAttempted.Should().BeGreaterThanOrEqualTo(1);
     }
 
     [Fact]

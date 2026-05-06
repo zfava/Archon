@@ -197,9 +197,9 @@ public sealed class MemoryCompressionEngineTests
         var engine = CreateEngine();
         var clusters = await engine.ClusterAsync("s1");
 
-        clusters.Should().HaveCountGreaterOrEqualTo(1);
-        clusters[0].MemberRecordIds.Should().HaveCountGreaterOrEqualTo(3);
-        engine.TotalClustersFormed.Should().BeGreaterOrEqualTo(1);
+        clusters.Should().HaveCountGreaterThanOrEqualTo(1);
+        clusters[0].MemberRecordIds.Should().HaveCountGreaterThanOrEqualTo(3);
+        engine.TotalClustersFormed.Should().BeGreaterThanOrEqualTo(1);
     }
 
     // ---- 8. ClusterAsync does not cluster records with different MemoryType ----
@@ -361,7 +361,7 @@ public sealed class MemoryRetrievalOptimizerTests
         // The more recent record should have a higher recency boost
         var scoredR1 = result.Records.First(r => r.Record.Id == r1.Id);
         var scoredR2 = result.Records.First(r => r.Record.Id == r2.Id);
-        scoredR1.RecencyBoost.Should().BeGreaterThan(scoredR2.RecencyBoost);
+        scoredR1.RecencyBoost.Value.Should().BeGreaterThan(scoredR2.RecencyBoost.Value);
     }
 
     // ---- 3. SearchAsync with graph enrichment (scope contains ':') ----
@@ -479,7 +479,7 @@ public sealed class MemoryRetrievalOptimizerTests
         var result = await optimizer.SearchAsync("s1", MakeEmbedding(), 500);
 
         result.Records.Should().HaveCount(5);
-        result.Records.Count.Should().BeLessOrEqualTo(_options.MaxTopK);
+        result.Records.Count.Should().BeLessThanOrEqualTo(_options.MaxTopK);
     }
 }
 
@@ -587,7 +587,7 @@ public sealed class OrganizationalMemoryStoreTests
         result.Should().NotBeNull();
         result.SearchStrategy.Should().NotBeNullOrWhiteSpace();
         // The term-match path should pick up the entry since "revenue" and "analysis" appear in the summary
-        result.Matches.Should().HaveCountGreaterOrEqualTo(1);
+        result.Matches.Should().HaveCountGreaterThanOrEqualTo(1);
     }
 
     // ---- 4. GetTimelineAsync with no entries ----

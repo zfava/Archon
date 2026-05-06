@@ -92,7 +92,7 @@ public sealed class MarketingEngineTests
         var strategies = await engine.RecommendStrategiesAsync("*");
 
         strategies.Should().NotBeEmpty();
-        strategies.Should().HaveCountLessOrEqualTo(_options.MaxStrategiesPerRecommendation);
+        strategies.Should().HaveCountLessThanOrEqualTo(_options.MaxStrategiesPerRecommendation);
         strategies[0].TargetChannels.Should().NotBeEmpty();
     }
 

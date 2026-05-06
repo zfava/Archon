@@ -116,7 +116,7 @@ public class SecurityPolicyEngineTests
         await engine.EvaluateAgentPermissionsAsync(CreateAgent(), CreateTask(), CreateContext());
 
         var metrics = engine.GetMetrics();
-        metrics.TotalEvaluations.Should().BeGreaterOrEqualTo(2);
+        metrics.TotalEvaluations.Should().BeGreaterThanOrEqualTo(2);
     }
 
     [Fact]
@@ -128,8 +128,8 @@ public class SecurityPolicyEngineTests
         await engine.EvaluateAgentPermissionsAsync(agent, CreateTask(), CreateContext());
 
         var metrics = engine.GetMetrics();
-        metrics.AgentPermissionDenials.Should().BeGreaterOrEqualTo(1);
-        metrics.TotalViolations.Should().BeGreaterOrEqualTo(1);
+        metrics.AgentPermissionDenials.Should().BeGreaterThanOrEqualTo(1);
+        metrics.TotalViolations.Should().BeGreaterThanOrEqualTo(1);
     }
 
     [Fact]
@@ -278,7 +278,7 @@ public class SecurityPolicyEngineTests
 
         var policies = await engine.GetPoliciesAsync();
 
-        policies.Count.Should().BeGreaterOrEqualTo(5);
+        policies.Count.Should().BeGreaterThanOrEqualTo(5);
     }
 
     [Fact]
@@ -306,6 +306,6 @@ public class SecurityPolicyEngineTests
 
         metrics.TotalEvaluations.Should().Be(0);
         metrics.TotalViolations.Should().Be(0);
-        metrics.ActivePolicies.Should().BeGreaterOrEqualTo(5);
+        metrics.ActivePolicies.Should().BeGreaterThanOrEqualTo(5);
     }
 }
