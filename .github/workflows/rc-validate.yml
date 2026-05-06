@@ -545,10 +545,6 @@ jobs:
 
           IMAGES=(
             "api:archonai/deploy/docker/Dockerfile.api"
-            "cli:archonai/deploy/docker/Dockerfile.cli"
-            "runtime:archonai/deploy/docker/Dockerfile.runtime"
-            "scheduler:archonai/deploy/docker/Dockerfile.scheduler"
-            "agents:archonai/deploy/docker/Dockerfile.agents"
             "gateway:archonai/deploy/docker/Dockerfile.gateway"
           )
 
