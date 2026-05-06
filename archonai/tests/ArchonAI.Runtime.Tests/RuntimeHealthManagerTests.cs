@@ -40,7 +40,7 @@ public class RuntimeHealthManagerTests
     }
 
     [Fact]
-    public async Task RecordHeartbeat_DegradedAgent_ResetsToHealthy()
+    public async Task RecordHeartbeat_DegradedAgent_StaysDegraded()
     {
         var manager = CreateManager();
         var agentId = Guid.NewGuid();
@@ -49,7 +49,7 @@ public class RuntimeHealthManagerTests
         await manager.RecordHeartbeatAsync(agentId, "agent-1");
 
         var snapshot = await manager.GetHealthSnapshotAsync();
-        snapshot.Agents.First(a => a.AgentId == agentId).Status.Should().Be(AgentHealthStatus.Healthy);
+        snapshot.Agents.First(a => a.AgentId == agentId).Status.Should().Be(AgentHealthStatus.Degraded);
     }
 
     [Fact]
@@ -169,6 +169,7 @@ public class RuntimeHealthManagerTests
 
         await manager.RecordHeartbeatAsync(healthy, "healthy-agent");
         await manager.RecordAgentFailureAsync(failed, "failed-agent", "err");
+        await manager.RecordAgentFailureAsync(failed, "failed-agent", "err");
 
         var snapshot = await manager.GetHealthSnapshotAsync();
 
@@ -247,6 +248,7 @@ public class RuntimeHealthManagerTests
         _options.AgentRestartCooldownSeconds = 0;
         var manager = CreateManager();
         var agentId = Guid.NewGuid();
+        await manager.RecordAgentFailureAsync(agentId, "agent-1", "err");
         await manager.RecordAgentFailureAsync(agentId, "agent-1", "err");
 
         await manager.RunHealthCheckAsync();

@@ -180,13 +180,14 @@ public sealed class MemoryCompressionEngineTests
     public async Task MemoryCompressionEngine_ClusterAsync_WithSimilarRecords_FormsClusters()
     {
         // MinClusterSize defaults to 3; records must share memoryType and content similarity >= 0.75
+        // Jaccard on word trigrams: need high overlap, so use 9+ words with only 1 word different at the end
         var records = new List<MemoryRecord>
         {
-            MakeRecord("the quarterly sales revenue report analysis overview",
+            MakeRecord("the quarterly sales revenue report analysis by department for review overview",
                 memoryType: "report", createdAt: DateTimeOffset.UtcNow.AddHours(-3)),
-            MakeRecord("the quarterly sales revenue report analysis summary",
+            MakeRecord("the quarterly sales revenue report analysis by department for review summary",
                 memoryType: "report", createdAt: DateTimeOffset.UtcNow.AddHours(-2)),
-            MakeRecord("the quarterly sales revenue report analysis details",
+            MakeRecord("the quarterly sales revenue report analysis by department for review details",
                 memoryType: "report", createdAt: DateTimeOffset.UtcNow.AddHours(-1))
         };
 

@@ -286,7 +286,7 @@ public sealed class EconomicEvaluatorTests
 
         // Assert
         result.WeightsUsed.Should().Be(customWeights);
-        result.BestStrategy.ScoreBreakdown.Should().Contain("0.800");
+        result.BestStrategy.ScoreBreakdown.Should().Contain("*0.8 ");
     }
 
     [Fact]
