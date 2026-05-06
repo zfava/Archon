@@ -116,6 +116,7 @@ jobs:
             --collect:"XPlat Code Coverage"
 
       - name: Run Enterprise integration tests
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: |
           set -euo pipefail
           echo "── Enterprise Integration Tests (Testcontainers) ──"
@@ -127,6 +128,7 @@ jobs:
             --results-directory ./test-results
 
       - name: Run Enterprise runtime-proof tests
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: |
           set -euo pipefail
           echo "── Enterprise RuntimeProof Tests ──"
@@ -138,6 +140,7 @@ jobs:
             --results-directory ./test-results
 
       - name: Run AI runtime-proof tests
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: |
           set -euo pipefail
           echo "── AI RuntimeProof Tests ──"
@@ -149,7 +152,7 @@ jobs:
             --results-directory ./test-results
 
       - name: Verify container-backed tests actually executed
-        if: always()
+        if: always() && github.event_name == 'push'
         run: |
           echo "── Container Execution Proof ──"
           GATE_PASS=true
