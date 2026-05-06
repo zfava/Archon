@@ -361,7 +361,9 @@ public sealed class MemoryRetrievalOptimizerTests
         // The more recent record should have a higher recency boost
         var scoredR1 = result.Records.First(r => r.Record.Id == r1.Id);
         var scoredR2 = result.Records.First(r => r.Record.Id == r2.Id);
-        scoredR1.RecencyBoost.Value.Should().BeGreaterThan(scoredR2.RecencyBoost.Value);
+        scoredR1.RecencyBoost.Should().NotBeNull();
+        scoredR2.RecencyBoost.Should().NotBeNull();
+        scoredR1.RecencyBoost!.Value.Should().BeGreaterThan(scoredR2.RecencyBoost!.Value);
     }
 
     // ---- 3. SearchAsync with graph enrichment (scope contains ':') ----
