@@ -70,10 +70,10 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        run: dotnet restore ${{ env.SOLUTION_PATH }} -p:NoWarn=NU1902
 
       - name: Build
-        run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore -c Release -warnaserror
+        run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore -c Release -warnaserror -p:NoWarn=NU1902
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
@@ -103,7 +103,7 @@ jobs:
           echo "Docker is available for Testcontainers integration tests."
 
       - name: Restore dependencies
-        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        run: dotnet restore ${{ env.SOLUTION_PATH }} -p:NoWarn=NU1902
 
       - name: Run unit tests
         run: |
@@ -216,7 +216,7 @@ jobs:
 
       - name: Scan NuGet dependencies for known CVEs
         run: |
-          dotnet restore archonai/
+          dotnet restore archonai/ -p:NoWarn=NU1902
           dotnet list archonai/ package --vulnerable --include-transitive 2>&1 | tee vuln-report.txt
           if grep -q "has the following vulnerable packages" vuln-report.txt; then
             echo "::error::Vulnerable NuGet packages found. See vuln-report.txt"

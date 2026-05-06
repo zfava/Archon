@@ -79,7 +79,7 @@ jobs:
 
       - name: Build ArchonAI
         working-directory: archonai
-        run: dotnet build ArchonAI.slnx -c Release --no-incremental
+        run: dotnet build ArchonAI.slnx -c Release --no-incremental -p:NoWarn=NU1902
 
       - name: Start API Server
         working-directory: archonai

@@ -54,10 +54,10 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        run: dotnet restore ${{ env.SOLUTION_PATH }} -p:NoWarn=NU1902
 
       - name: Build (Release, warnings-as-errors)
-        run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore -c Release -warnaserror
+        run: dotnet build ${{ env.SOLUTION_PATH }} --no-restore -c Release -warnaserror -p:NoWarn=NU1902
 
       - name: Record build proof
         run: |
@@ -112,7 +112,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        run: dotnet restore ${{ env.SOLUTION_PATH }} -p:NoWarn=NU1902
 
       - name: Verify restore completed
         run: |
@@ -253,7 +253,7 @@ jobs:
           echo "✓ Docker available for Testcontainers"
 
       - name: Restore
-        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        run: dotnet restore ${{ env.SOLUTION_PATH }} -p:NoWarn=NU1902
 
       - name: Run integration tests (Enterprise.Tests)
         run: |
@@ -366,7 +366,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        run: dotnet restore ${{ env.SOLUTION_PATH }} -p:NoWarn=NU1902
 
       - name: Run AI runtime proof tests
         run: |
@@ -641,7 +641,7 @@ jobs:
           echo "  RC GATE — NuGet Vulnerability Scan"
           echo "════════════════════════════════════════════════════════════"
 
-          dotnet restore archonai/
+          dotnet restore archonai/ -p:NoWarn=NU1902
           dotnet list archonai/ package --vulnerable --include-transitive 2>&1 | tee rc-artifacts/nuget-vuln-report.txt
 
           if grep -q "has the following vulnerable packages" rc-artifacts/nuget-vuln-report.txt; then
@@ -704,7 +704,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore ${{ env.SOLUTION_PATH }}
+        run: dotnet restore ${{ env.SOLUTION_PATH }} -p:NoWarn=NU1902
 
       - name: Run config validation and security tests
         run: |

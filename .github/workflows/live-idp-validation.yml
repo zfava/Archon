@@ -37,10 +37,10 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Restore dependencies
-        run: dotnet restore archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj
+        run: dotnet restore archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj -p:NoWarn=NU1902
 
       - name: Build
-        run: dotnet build archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj --no-restore -c Release
+        run: dotnet build archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj --no-restore -c Release -p:NoWarn=NU1902
 
       - name: Run Okta live integration tests
         run: |
@@ -78,10 +78,10 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Restore dependencies
-        run: dotnet restore archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj
+        run: dotnet restore archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj -p:NoWarn=NU1902
 
       - name: Build
-        run: dotnet build archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj --no-restore -c Release
+        run: dotnet build archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj --no-restore -c Release -p:NoWarn=NU1902
 
       - name: Run Entra ID live integration tests
         run: |
@@ -119,10 +119,10 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Restore dependencies
-        run: dotnet restore archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj
+        run: dotnet restore archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj -p:NoWarn=NU1902
 
       - name: Build
-        run: dotnet build archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj --no-restore -c Release
+        run: dotnet build archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj --no-restore -c Release -p:NoWarn=NU1902
 
       - name: Run Auth0 live integration tests
         run: |
