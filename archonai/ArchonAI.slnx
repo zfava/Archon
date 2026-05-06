@@ -69,5 +69,7 @@
     <Project Path="tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj" />
     <Project Path="tests/ArchonAI.ActionSafety.Tests/ArchonAI.ActionSafety.Tests.csproj" />
     <Project Path="tests/ArchonAI.ProofAnalytics.Tests/ArchonAI.ProofAnalytics.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Governance.Tests/ArchonAI.Governance.Tests.csproj" />
+    <Project Path="tests/ArchonAI.Runtime.Tests/ArchonAI.Runtime.Tests.csproj" />
   </Folder>
 </Solution>
