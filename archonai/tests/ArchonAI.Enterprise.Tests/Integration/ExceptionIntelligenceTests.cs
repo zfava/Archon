@@ -393,45 +393,61 @@ public sealed class ExceptionIntelligenceTests
         Assert.Equal(10000, summary.TotalEconomicExposure);
     }
 
-    // ── Priority scoring logic ─────────────────────────────────
+    // ── Priority scoring via public API ──────────────────────────
 
     [Fact]
-    public void PriorityScore_CriticalHigherThanInfo()
+    public async Task PriorityQueue_CriticalRanksAboveInfo()
     {
+        var svc = CreateService();
         var critical = MakeException(severity: ExceptionSeverity.Critical, urgency: 0.5, economicImpact: 1000, confidence: 0.5);
         var info = MakeException(severity: ExceptionSeverity.Info, urgency: 0.5, economicImpact: 1000, confidence: 0.5);
+        await svc.RaiseExceptionAsync(critical);
+        await svc.RaiseExceptionAsync(info);
 
-        Assert.True(ExceptionIntelligenceService.ComputePriorityScore(critical) >
-                    ExceptionIntelligenceService.ComputePriorityScore(info));
+        var queue = await svc.GetPrioritizedQueueAsync(_tenantId, 10);
+        Assert.True(queue.Count >= 2);
+        Assert.Equal(critical.Id, queue[0].ExceptionId);
     }
 
     [Fact]
-    public void PriorityScore_HigherUrgencyScoresMore()
+    public async Task PriorityQueue_HigherUrgencyRanksFirst()
     {
+        var svc = CreateService();
         var high = MakeException(urgency: 1.0, economicImpact: 1000, confidence: 0.5);
         var low = MakeException(urgency: 0.1, economicImpact: 1000, confidence: 0.5);
+        await svc.RaiseExceptionAsync(high);
+        await svc.RaiseExceptionAsync(low);
 
-        Assert.True(ExceptionIntelligenceService.ComputePriorityScore(high) >
-                    ExceptionIntelligenceService.ComputePriorityScore(low));
+        var queue = await svc.GetPrioritizedQueueAsync(_tenantId, 10);
+        Assert.True(queue.Count >= 2);
+        Assert.Equal(high.Id, queue[0].ExceptionId);
     }
 
     [Fact]
-    public void PriorityScore_ExecutiveEscalationBoosts()
+    public async Task PriorityQueue_ExecutiveEscalationRanksFirst()
     {
+        var svc = CreateService();
         var escalated = MakeException(escalation: EscalationLevel.Executive);
         var normal = MakeException(escalation: EscalationLevel.None);
+        await svc.RaiseExceptionAsync(escalated);
+        await svc.RaiseExceptionAsync(normal);
 
-        Assert.True(ExceptionIntelligenceService.ComputePriorityScore(escalated) >
-                    ExceptionIntelligenceService.ComputePriorityScore(normal));
+        var queue = await svc.GetPrioritizedQueueAsync(_tenantId, 10);
+        Assert.True(queue.Count >= 2);
+        Assert.Equal(escalated.Id, queue[0].ExceptionId);
     }
 
     [Fact]
-    public void PriorityScore_HigherEconomicImpactScoresMore()
+    public async Task PriorityQueue_HigherEconomicImpactRanksFirst()
     {
+        var svc = CreateService();
         var expensive = MakeException(economicImpact: 1000000);
         var cheap = MakeException(economicImpact: 100);
+        await svc.RaiseExceptionAsync(expensive);
+        await svc.RaiseExceptionAsync(cheap);
 
-        Assert.True(ExceptionIntelligenceService.ComputePriorityScore(expensive) >
-                    ExceptionIntelligenceService.ComputePriorityScore(cheap));
+        var queue = await svc.GetPrioritizedQueueAsync(_tenantId, 10);
+        Assert.True(queue.Count >= 2);
+        Assert.Equal(expensive.Id, queue[0].ExceptionId);
     }
 }
