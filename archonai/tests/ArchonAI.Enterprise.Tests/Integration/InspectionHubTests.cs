@@ -1,5 +1,7 @@
 using ArchonAI.Api.Hubs;
 using ArchonAI.Api.Security;
+using ArchonAI.Core.Services;
+using ArchonAI.Governance;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using Microsoft.AspNetCore.SignalR;

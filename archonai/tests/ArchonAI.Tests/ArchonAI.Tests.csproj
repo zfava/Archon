@@ -29,6 +29,8 @@
     <ProjectReference Include="..\..\src\ArchonAI.Strategy\ArchonAI.Strategy.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.AdminAPI\ArchonAI.AdminAPI.csproj" />
     <ProjectReference Include="..\..\src\ArchonAI.Infrastructure\ArchonAI.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Memory\ArchonAI.Memory.csproj" />
+    <ProjectReference Include="..\..\src\ArchonAI.Governance\ArchonAI.Governance.csproj" />
   </ItemGroup>
 
   <ItemGroup>

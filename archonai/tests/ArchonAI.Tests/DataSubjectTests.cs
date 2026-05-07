@@ -1,4 +1,6 @@
 using ArchonAI.Api.Security;
+using ArchonAI.Memory;
+using ArchonAI.Core.Services;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models.AuditLog;
 using ArchonAI.Core.Models.Decisions;

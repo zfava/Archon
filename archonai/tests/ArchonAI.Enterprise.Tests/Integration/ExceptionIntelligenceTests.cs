@@ -1,4 +1,5 @@
 using ArchonAI.Api.Security;
+using ArchonAI.Core.Services;
 using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.ExceptionIntelligence;
