@@ -4,7 +4,7 @@ using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.Memory;
 using Task = System.Threading.Tasks.Task;
 
-namespace ArchonAI.Api.Security;
+namespace ArchonAI.Memory;
 
 public sealed class EnterpriseMemoryService : IEnterpriseMemoryService
 {

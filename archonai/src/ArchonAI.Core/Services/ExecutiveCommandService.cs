@@ -6,7 +6,7 @@ using ArchonAI.Core.Models.HeroWorkflow;
 using ArchonAI.Core.Models.Scenario;
 using Task = System.Threading.Tasks.Task;
 
-namespace ArchonAI.Api.Security;
+namespace ArchonAI.Core.Services;
 
 public sealed class ExecutiveCommandService : IExecutiveCommandService
 {

@@ -5,7 +5,7 @@ using ArchonAI.Core.Models.ActionSafety;
 using ArchonAI.Core.Models.ProofAnalytics;
 using Task = System.Threading.Tasks.Task;
 
-namespace ArchonAI.Api.Security;
+namespace ArchonAI.Governance;
 
 public sealed class ActionSafetyService : IActionSafetyService
 {

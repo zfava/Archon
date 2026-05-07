@@ -4,7 +4,7 @@ using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.ExceptionIntelligence;
 using Task = System.Threading.Tasks.Task;
 
-namespace ArchonAI.Api.Security;
+namespace ArchonAI.Core.Services;
 
 public sealed class ExceptionIntelligenceService : IExceptionIntelligenceService
 {

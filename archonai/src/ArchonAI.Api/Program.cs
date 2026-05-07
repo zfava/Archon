@@ -4,6 +4,8 @@ using ArchonAI.Api.Endpoints;
 using ArchonAI.Api.Security;
 using ArchonAI.Connectors;
 using ArchonAI.Core.Interfaces;
+using ArchonAI.Core.Services;
+using ArchonAI.Governance;
 using ArchonAI.Infrastructure;
 using ArchonAI.Plugins;
 using ArchonAI.Registry;

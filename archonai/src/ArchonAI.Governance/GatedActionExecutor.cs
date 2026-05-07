@@ -5,7 +5,7 @@ using ArchonAI.Core.Models.Governance;
 using ArchonAI.Core.Models.HumanOverride;
 using Microsoft.Extensions.Logging;
 
-namespace ArchonAI.Api.Security;
+namespace ArchonAI.Governance;
 
 /// <summary>
 /// Dispatches execution of approved governance-gated actions based on stored action intent.
