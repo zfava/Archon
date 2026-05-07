@@ -3,6 +3,7 @@ using ArchonAI.Core.Interfaces;
 using ArchonAI.Core.Models;
 using ArchonAI.Core.Models.ActionSafety;
 using ArchonAI.Core.Models.ProofAnalytics;
+using Microsoft.Extensions.Logging;
 using Task = System.Threading.Tasks.Task;
 
 namespace ArchonAI.Governance;

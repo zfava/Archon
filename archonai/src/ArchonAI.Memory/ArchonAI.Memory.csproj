@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ArchonAI.Common\ArchonAI.Common.csproj" />
     <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
     <ProjectReference Include="..\ArchonAI.KnowledgeGraph\ArchonAI.KnowledgeGraph.csproj" />
