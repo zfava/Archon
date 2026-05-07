@@ -362,9 +362,9 @@ public sealed class ModelRouterTests
         score!.Provider.Should().Be("openai");
         score.Model.Should().Be("gpt-4");
         score.SuccessRate.Should().Be(1.0);
-        score.AverageLatencyMs.Should().Be(150.0);
-        score.AverageCostPerRequest.Should().Be(0.02);
-        score.AccuracyRate.Should().Be(0.95);
+        score.AverageLatencyMs.Should().BeApproximately(150.0, 0.0001);
+        score.AverageCostPerRequest.Should().BeApproximately(0.02, 0.0001);
+        score.AccuracyRate.Should().BeApproximately(0.95, 0.0001);
         score.SampleCount.Should().Be(1);
     }
 
@@ -381,9 +381,9 @@ public sealed class ModelRouterTests
         score.Should().NotBeNull();
         score!.SampleCount.Should().Be(2);
         score.SuccessRate.Should().Be(0.5);
-        score.AverageLatencyMs.Should().Be(150.0);
-        score.AverageCostPerRequest.Should().Be(0.02);
-        score.AccuracyRate.Should().Be(0.85);
+        score.AverageLatencyMs.Should().BeApproximately(150.0, 0.0001);
+        score.AverageCostPerRequest.Should().BeApproximately(0.02, 0.0001);
+        score.AccuracyRate.Should().BeApproximately(0.85, 0.0001);
     }
 
     [Fact]
@@ -733,7 +733,7 @@ public sealed class ModelRouterTests
         report.ModelsEvaluated.Should().Be(1);
         report.GlobalWeights.Should().HaveCount(1);
         // Severe failure: newWeight = max(0.05, 0.5 - 0.15*2) = max(0.05, 0.2) = 0.2
-        report.GlobalWeights[0].Weight.Should().Be(0.2);
+        report.GlobalWeights[0].Weight.Should().BeApproximately(0.2, 0.0001);
         report.GlobalWeights[0].AdjustmentReason.Should().Contain("severe-failure");
     }
 
@@ -762,7 +762,7 @@ public sealed class ModelRouterTests
         report.ModelsEvaluated.Should().Be(2);
         // Top model (relativePosition = 1.0 >= 0.7, successRate 0.95 >= 0.9): promoted by +0.10
         var topWeight = report.GlobalWeights.First(w => w.Model == "top-model");
-        topWeight.Weight.Should().Be(0.6);
+        topWeight.Weight.Should().BeApproximately(0.6, 0.0001);
         topWeight.AdjustmentReason.Should().Contain("top-performer");
     }
 
@@ -825,7 +825,7 @@ public sealed class ModelRouterTests
 
         // Poor success (0.3 <= 0.5 < 0.6): newWeight = max(0.05, 0.6 - 0.15) = 0.45
         var weight = report.GlobalWeights.First(w => w.Model == "gpt-4");
-        weight.Weight.Should().Be(0.45);
+        weight.Weight.Should().BeApproximately(0.45, 0.0001);
         weight.AdjustmentReason.Should().Contain("poor-success");
     }
 
@@ -853,7 +853,7 @@ public sealed class ModelRouterTests
 
         // Recovery: newWeight = min(1.0, 0.4 + 0.05) = 0.45
         var weight = report.GlobalWeights.First(w => w.Model == "gpt-4");
-        weight.Weight.Should().Be(0.45);
+        weight.Weight.Should().BeApproximately(0.45, 0.0001);
         weight.AdjustmentReason.Should().Contain("recovery");
     }
 
@@ -880,13 +880,13 @@ public sealed class ModelRouterTests
         // taskWeight = clamp((0.7*0.8) + (0.9*0.2) + 0.1, 0.05, 1.0) = clamp(0.56 + 0.18 + 0.1, 0.05, 1.0) = 0.84
         var analysisWeights = report.TaskTypeWeights.Where(w => w.TaskType == "analysis").ToList();
         analysisWeights.Should().HaveCount(1);
-        analysisWeights[0].Weight.Should().Be(0.84);
+        analysisWeights[0].Weight.Should().BeApproximately(0.84, 0.0001);
 
         // For "classification" task type, openai.gpt-4.1 is NOT the configured model (azure.gpt-4o-mini is)
         // taskWeight = clamp((0.7*0.8) + (0.9*0.2) + 0, 0.05, 1.0) = clamp(0.74, 0.05, 1.0) = 0.74
         var classificationWeights = report.TaskTypeWeights.Where(w => w.TaskType == "classification").ToList();
         classificationWeights.Should().HaveCount(1);
-        classificationWeights[0].Weight.Should().Be(0.74);
+        classificationWeights[0].Weight.Should().BeApproximately(0.74, 0.0001);
     }
 
     // ══════════════════════════════════════════════════════════════
