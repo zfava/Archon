@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <NuGetAuditSuppress>https://github.com/advisories/GHSA-g94r-2vxg-569j</NuGetAuditSuppress>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(UsingMicrosoftNETSdk)' == 'true' AND '$(UsingMicrosoftNETSdkWeb)' != 'true' AND '$(UsingMicrosoftNETSdkWorker)' != 'true'">
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,141 @@
+name: Live IdP Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      which_idp:
+        description: "Which identity provider to test"
+        required: true
+        type: choice
+        options:
+          - okta
+          - entra
+          - auth0
+          - all
+
+permissions:
+  contents: read
+
+jobs:
+  okta:
+    name: Okta Live Integration Tests
+    runs-on: ubuntu-latest
+    if: ${{ inputs.which_idp == 'okta' || inputs.which_idp == 'all' }}
+    env:
+      ARCHONAI_TEST_OKTA_DOMAIN: ${{ secrets.ARCHONAI_TEST_OKTA_DOMAIN }}
+      ARCHONAI_TEST_OKTA_CLIENT_ID: ${{ secrets.ARCHONAI_TEST_OKTA_CLIENT_ID }}
+      ARCHONAI_TEST_OKTA_CLIENT_SECRET: ${{ secrets.ARCHONAI_TEST_OKTA_CLIENT_SECRET }}
+      ARCHONAI_TEST_OKTA_TEST_USER_EMAIL: ${{ secrets.ARCHONAI_TEST_OKTA_TEST_USER_EMAIL }}
+      ARCHONAI_TEST_OKTA_TEST_USER_PASSWORD: ${{ secrets.ARCHONAI_TEST_OKTA_TEST_USER_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj -p:NoWarn=NU1902%3BNU1510
+
+      - name: Build
+        run: dotnet build archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj --no-restore -c Release -p:NoWarn=NU1902%3BNU1510
+
+      - name: Run Okta live integration tests
+        run: |
+          dotnet test archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj \
+            --no-build -c Release \
+            --filter "FullyQualifiedName~OktaLiveIntegrationTests" \
+            --logger "trx;LogFileName=okta-live-results.trx" \
+            --results-directory ./TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: okta-live-test-results
+          path: ./TestResults/okta-live-results.trx
+          retention-days: 30
+
+  entra:
+    name: Entra ID Live Integration Tests
+    runs-on: ubuntu-latest
+    if: ${{ inputs.which_idp == 'entra' || inputs.which_idp == 'all' }}
+    env:
+      ARCHONAI_TEST_ENTRA_TENANT_ID: ${{ secrets.ARCHONAI_TEST_ENTRA_TENANT_ID }}
+      ARCHONAI_TEST_ENTRA_CLIENT_ID: ${{ secrets.ARCHONAI_TEST_ENTRA_CLIENT_ID }}
+      ARCHONAI_TEST_ENTRA_CLIENT_SECRET: ${{ secrets.ARCHONAI_TEST_ENTRA_CLIENT_SECRET }}
+      ARCHONAI_TEST_ENTRA_TEST_USER_EMAIL: ${{ secrets.ARCHONAI_TEST_ENTRA_TEST_USER_EMAIL }}
+      ARCHONAI_TEST_ENTRA_TEST_USER_PASSWORD: ${{ secrets.ARCHONAI_TEST_ENTRA_TEST_USER_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj -p:NoWarn=NU1902%3BNU1510
+
+      - name: Build
+        run: dotnet build archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj --no-restore -c Release -p:NoWarn=NU1902%3BNU1510
+
+      - name: Run Entra ID live integration tests
+        run: |
+          dotnet test archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj \
+            --no-build -c Release \
+            --filter "FullyQualifiedName~EntraIdLiveIntegrationTests" \
+            --logger "trx;LogFileName=entra-live-results.trx" \
+            --results-directory ./TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: entra-live-test-results
+          path: ./TestResults/entra-live-results.trx
+          retention-days: 30
+
+  auth0:
+    name: Auth0 Live Integration Tests
+    runs-on: ubuntu-latest
+    if: ${{ inputs.which_idp == 'auth0' || inputs.which_idp == 'all' }}
+    env:
+      ARCHONAI_TEST_AUTH0_DOMAIN: ${{ secrets.ARCHONAI_TEST_AUTH0_DOMAIN }}
+      ARCHONAI_TEST_AUTH0_CLIENT_ID: ${{ secrets.ARCHONAI_TEST_AUTH0_CLIENT_ID }}
+      ARCHONAI_TEST_AUTH0_CLIENT_SECRET: ${{ secrets.ARCHONAI_TEST_AUTH0_CLIENT_SECRET }}
+      ARCHONAI_TEST_AUTH0_TEST_USER_EMAIL: ${{ secrets.ARCHONAI_TEST_AUTH0_TEST_USER_EMAIL }}
+      ARCHONAI_TEST_AUTH0_TEST_USER_PASSWORD: ${{ secrets.ARCHONAI_TEST_AUTH0_TEST_USER_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj -p:NoWarn=NU1902%3BNU1510
+
+      - name: Build
+        run: dotnet build archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj --no-restore -c Release -p:NoWarn=NU1902%3BNU1510
+
+      - name: Run Auth0 live integration tests
+        run: |
+          dotnet test archonai/tests/ArchonAI.Enterprise.Tests/ArchonAI.Enterprise.Tests.csproj \
+            --no-build -c Release \
+            --filter "FullyQualifiedName~Auth0LiveIntegrationTests" \
+            --logger "trx;LogFileName=auth0-live-results.trx" \
+            --results-directory ./TestResults
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: auth0-live-test-results
+          path: ./TestResults/auth0-live-results.trx
+          retention-days: 30

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: archonai-config
+  namespace: archonai
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  Security__Jwt__Issuer: "ArchonAI"
+  Security__Jwt__Audience: "ArchonAI.Api"
+  EventBus__UseNats: "true"
+  EventBus__Url: "nats://archonai-nats:4222"
+  MemoryPersistence__Schema: "public"
+  # Connection string credentials are injected via K8s Secret (ARCHONAI_DB_USERNAME, ARCHONAI_DB_PASSWORD)
+  # Application constructs the full connection string from environment variables at startup

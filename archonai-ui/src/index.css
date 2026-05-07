@@ -1,0 +1,506 @@
+/* ═══════════════════════════════════════════════════════
+   ArchonAI — Design System Tokens & Global Styles
+   Operations Control Room aesthetic
+   ═══════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ── Typography Scale ─────────────────────────────── */
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+
+  /* ── Font Families ────────────────────────────────── */
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Legacy aliases — keep existing references working */
+  --font-size-xs: var(--text-xs);
+  --font-size-sm: var(--text-sm);
+  --font-size-base: var(--text-base);
+  --font-size-md: var(--text-md);
+  --font-size-lg: var(--text-lg);
+  --font-size-xl: var(--text-xl);
+  --font-size-2xl: var(--text-2xl);
+  --font-size-3xl: 28px;
+
+  /* ── Spacing Scale (4px increments) ───────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+
+  /* ── Animation ────────────────────────────────────── */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 350ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Legacy transition aliases */
+  --transition-fast: var(--duration-fast) var(--ease-out);
+  --transition-base: var(--duration-base) var(--ease-out);
+  --transition-smooth: var(--duration-slow) var(--ease-out);
+  --transition-slow: 0.5s var(--ease-out);
+
+  /* ── Surface Colors — Deep Navy Control Room ──────── */
+  --bg-root: #060B18;
+  --bg-surface: #0A1020;
+  --bg-elevated: #0F1629;
+  --bg-input: #080D1A;
+  --bg-hover: #131B30;
+
+  /* ── Border Colors ────────────────────────────────── */
+  --border: #141C2E;
+  --border-subtle: #1A2440;
+  --border-hover: #253356;
+  --border-focus: #38BDF8;
+
+  /* ── Text Colors ──────────────────────────────────── */
+  --text-primary: #EFF6FF;
+  --text: #CBD5E1;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --text-faint: #475569;
+  --text-ghost: #334155;
+
+  /* ── Accent — Cyan/Teal ───────────────────────────── */
+  --accent: #38BDF8;
+  --accent-hover: #0EA5E9;
+  --accent-light: #7DD3FC;
+  --accent-bg: #0C1929;
+
+  /* ── Semantic Colors ──────────────────────────────── */
+  --success: #34D399;
+  --success-bg: #052E1C;
+  --success-glow: rgba(52, 211, 153, 0.3);
+
+  --warning: #FBBF24;
+  --warning-bg: #1C1A0A;
+
+  --orange: #FB923C;
+  --orange-bg: #1C140A;
+
+  --error: #F87171;
+  --error-bg: #1C0A0A;
+  --error-light: #FCA5A5;
+  --error-border: #7F1D1D;
+
+  /* ── Radii ────────────────────────────────────────── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
+  --radius-full: 50%;
+
+  /* ── Shadows ──────────────────────────────────────── */
+  --shadow-glow-accent: 0 0 16px rgba(56, 189, 248, 0.15);
+  --shadow-glow-success: 0 0 10px rgba(52, 211, 153, 0.2);
+
+  /* ── Z-index ──────────────────────────────────────── */
+  --z-overlay: 100;
+  --z-modal: 200;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Reset & Base
+   ═══════════════════════════════════════════════════════ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background: var(--bg-root);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Global Focus Ring — Accessible
+   ═══════════════════════════════════════════════════════ */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Selection
+   ═══════════════════════════════════════════════════════ */
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Global Scrollbar
+   ═══════════════════════════════════════════════════════ */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Shared Page Layout
+   ═══════════════════════════════════════════════════════ */
+
+.page-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100dvh;
+  background: var(--bg-root);
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Shared Header
+   ═══════════════════════════════════════════════════════ */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Shared Back Link
+   ═══════════════════════════════════════════════════════ */
+
+.sg-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-faint);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.sg-back-link:hover {
+  color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Shared Animations
+   ═══════════════════════════════════════════════════════ */
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes typewriter-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes shimmerBadge {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes pulseRing {
+  0% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.08); }
+  100% { opacity: 0.8; transform: scale(1); }
+}
+
+@keyframes navItemSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px var(--success); }
+  50% { opacity: 0.6; box-shadow: 0 0 8px var(--success); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Skeleton Loader
+   ═══════════════════════════════════════════════════════ */
+
+.skeleton {
+  background: linear-gradient(90deg, var(--border) 30%, var(--border-subtle) 50%, var(--border) 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Shared Button Styles — with micro-interactions
+   ═══════════════════════════════════════════════════════ */
+
+.exec-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: all var(--duration-fast) var(--ease-out);
+  user-select: none;
+}
+
+.exec-btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition-duration: 60ms;
+}
+
+.exec-btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.exec-btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: var(--shadow-glow-accent);
+}
+
+.exec-btn--secondary {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.exec-btn--secondary:hover:not(:disabled) {
+  background: var(--border-subtle);
+  color: var(--text);
+}
+
+.exec-btn--danger {
+  background: var(--error-border);
+  color: var(--error-light);
+}
+
+.exec-btn--danger:hover:not(:disabled) {
+  background: #991b1b;
+}
+
+.exec-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Smooth Page Entry Animation
+   ═══════════════════════════════════════════════════════ */
+
+.page-shell {
+  animation: fadeSlideIn 0.2s var(--ease-out);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Async State Components
+   ═══════════════════════════════════════════════════════ */
+
+.async-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  min-height: 200px;
+  text-align: center;
+}
+
+.async-state--loading {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.async-state--error {
+  color: var(--error);
+  font-size: var(--text-sm);
+  flex-direction: row;
+  min-height: auto;
+  padding: var(--space-3) var(--space-4);
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  border-radius: var(--radius-md);
+}
+
+.async-state--empty {
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  gap: var(--space-2);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Global micro-interactions
+   ═══════════════════════════════════════════════════════ */
+
+/* Card hover lift */
+.decision-card,
+.strategy-card,
+.outcome-stat,
+.sa-summary-stat,
+.sa-alert-card,
+.cmd-examples button {
+  transition:
+    transform var(--duration-base) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+.decision-card:hover,
+.strategy-card:hover,
+.outcome-stat:hover,
+.sa-summary-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Data table row hover with left accent */
+.comparison-table tbody tr,
+.sa-agent-row,
+.sa-feed-item,
+.sa-trend-item {
+  transition: background var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  position: relative;
+}
+
+.comparison-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.comparison-table tbody tr:hover::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.sa-agent-row:hover::before,
+.sa-feed-item:hover::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Processing shimmer badge */
+.meta-chip--processing,
+.phase-indicator.phase-parsing .phase-label,
+.phase-indicator.phase-planning .phase-label,
+.phase-indicator.phase-simulating .phase-label,
+.phase-indicator.phase-executing .phase-label {
+  background: linear-gradient(90deg, var(--text-muted) 0%, var(--accent-light) 50%, var(--text-muted) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmerBadge 2s linear infinite;
+}

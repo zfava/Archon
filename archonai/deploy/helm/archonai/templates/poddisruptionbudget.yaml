@@ -1,0 +1,27 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: archonai-gateway-pdb
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: archonai
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.gateway.minAvailable }}
+  selector:
+    matchLabels:
+      app: archonai-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: archonai-api-pdb
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: archonai
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.api.minAvailable }}
+  selector:
+    matchLabels:
+      app: archonai-api
+{{- end }}

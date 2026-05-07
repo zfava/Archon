@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+.vs/
+
+# Environment files with secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.user
+*.suo
+
+# OS files
+.DS_Store
+Thumbs.db

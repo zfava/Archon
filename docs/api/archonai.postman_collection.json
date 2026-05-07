@@ -1,0 +1,743 @@
+{
+  "info": {
+    "name": "ArchonAI Enterprise Platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "API collection for ArchonAI enterprise autonomous operations platform."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "authToken", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{authToken}}", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"email\": \"admin@archonai.local\",\n  \"password\": \"ChangeMe123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "    pm.collectionVariables.set(\"authToken\", json.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"ChangeMe123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Demo",
+      "item": [
+        {
+          "name": "Run Governance Demo Loop",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/demo/governance-loop",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "demo", "governance-loop"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Governance",
+      "item": [
+        {
+          "name": "List Approval Policies",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/governance/policies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "governance", "policies"]
+            }
+          }
+        },
+        {
+          "name": "Request Approval",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionType\": \"financial.approval\",\n  \"scope\": \"operations\",\n  \"context\": {\n    \"amount\": 50000,\n    \"department\": \"finance\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/governance/request",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "governance", "request"]
+            }
+          }
+        },
+        {
+          "name": "List Pending Approvals",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/governance/pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "governance", "pending"]
+            }
+          }
+        },
+        {
+          "name": "Get Approval History",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/governance/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "governance", "history"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "External Governance",
+      "item": [
+        {
+          "name": "Evaluate Governance (External)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionType\": \"financial.approval\",\n  \"agentId\": \"ext-agent-001\",\n  \"payload\": {\n    \"amount\": 25000\n  },\n  \"requestedTrustTier\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/external/governance/evaluate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "external", "governance", "evaluate"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Trust & Visibility",
+      "item": [
+        {
+          "name": "List Trust Tier Policies",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/trust-tiers/policies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "trust-tiers", "policies"]
+            }
+          }
+        },
+        {
+          "name": "Evaluate Trust Tier",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"actionScope\": \"financial.approval\",\n  \"context\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/trust-tiers/evaluate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "trust-tiers", "evaluate"]
+            }
+          }
+        },
+        {
+          "name": "Get Trust Tier Map",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/trust-tiers/map",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "trust-tiers", "map"]
+            }
+          }
+        },
+        {
+          "name": "Get Trust Lineage",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/trust-visibility/lineage/00000000-0000-0000-0000-000000000001",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "trust-visibility", "lineage", "00000000-0000-0000-0000-000000000001"]
+            },
+            "description": "Replace the placeholder UUID with an actual decisionId."
+          }
+        },
+        {
+          "name": "Get Trust Posture",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/trust-visibility/posture",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "trust-visibility", "posture"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agents",
+      "item": [
+        {
+          "name": "List Registered Agents",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agent-registry/agents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agent-registry", "agents"]
+            }
+          }
+        },
+        {
+          "name": "Agent Registry Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/agent-registry/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "agent-registry", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Smart Delegate Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agentId\": \"operations-agent\",\n  \"task\": \"analyze-throughput\",\n  \"parameters\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/collaboration/delegate-smart",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "collaboration", "delegate-smart"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workflows",
+      "item": [
+        {
+          "name": "List Hero Workflows",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hero-workflows",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "hero-workflows"]
+            }
+          }
+        },
+        {
+          "name": "Get Workflow Catalog",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hero-workflows/catalog",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "hero-workflows", "catalog"]
+            }
+          }
+        },
+        {
+          "name": "Simulate Strategy",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"templateId\": \"manufacturing-standup\",\n  \"parameters\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/strategy-simulation/simulate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "strategy-simulation", "simulate"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Connectors",
+      "item": [
+        {
+          "name": "List Integrations",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/integrations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "integrations"]
+            }
+          }
+        },
+        {
+          "name": "Connector Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/observability/connectors/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "observability", "connectors", "health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Decisions",
+      "item": [
+        {
+          "name": "List Decisions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/decisions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "decisions"]
+            }
+          }
+        },
+        {
+          "name": "Proof Analytics Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/proof-analytics/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "proof-analytics", "dashboard"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Intelligence",
+      "item": [
+        {
+          "name": "Memory Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/memory/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "memory", "status"]
+            }
+          }
+        },
+        {
+          "name": "Run Continuous Improvement Cycle",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"context\": \"quarterly-review\",\n  \"objective\": \"identify-bottlenecks\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/continuous-improvement/cycle",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "continuous-improvement", "cycle"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Operator",
+      "item": [
+        {
+          "name": "Control Plane Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/control-plane/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "control-plane", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Control Plane Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/control-plane/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "control-plane", "status"]
+            }
+          }
+        },
+        {
+          "name": "Executive Command Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/executive-command/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "executive-command", "summary"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Strategy",
+      "item": [
+        {
+          "name": "List Strategies",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/strategy-library/strategies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "strategy-library", "strategies"]
+            }
+          }
+        },
+        {
+          "name": "Ranked Strategies",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/strategy-library/ranked",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "strategy-library", "ranked"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Infrastructure",
+      "item": [
+        {
+          "name": "Liveness Probe",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/healthz/live",
+              "host": ["{{baseUrl}}"],
+              "path": ["healthz", "live"]
+            }
+          }
+        },
+        {
+          "name": "Readiness Probe",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/healthz/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["healthz", "ready"]
+            }
+          }
+        },
+        {
+          "name": "AI Runtime Environment",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ai-runtime/environment",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ai-runtime", "environment"]
+            }
+          }
+        },
+        {
+          "name": "Prometheus Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["metrics"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Admin Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "status"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "MFA",
+      "item": [
+        {
+          "name": "TOTP Setup",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/mfa/totp/setup",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "mfa", "totp", "setup"]
+            }
+          }
+        },
+        {
+          "name": "TOTP Verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/mfa/totp/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "mfa", "totp", "verify"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "OIDC",
+      "item": [
+        {
+          "name": "Get OIDC Providers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/oidc/providers/default",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "oidc", "providers", "default"]
+            },
+            "description": "Replace 'default' with the actual tenant slug."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Registry",
+      "item": [
+        {
+          "name": "List Registry Agents",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/registry/agents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "registry", "agents"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

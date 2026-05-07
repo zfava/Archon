@@ -1,0 +1,180 @@
+namespace: archonai
+
+# ── Deployment topology ──────────────────────────────────────────
+# Supported modes: saas | single-tenant | private
+# Each mode changes defaults for isolation, networking, and secret handling.
+# Use the corresponding values-<mode>.yaml overlay for full configuration.
+topology:
+  mode: saas
+  # Tenant isolation level: shared (multi-tenant DB) | schema (per-tenant schema) | dedicated (per-tenant DB)
+  tenantIsolation: shared
+  # Whether to deploy bundled postgres/nats or expect external services
+  bundledInfra: true
+
+# ── Secret management ────────────────────────────────────────────
+# Secrets are NEVER stored in this file. They must be provided at
+# install time via --set, external-secrets operator, or vault-injector.
+#
+# Providers:
+#   inline            - K8s Secret from --set values (default)
+#   external-secrets  - ExternalSecret CR syncing from cloud vault
+#   vault-injector    - HashiCorp Vault Agent sidecar file injection
+secrets:
+  provider: inline  # inline | external-secrets | vault-injector
+
+  # Additional secrets to include in the K8s Secret (inline mode)
+  # Provide via --set: --set secrets.additionalSecrets.MY_KEY=value
+  additionalSecrets: {}
+
+  # External Secrets Operator configuration (when provider=external-secrets)
+  externalSecrets:
+    enabled: false
+    # SecretStore reference — must exist in the target namespace
+    secretStoreRef:
+      name: ""
+      kind: SecretStore  # SecretStore | ClusterSecretStore
+    # Remote key paths for each secret
+    remoteRefs:
+      jwtSigningKey: ""          # e.g. archonai/production/jwt-signing-key
+      jwtSigningKeyPrevious: ""  # e.g. archonai/production/jwt-signing-key-previous (for rotation)
+      postgresUsername: ""       # e.g. archonai/production/postgres-username
+      postgresPassword: ""       # e.g. archonai/production/postgres-password
+      modelProviderApiKey: ""    # e.g. archonai/production/openai-api-key
+    additionalRemoteRefs: []
+    # - secretKey: ANTHROPIC_API_KEY
+    #   remoteRefKey: archonai/production/anthropic-api-key
+    refreshInterval: 1h
+
+  # HashiCorp Vault Agent Injector (when provider=vault-injector)
+  vault:
+    role: ""              # Vault Kubernetes auth role
+    secretPath: ""        # e.g. secret/data/archonai/production
+    dbSecretPath: ""      # e.g. secret/data/archonai/production/db
+
+# ── Network policies ─────────────────────────────────────────────
+networkPolicy:
+  enabled: false
+  # Additional CIDR ranges allowed to reach the gateway (e.g. corporate VPN)
+  ingressCIDRs: []
+  # Allow egress to these CIDRs only (empty = allow all egress)
+  egressCIDRs: []
+
+# ── Pod disruption budgets ───────────────────────────────────────
+podDisruptionBudget:
+  enabled: false
+  gateway:
+    minAvailable: 1
+  api:
+    minAvailable: 1
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+gateway:
+  image:
+    repository: archonai/gateway
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  service:
+    type: LoadBalancer
+    port: 80
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  env:
+    ASPNETCORE_ENVIRONMENT: Production
+    Security__Jwt__Issuer: ArchonAI
+    Security__Jwt__Audience: ArchonAI.Api
+    ReverseProxy__Clusters__api-cluster__Destinations__api-1__Address: http://archonai-api:80
+
+api:
+  image:
+    repository: archonai/api
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  livenessProbe:
+    httpGet:
+      path: /api/v1/health
+      port: 8080
+    initialDelaySeconds: 15
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /api/v1/health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  env:
+    ASPNETCORE_ENVIRONMENT: Production
+    Security__Jwt__Issuer: ArchonAI
+    Security__Jwt__Audience: ArchonAI.Api
+    EventBus__UseNats: "true"
+    EventBus__Url: nats://archonai-nats:4222
+    MemoryPersistence__Schema: public
+    # Connection string is injected via secret — uses ARCHONAI_DB_USERNAME/PASSWORD env vars
+    # Application constructs connection string from env at startup
+
+# ── Secrets provided at install time ───────────────────────────────
+# These values MUST be provided via --set at install time.
+# They are NOT set here to prevent plaintext secrets in source control.
+# Example:
+#   helm install archonai ./deploy/helm/archonai \
+#     --set security.jwtSigningKey="$(openssl rand -base64 48)" \
+#     --set postgres.username="archonai" \
+#     --set postgres.password="$(openssl rand -base64 24)"
+security:
+  jwtSigningKey: ""  # REQUIRED: provide via --set
+  jwtSigningKeyPrevious: ""  # Optional: previous key for rotation rollover
+
+postgres:
+  image: pgvector/pgvector:pg16
+  database: archonai
+  username: ""  # REQUIRED: provide via --set
+  password: ""  # REQUIRED: provide via --set
+  storage: 10Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+nats:
+  image: nats:2.10-alpine
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

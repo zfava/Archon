@@ -1,0 +1,155 @@
+{{- if .Values.networkPolicy.enabled }}
+# ── Gateway: accepts external ingress, talks to API only ──────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: archonai-gateway-netpol
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: archonai
+spec:
+  podSelector:
+    matchLabels:
+      app: archonai-gateway
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - port: 8080
+          protocol: TCP
+      {{- if .Values.networkPolicy.ingressCIDRs }}
+      from:
+        {{- range .Values.networkPolicy.ingressCIDRs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      {{- end }}
+  egress:
+    # DNS resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Gateway -> API
+    - to:
+        - podSelector:
+            matchLabels:
+              app: archonai-api
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# ── API: accepts traffic from gateway only, talks to postgres/nats ─
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: archonai-api-netpol
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: archonai
+spec:
+  podSelector:
+    matchLabels:
+      app: archonai-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: archonai-gateway
+      ports:
+        - port: 8080
+          protocol: TCP
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # API -> Postgres
+    - to:
+        - podSelector:
+            matchLabels:
+              app: archonai-postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+    # API -> NATS
+    - to:
+        - podSelector:
+            matchLabels:
+              app: archonai-nats
+      ports:
+        - port: 4222
+          protocol: TCP
+    {{- if .Values.networkPolicy.egressCIDRs }}
+    # Explicit egress allowlist (model providers, external APIs)
+    {{- range .Values.networkPolicy.egressCIDRs }}
+    - to:
+        - ipBlock:
+            cidr: {{ . }}
+      ports:
+        - port: 443
+          protocol: TCP
+    {{- end }}
+    {{- else }}
+    # Allow HTTPS egress to external services (model providers, connectors)
+    - ports:
+        - port: 443
+          protocol: TCP
+    {{- end }}
+---
+# ── Postgres: accepts connections from API only ──────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: archonai-postgres-netpol
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: archonai
+spec:
+  podSelector:
+    matchLabels:
+      app: archonai-postgres
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: archonai
+      ports:
+        - port: 5432
+          protocol: TCP
+  egress: []
+---
+# ── NATS: accepts connections from API and workers only ───────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: archonai-nats-netpol
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: archonai
+spec:
+  podSelector:
+    matchLabels:
+      app: archonai-nats
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: archonai
+      ports:
+        - port: 4222
+          protocol: TCP
+  egress: []
+{{- end }}

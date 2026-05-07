@@ -1,0 +1,56 @@
+using ArchonAI.Core.Interfaces;
+using ArchonAI.Core.Models.Collaboration;
+using ArchonAI.Core.Models.Coordination;
+using ArchonAI.Core.Models.RuntimeHealth;
+using ArchonAI.Runtime.Collaboration;
+using ArchonAI.Runtime.Coordination;
+using ArchonAI.Runtime.Execution;
+using ArchonAI.Runtime.Health;
+using ArchonAI.Runtime.HostedServices;
+using ArchonAI.Runtime.HumanOverride;
+using ArchonAI.Workflow;
+using ArchonAI.WorkflowRuntime;
+using ArchonAI.TaskRuntime;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace ArchonAI.Runtime;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddArchonAIRuntime(
+        this IServiceCollection services, IConfiguration? configuration = null)
+    {
+        services.AddOptions<RuntimeOptions>()
+            .BindConfiguration("Runtime");
+
+        if (configuration is not null)
+        {
+            services.Configure<RuntimeHealthOptions>(
+                configuration.GetSection(RuntimeHealthOptions.SectionName));
+            services.Configure<CoordinationOptions>(
+                configuration.GetSection(CoordinationOptions.SectionName));
+            services.Configure<CollaborationOptions>(
+                configuration.GetSection(CollaborationOptions.SectionName));
+        }
+        else
+        {
+            services.Configure<RuntimeHealthOptions>(_ => { });
+            services.Configure<CoordinationOptions>(_ => { });
+            services.Configure<CollaborationOptions>(_ => { });
+        }
+
+        services.AddSingleton<IWorkflowEngine, WorkflowEngine>();
+        services.AddArchonAIWorkflowRuntime();
+        services.AddArchonAITaskRuntime();
+        services.AddSingleton<ITaskExecutionManager, TaskExecutionManager>();
+        services.AddScoped<IRuntime, AgentRuntime>();
+        services.AddSingleton<IRuntimeHealthManager, RuntimeHealthManager>();
+        services.AddSingleton<IAgentCoordinationService, AgentCoordinationService>();
+        services.AddSingleton<IAgentCollaborationManager, AgentCollaborationManager>();
+        services.AddSingleton<IHumanOverrideService, HumanOverrideService>();
+        services.AddHostedService<AgentRegistrationHostedService>();
+        services.AddHostedService<RuntimeHealthMonitorService>();
+        return services;
+    }
+}

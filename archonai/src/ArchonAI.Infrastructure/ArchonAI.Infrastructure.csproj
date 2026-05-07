@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ArchonAI.Common\ArchonAI.Common.csproj" />
+    <ProjectReference Include="..\ArchonAI.Persistence\ArchonAI.Persistence.csproj" />
+    <ProjectReference Include="..\ArchonAI.Core\ArchonAI.Core.csproj" />
+<ProjectReference Include="..\ArchonAI.Reasoner\ArchonAI.Reasoner.csproj" />
+    <ProjectReference Include="..\ArchonAI.StrategicPlanner\ArchonAI.StrategicPlanner.csproj" />
+    <ProjectReference Include="..\ArchonAI.Evaluation\ArchonAI.Evaluation.csproj" />
+    <ProjectReference Include="..\ArchonAI.Policy\ArchonAI.Policy.csproj" />
+    <ProjectReference Include="..\ArchonAI.Simulation\ArchonAI.Simulation.csproj" />
+    <ProjectReference Include="..\ArchonAI.Scheduler\ArchonAI.Scheduler.csproj" />
+    <ProjectReference Include="..\ArchonAI.Knowledge\ArchonAI.Knowledge.csproj" />
+    <ProjectReference Include="..\ArchonAI.KnowledgeGraph\ArchonAI.KnowledgeGraph.csproj" />
+    <ProjectReference Include="..\ArchonAI.Models\ArchonAI.Models.csproj" />
+    <ProjectReference Include="..\ArchonAI.ModelRouter\ArchonAI.ModelRouter.csproj" />
+    <ProjectReference Include="..\ArchonAI.Trace\ArchonAI.Trace.csproj" />
+    <ProjectReference Include="..\ArchonAI.Telemetry\ArchonAI.Telemetry.csproj" />
+    <ProjectReference Include="..\ArchonAI.Patterns\ArchonAI.Patterns.csproj" />
+    <ProjectReference Include="..\ArchonAI.PatternDiscovery\ArchonAI.PatternDiscovery.csproj" />
+    <ProjectReference Include="..\ArchonAI.Learning\ArchonAI.Learning.csproj" />
+    <ProjectReference Include="..\ArchonAI.Optimization\ArchonAI.Optimization.csproj" />
+    <ProjectReference Include="..\ArchonAI.DataFabric\ArchonAI.DataFabric.csproj" />
+    <ProjectReference Include="..\ArchonAI.MultiTenant\ArchonAI.MultiTenant.csproj" />
+    <ProjectReference Include="..\ArchonAI.Strategy\ArchonAI.Strategy.csproj" />
+    <ProjectReference Include="..\ArchonAI.Governance\ArchonAI.Governance.csproj" />
+    <ProjectReference Include="..\ArchonAI.Supervisor\ArchonAI.Supervisor.csproj" />
+    <ProjectReference Include="..\ArchonAI.Sandbox\ArchonAI.Sandbox.csproj" />
+    <ProjectReference Include="..\ArchonAI.Orchestrator\ArchonAI.Orchestrator.csproj" />
+    <ProjectReference Include="..\ArchonAI.Identity\ArchonAI.Identity.csproj" />
+    <ProjectReference Include="..\ArchonAI.Context\ArchonAI.Context.csproj" />
+    <ProjectReference Include="..\ArchonAI.Perception\ArchonAI.Perception.csproj" />
+    <ProjectReference Include="..\ArchonAI.Memory\ArchonAI.Memory.csproj" />
+<ProjectReference Include="..\ArchonAI.Runtime\ArchonAI.Runtime.csproj" />
+    <ProjectReference Include="..\ArchonAI.Agents\ArchonAI.Agents.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" Version="9.0.2" />
+    <PackageReference Include="Pgvector" Version="0.3.0" />
+    <PackageReference Include="NATS.Client" Version="1.1.8" />
+    <PackageReference Include="Polly" Version="7.2.4" />
+    <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
+  </ItemGroup>
+</Project>

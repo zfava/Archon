@@ -1,0 +1,52 @@
+# ══════════════════════════════════════════════════════════════════
+#  ArchonAI — Shared SaaS deployment overlay
+# ══════════════════════════════════════════════════════════════════
+#
+#  Usage:
+#    helm install archonai ./deploy/helm/archonai \
+#      -f ./deploy/helm/archonai/values-saas.yaml \
+#      --set security.jwtSigningKey="$(openssl rand -base64 48)" \
+#      --set postgres.username="archonai" \
+#      --set postgres.password="$(openssl rand -base64 24)"
+#
+#  Topology: shared multi-tenant cluster, bundled infra,
+#  network policies enforced, PDBs active.
+#
+#  IMPORTANT: No secrets in this file. All secrets must be
+#  provided via --set flags at install/upgrade time.
+# ══════════════════════════════════════════════════════════════════
+
+namespace: archonai
+
+topology:
+  mode: saas
+  tenantIsolation: shared
+  bundledInfra: true
+
+secrets:
+  provider: inline
+
+networkPolicy:
+  enabled: true
+  ingressCIDRs: []  # open to all (fronted by cloud LB / WAF)
+  egressCIDRs: []   # allow all egress (model provider IPs vary)
+
+podDisruptionBudget:
+  enabled: true
+  gateway:
+    minAvailable: 1
+  api:
+    minAvailable: 1
+  agents:
+    minAvailable: 1
+
+gateway:
+  replicaCount: 2
+  service:
+    type: LoadBalancer
+
+api:
+  replicaCount: 2
+
+postgres:
+  storage: 50Gi
