@@ -7,6 +7,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
+using ModelRouterClass = ArchonAI.ModelRouter.ModelRouter;
 
 namespace ArchonAI.ModelRouter.Tests;
 
@@ -63,7 +64,7 @@ public sealed class ModelRouterTests
     public void ModelRouter_Route_ExplicitModel_ReturnsExplicitModelDecision()
     {
         var tracker = new Mock<IModelPerformanceTracker>();
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
 
         var request = MakeRequest(model: "openai.gpt-4.1");
         var decision = router.Route(request);
@@ -77,7 +78,7 @@ public sealed class ModelRouterTests
     public void ModelRouter_Route_ExplicitAzureModel_ResolvesAzureProvider()
     {
         var tracker = new Mock<IModelPerformanceTracker>();
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
 
         var request = MakeRequest(model: "azure.gpt-4o-mini");
         var decision = router.Route(request);
@@ -90,7 +91,7 @@ public sealed class ModelRouterTests
     public void ModelRouter_Route_ExplicitAnthropicModel_ResolvesAnthropicProvider()
     {
         var tracker = new Mock<IModelPerformanceTracker>();
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
 
         var request = MakeRequest(model: "anthropic.claude-sonnet-4-6");
         var decision = router.Route(request);
@@ -102,7 +103,7 @@ public sealed class ModelRouterTests
     public void ModelRouter_Route_ExplicitUnknownModel_ResolvesLocalProvider()
     {
         var tracker = new Mock<IModelPerformanceTracker>();
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
 
         var request = MakeRequest(model: "some-custom-model");
         var decision = router.Route(request);
@@ -120,7 +121,7 @@ public sealed class ModelRouterTests
         tracker.Setup(t => t.GetBestModelForStrategy(It.IsAny<string>()))
             .Returns((ModelPerformanceScore?)null);
 
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
         var request = MakeRequest(parameters: new Dictionary<string, string> { ["optimize"] = "cost" });
 
         var decision = router.Route(request);
@@ -141,7 +142,7 @@ public sealed class ModelRouterTests
         tracker.Setup(t => t.GetBestModelForStrategy(It.IsAny<string>()))
             .Returns((ModelPerformanceScore?)null);
 
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
         var request = MakeRequest(parameters: new Dictionary<string, string> { ["optimize"] = "latency" });
 
         var decision = router.Route(request);
@@ -162,7 +163,7 @@ public sealed class ModelRouterTests
         tracker.Setup(t => t.GetBestModelForStrategy(It.IsAny<string>()))
             .Returns((ModelPerformanceScore?)null);
 
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
         var request = MakeRequest(parameters: new Dictionary<string, string> { ["optimize"] = "quality" });
 
         var decision = router.Route(request);
@@ -181,7 +182,7 @@ public sealed class ModelRouterTests
         tracker.Setup(t => t.GetBestModelForStrategy(It.IsAny<string>()))
             .Returns((ModelPerformanceScore?)null);
 
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
         var request = MakeRequest();
 
         var decision = router.Route(request);
@@ -202,7 +203,7 @@ public sealed class ModelRouterTests
         tracker.Setup(t => t.GetRoutingWeight("openai", "openai.gpt-4.1"))
             .Returns(new ModelRoutingWeight("openai", "openai.gpt-4.1", 0.9, 0.5, "top-performer", DateTimeOffset.UtcNow));
 
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
         var request = MakeRequest(parameters: new Dictionary<string, string> { ["taskType"] = "analysis" });
 
         var decision = router.Route(request);
@@ -220,7 +221,7 @@ public sealed class ModelRouterTests
         opts.EnableAdaptiveRouting = false; // disable adaptive so it skips weighted selection
 
         var tracker = new Mock<IModelPerformanceTracker>();
-        var router = new ModelRouter.ModelRouter(Opts(opts), tracker.Object);
+        var router = new ModelRouterClass(Opts(opts), tracker.Object);
 
         var request = MakeRequest(parameters: new Dictionary<string, string> { ["taskType"] = "extraction" });
         var decision = router.Route(request);
@@ -243,7 +244,7 @@ public sealed class ModelRouterTests
         tracker.Setup(t => t.GetRoutingWeight("azure-openai", "azure.gpt-4o-mini"))
             .Returns((ModelRoutingWeight?)null);
 
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
         var request = MakeRequest();
 
         var decision = router.Route(request);
@@ -257,7 +258,7 @@ public sealed class ModelRouterTests
     public void ModelRouter_GetFallbackChain_ExistingChain_ReturnsOrderedEntries()
     {
         var tracker = new Mock<IModelPerformanceTracker>();
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
 
         var chain = router.GetFallbackChain("default");
 
@@ -274,7 +275,7 @@ public sealed class ModelRouterTests
     public void ModelRouter_GetFallbackChain_NonexistentChain_ReturnsNull()
     {
         var tracker = new Mock<IModelPerformanceTracker>();
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
 
         var chain = router.GetFallbackChain("nonexistent");
 
@@ -288,7 +289,7 @@ public sealed class ModelRouterTests
         tracker.Setup(t => t.GetScore(It.IsAny<string>(), It.IsAny<string>()))
             .Returns((ModelPerformanceScore?)null);
 
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
         var request = MakeRequest(parameters: new Dictionary<string, string> { ["optimize"] = "cost" });
 
         // Skip the first entry in the cost chain (openai / openai.gpt-4.1-nano)
@@ -310,7 +311,7 @@ public sealed class ModelRouterTests
         tracker.Setup(t => t.GetScore("azure-openai", "azure.gpt-4o-mini"))
             .Returns((ModelPerformanceScore?)null);
 
-        var router = new ModelRouter.ModelRouter(Opts(), tracker.Object);
+        var router = new ModelRouterClass(Opts(), tracker.Object);
         var request = MakeRequest(); // "default" strategy -> "default" chain
 
         var decision = router.RouteWithFallback(request);
@@ -328,7 +329,7 @@ public sealed class ModelRouterTests
         opts.FallbackChains = new Dictionary<string, List<FallbackEntryOptions>>();
 
         var tracker = new Mock<IModelPerformanceTracker>();
-        var router = new ModelRouter.ModelRouter(Opts(opts), tracker.Object);
+        var router = new ModelRouterClass(Opts(opts), tracker.Object);
         var request = MakeRequest();
 
         var decision = router.RouteWithFallback(request);
